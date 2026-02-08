@@ -37,6 +37,9 @@ FetchContent_MakeAvailable(argparse)
 
 add_executable(corertt
 	src/main.cpp
+	src/noise.cpp
+	src/xoroshiro.cpp
+	src/tilemap.cpp
 )
 
 target_compile_features(corertt PRIVATE cxx_std_23)

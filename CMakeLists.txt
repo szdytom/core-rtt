@@ -40,6 +40,8 @@ add_executable(corertt
 	src/noise.cpp
 	src/xoroshiro.cpp
 	src/tilemap.cpp
+	src/world.cpp
+	src/entity.cpp
 )
 
 target_compile_features(corertt PRIVATE cxx_std_23)

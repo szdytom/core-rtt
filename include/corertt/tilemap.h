@@ -1,6 +1,7 @@
 #ifndef CORERTT_TILEMAP_H
 #define CORERTT_TILEMAP_H
 
+#include "corertt/entity.h"
 #include "corertt/xoroshiro.h"
 #include <cstdint>
 #include <iosfwd>
@@ -18,18 +19,18 @@ namespace cr {
 
 struct TilemapGenerationConfig {
 	Seed seed;
-	int width = 32;
-	int height = 32;
+	pos_t width = 32;
+	pos_t height = 32;
 
 	double noise_scale = 0.15;
 	int noise_octaves = 3;
 	double noise_persistence = 0.4;
 
-	int base_size = 5; // n means n x n square base
+	pos_t base_size = 5; // n means n x n square base
 	int num_resources = 5;
 };
 
-struct alignas(int) Tile {
+struct Tile {
 	static constexpr int EMPTY = 0;
 	static constexpr int WATER = 1;
 	static constexpr int OBSTACLE = 3;
@@ -45,23 +46,30 @@ struct alignas(int) Tile {
 	bool is_resource : 1;
 	bool is_base : 1;
 	std::uint8_t occupied_state : 2;
-	std::uint16_t entity_id;
 
-	bool operator==(this Tile self, Tile other) noexcept = default;
+	union {
+		Unit *unit_ptr;     // non-owned pointer to unit on this tile
+		Bullet *bullet_ptr; // non-owned pointer to bullet on this tile
+		std::nullptr_t null_ptr;
+	};
+
+	void unsetOccupant() noexcept;
 };
-
-static_assert(sizeof(Tile) == 4, "Tile size should be 4 bytes");
 
 class Tilemap {
 public:
-	Tilemap(int width, int height);
+	Tilemap(pos_t width, pos_t height);
 
-	int width() const noexcept {
+	pos_t width() const noexcept {
 		return _width;
 	}
 
-	int height() const noexcept {
+	pos_t height() const noexcept {
 		return _height;
+	}
+
+	pos_t baseSize() const noexcept {
+		return _base_size;
 	}
 
 	template<typename Self>
@@ -85,8 +93,9 @@ public:
 	void saveAsText(std::ostream &os) const;
 
 private:
-	int _width;
-	int _height;
+	pos_t _width;
+	pos_t _height;
+	pos_t _base_size;
 	std::unique_ptr<Tile[]> _tiles;
 };
 

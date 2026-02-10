@@ -16,9 +16,14 @@ Tile::Tile() noexcept
 	, is_resource(false)
 	, is_base(false)
 	, occupied_state(NOT_OCCUPIED)
-	, entity_id(0) {}
+	, null_ptr(nullptr) {}
 
-Tilemap::Tilemap(int width, int height)
+void Tile::unsetOccupant() noexcept {
+	null_ptr = nullptr;
+	occupied_state = NOT_OCCUPIED;
+}
+
+Tilemap::Tilemap(pos_t width, pos_t height)
 	: _width(width)
 	, _height(height)
 	, _tiles(std::make_unique<Tile[]>(width * height)) {}
@@ -144,6 +149,8 @@ Tilemap Tilemap::load(std::span<char> data) {
 		}
 	}
 
+	tilemap._base_size = common_base_size;
+
 	return tilemap;
 }
 
@@ -243,6 +250,7 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	// Place bases. For simplicity, we place them in the corners, for now.
 	const int base_x[] = {0, config.height - config.base_size};
 	const int base_y[] = {0, config.width - config.base_size};
+	tilemap._base_size = config.base_size;
 	for (int i = 0; i < 2; ++i) {
 		int x = base_x[i];
 		int y = base_y[i];

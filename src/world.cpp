@@ -1,5 +1,6 @@
 #include "corertt/world.h"
 #include "corertt/entity.h"
+#include "corertt/runtime.h"
 #include "corertt/xoroshiro.h"
 #include <algorithm>
 #include <cpptrace/basic.hpp>
@@ -8,6 +9,7 @@
 #include <random>
 #include <set>
 #include <tuple>
+#include <vector>
 
 namespace cr {
 
@@ -34,6 +36,23 @@ Player::Player(int id) noexcept
 	units.fill(nullptr);
 }
 
+void Player::step(World &world) noexcept {
+	if (!_base_machine) {
+		_base_machine = std::make_unique<RVMachine>(base_elf, RUNTIME_OPTION);
+		_base_ecall_ctx.bind(*_base_machine);
+	}
+
+	_base_ecall_ctx.world = &world;
+	_base_ecall_ctx.player = this;
+	_base_ecall_ctx.unit = nullptr;
+	_base_machine->set_userdata(&_base_ecall_ctx);
+
+	constexpr int max_instructions_per_turn = 5000'000;
+	if (_base_machine->simulate<false>(max_instructions_per_turn)) {
+		_base_machine.reset();
+	}
+}
+
 World::World(Tilemap tilemap) noexcept
 	: tick(0), _tilemap(std::move(tilemap)), _players{Player(1), Player(2)} {
 	// Initialize player base positions based on tilemap
@@ -56,18 +75,37 @@ World::World(Tilemap tilemap) noexcept
 			base_found[pid] = true;
 		}
 	}
+
+#ifndef NDEBUG
+	if (!base_found[0] || !base_found[1]) {
+		std::cerr << "Error: failed to find base for both players in tilemap\n";
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+	}
+#endif
+
+	// Init each base with 3 units
+	for (auto &player : _players) {
+		for (int i = 1; i <= 3; ++i) {
+			_spawnUnitAtBase(player.id, i);
+		}
+	}
 }
 
-void World::simulate() noexcept {
+void World::step() noexcept {
+	tick += 1;
 	_processBulletMovement();
 	_processUnitMovement();
 	_checkBaseCaptureCondition();
-
-	// Step 4: Collect energy and update cooldowns
 	_collectEnergy();
-	_updateCooldowns();
 
-	++tick;
+	for (auto &player : _players) {
+		player.step(*this);
+	}
+
+	for (auto &unit : _units) {
+		unit->step(*this, _players[unit->player_id - 1]);
+	}
 }
 
 void World::_processBulletMovement() noexcept {
@@ -438,17 +476,6 @@ void World::_collectEnergy() noexcept {
 	}
 }
 
-void World::_updateCooldowns() noexcept {
-	for (auto &unit : _units) {
-		if (unit->health == 0) {
-			continue;
-		}
-		if (unit->attack_cooldown > 0) {
-			unit->attack_cooldown -= 1;
-		}
-	}
-}
-
 ActionResult World::manufactureUnit(
 	std::uint8_t player_id, std::uint8_t new_unit_id
 ) noexcept {
@@ -468,8 +495,17 @@ ActionResult World::manufactureUnit(
 		return ActionResult::InvalidID;
 	}
 
-	std::vector<std::pair<pos_t, pos_t>> empty_tiles;
+	// All checks passed, create the unit at a random empty tile in the base
+	player.base_energy -= manufacture_cost;
+
+	return ActionResult::Success;
+}
+
+void World::_spawnUnitAtBase(std::uint8_t player_id, std::uint8_t unit_id) {
+	auto &player = _players[player_id - 1];
 	pos_t base_size = _tilemap.baseSize();
+
+	std::vector<std::tuple<pos_t, pos_t>> empty_tiles;
 
 	for (pos_t dx = 0; dx < base_size; ++dx) {
 		for (pos_t dy = 0; dy < base_size; ++dy) {
@@ -484,28 +520,28 @@ ActionResult World::manufactureUnit(
 	}
 
 	if (empty_tiles.empty()) {
-		return ActionResult::CapacityFull;
+		// Insufficient capacity, unit can't be spawned.
+		throw std::runtime_error("Failed to spawn unit at base: no empty tile");
 	}
 
-	// All checks passed, create the unit at a random empty tile in the base
-	player.base_energy -= manufacture_cost;
-
+	// Randomly select an empty tile to spawn the unit
 	auto &rng = Xoroshiro128PP::globalInstance();
 	std::uniform_int_distribution<size_t> dist(0, empty_tiles.size() - 1);
 	auto [spawn_x, spawn_y] = empty_tiles[dist(rng)];
+	_spawnUnit(player_id, unit_id, spawn_x, spawn_y);
+}
 
-	auto new_unit = std::make_unique<Unit>(
-		new_unit_id, player_id, spawn_x, spawn_y
-	);
+void World::_spawnUnit(
+	std::uint8_t player_id, std::uint8_t unit_id, pos_t x, pos_t y
+) noexcept {
+	auto new_unit = std::make_unique<Unit>(unit_id, player_id, x, y);
 
-	auto &spawn_tile = _tilemap.tileOf(spawn_x, spawn_y);
-	spawn_tile.unit_ptr = new_unit.get();
-	spawn_tile.occupied_state = Tile::OCCUPIED_BY_UNIT;
+	auto &tile = _tilemap.tileOf(x, y);
+	tile.unit_ptr = new_unit.get();
+	tile.occupied_state = Tile::OCCUPIED_BY_UNIT;
 
-	player.units[new_unit_id - 1] = new_unit.get();
+	_players[player_id - 1].units[unit_id - 1] = new_unit.get();
 	_units.push_back(std::move(new_unit));
-
-	return ActionResult::Success;
 }
 
 ActionResult World::repairUnit(
@@ -654,6 +690,23 @@ void World::_commitPendingAttacks() noexcept {
 		unit->attack_cooldown = 3;
 		unit->pending_attack.damage = 0;
 	}
+}
+
+void World::setPlayerProgram(
+	int player_id, std::vector<std::uint8_t> base_elf,
+	std::vector<std::uint8_t> unit_elf
+) noexcept {
+#ifndef NDEBUG
+	if (player_id < 1 || player_id > 2) {
+		std::cerr << "Error: invalid player_id in setPlayerProgram\n";
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+	}
+#endif
+
+	auto &player = _players[player_id - 1];
+	player.base_elf = std::move(base_elf);
+	player.unit_elf = std::move(unit_elf);
 }
 
 } // namespace cr

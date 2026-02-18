@@ -72,20 +72,34 @@ public:
 		return _base_size;
 	}
 
-	template<typename Self>
-	auto &&tileOf(this Self &&self, int x, int y) noexcept {
+	Tile tileOf(int x, int y) const noexcept {
 #ifndef NDEBUG
-		if (x < 0 || x >= self._width || y < 0 || y >= self._height) {
+		if (x < 0 || x >= _width || y < 0 || y >= _height) {
 			std::cerr << std::format(
 				"Tilemap::tileOf() out of bounds access: ({}, {}) with size "
 				"({}, {})\n",
-				x, y, self._width, self._height
+				x, y, _width, _height
 			);
 			cpptrace::generate_trace().print(std::cerr);
 			std::abort();
 		}
 #endif
-		return std::forward<Self>(self)._tiles[y * self._width + x];
+		return _tiles[y * _width + x];
+	}
+
+	Tile &tileOf(int x, int y) noexcept {
+#ifndef NDEBUG
+		if (x < 0 || x >= _width || y < 0 || y >= _height) {
+			std::cerr << std::format(
+				"Tilemap::tileOf() out of bounds access: ({}, {}) with size "
+				"({}, {})\n",
+				x, y, _width, _height
+			);
+			cpptrace::generate_trace().print(std::cerr);
+			std::abort();
+		}
+#endif
+		return _tiles[y * _width + x];
 	}
 
 	static Tilemap generate(const TilemapGenerationConfig &config);

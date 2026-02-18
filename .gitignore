@@ -4,3 +4,6 @@ build
 .cache
 perf*
 report.svg
+*.a
+*.elf
+*.o

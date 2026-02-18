@@ -35,6 +35,20 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+FetchContent_Declare(
+	riscv
+	GIT_REPOSITORY https://github.com/libriscv/libriscv.git
+	GIT_TAG v1.15
+	GIT_SHALLOW ON
+	EXCLUDE_FROM_ALL SYSTEM
+)
+option(RISCV_64I "" OFF)
+option(RISCV_BINARY_TRANSLATION "" OFF)
+option(RISCV_LIBTCC "" OFF)
+option(RISCV_32I "" ON)
+FetchContent_MakeAvailable(riscv)
+target_compile_definitions(riscv PUBLIC RISCV_SYSCALLS_MAX=200)
+
 add_executable(corertt
 	src/main.cpp
 	src/noise.cpp
@@ -42,6 +56,7 @@ add_executable(corertt
 	src/tilemap.cpp
 	src/world.cpp
 	src/entity.cpp
+	src/runtime.cpp
 )
 
 target_compile_features(corertt PRIVATE cxx_std_23)
@@ -54,4 +69,5 @@ target_link_libraries(corertt PRIVATE
 	msft_proxy4::proxy
 	cpptrace::cpptrace
 	argparse::argparse
+	riscv
 )

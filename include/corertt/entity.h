@@ -1,7 +1,9 @@
 #ifndef CORE_RTT_ENTITY_H
 #define CORE_RTT_ENTITY_H
 
+#include "corertt/runtime.h"
 #include <cstdint>
+#include <memory>
 #include <optional>
 
 namespace cr {
@@ -9,6 +11,9 @@ namespace cr {
 using pos_t = std::int16_t;
 using energy_t = std::uint16_t;
 using health_t = std::uint8_t;
+
+class World;
+class Player;
 
 enum class Direction : std::uint8_t {
 	Up = 0,
@@ -23,12 +28,13 @@ struct Upgrades {
 	bool damage : 1;
 
 	Upgrades() noexcept;
+	operator std::uint8_t() const noexcept;
 };
 
 struct Unit {
 	static constexpr health_t MAX_HEALTH = 100;
 
-	std::uint8_t id;        // 1-15
+	std::uint8_t id;        // 1-max_units
 	std::uint8_t player_id; // 1 or 2
 	pos_t x;
 	pos_t y;
@@ -49,6 +55,12 @@ struct Unit {
 	energy_t maxCapacity() const noexcept;
 	int visionRange() const noexcept;
 	bool canAttack() const noexcept;
+
+	void step(World &world, Player &player) noexcept;
+
+private:
+	std::unique_ptr<RVMachine> _machine;
+	RuntimeECallContext _ecall_ctx;
 };
 
 struct Bullet {

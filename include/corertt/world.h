@@ -2,6 +2,7 @@
 #define CORERTT_WORLD_H
 
 #include "corertt/entity.h"
+#include "corertt/runtime.h"
 #include "corertt/tilemap.h"
 #include <array>
 #include <memory>
@@ -17,15 +18,7 @@ enum class UpgradeType : std::uint8_t {
 	Damage = 2,
 };
 
-enum class ActionResult : std::uint8_t {
-	Success = 0,
-	InvalidUnit,
-	InsufficientEnergy,
-	OnCooldown,
-	CapacityFull,
-	InvalidID,
-	OutOfBounds,
-};
+class World;
 
 struct Player {
 	int id;               // 1 or 2
@@ -34,8 +27,17 @@ struct Player {
 	std::array<Unit *, max_units> units; // 0-indexed, non-owned, nullable
 	int base_capture_counter; // consecutive turns enemy controls base
 
+	std::vector<std::uint8_t> unit_elf; // ELF binary for unit
+	std::vector<std::uint8_t> base_elf; // ELF binary for base
+
 	Player() noexcept = default;
 	Player(int id) noexcept;
+
+	void step(World &) noexcept;
+
+private:
+	std::unique_ptr<RVMachine> _base_machine;
+	RuntimeECallContext _base_ecall_ctx;
 };
 
 class World {
@@ -63,7 +65,7 @@ public:
 	}
 
 	// Simulate one game tick
-	void simulate() noexcept;
+	void step() noexcept;
 
 	// Base actions
 	ActionResult manufactureUnit(
@@ -80,6 +82,10 @@ public:
 	bool isInBounds(pos_t x, pos_t y) const noexcept;
 	bool isInBase(pos_t x, pos_t y, int player_id) const noexcept;
 	bool canMoveTo(pos_t x, pos_t y) const noexcept;
+	void setPlayerProgram(
+		int player_id, std::vector<std::uint8_t> base_elf,
+		std::vector<std::uint8_t> unit_elf
+	) noexcept;
 
 private:
 	std::uint32_t tick;
@@ -93,13 +99,17 @@ private:
 	void _processUnitMovement() noexcept;
 	void _checkBaseCaptureCondition() noexcept;
 	void _collectEnergy() noexcept;
-	void _updateCooldowns() noexcept;
 
 	void _handleBulletCollision(
 		Bullet &bullet, pos_t new_x, pos_t new_y
 	) noexcept;
 	void _moveBulletOneStep(Bullet &bullet) noexcept;
 	void _commitPendingAttacks() noexcept;
+
+	void _spawnUnitAtBase(std::uint8_t player_id, std::uint8_t unit_id);
+	void _spawnUnit(
+		std::uint8_t player_id, std::uint8_t unit_id, pos_t x, pos_t y
+	) noexcept;
 };
 
 } // namespace cr

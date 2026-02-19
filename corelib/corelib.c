@@ -200,9 +200,55 @@ void _start() {
 	__builtin_unreachable();
 }
 
+int turn() {
+	register int call_id asm("a7") = 0x10;
+	register int arg0 asm("a0");
+	asm volatile("ecall" : "=r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
 int read_sensor(struct SensorData data[]) {
 	register int call_id asm("a7") = 0x12;
 	register int arg0 asm("a0") = (int)data;
 	asm volatile("ecall" : "+r"(arg0) : "r"(call_id) : "memory");
 	return arg0;
+}
+
+struct DeviceInfo dev_info() {
+	register int call_id asm("a7") = 0x11;
+	register uint32_t raw asm("a0");
+	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
+	// Reinterpret the packed 32-bit return value as the DeviceInfo struct.
+	union { uint32_t r; struct DeviceInfo d; } u;
+	u.r = raw;
+	return u.d;
+}
+
+int send_msg(const uint8_t *data, int len) {
+	register int call_id asm("a7") = 0x14;
+	register int arg0 asm("a0") = (int)data;
+	register int arg1 asm("a1") = len;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id), "r"(arg1));
+	return arg0;
+}
+
+int recv_msg(uint8_t *data, int max_len) {
+	register int call_id asm("a7") = 0x13;
+	register int arg0 asm("a0") = (int)data;
+	register int arg1 asm("a1") = max_len;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id), "r"(arg1) : "memory");
+	return arg0;
+}
+
+uint32_t rand() {
+	register int call_id asm("a7") = 0x4F;
+	register uint32_t arg0 asm("a0");
+	asm volatile("ecall" : "=r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+noreturn void abort() {
+	register int call_id asm("a7") = 0x00;
+	asm volatile("ecall" : : "r"(call_id));
+	__builtin_unreachable();
 }

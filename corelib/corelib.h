@@ -63,6 +63,12 @@ typedef __builtin_va_list va_list;
 #define va_copy(d, s) __builtin_va_copy(d, s)
 
 /**
+ * @brief Terminate the program abnormally.
+ * @note This function does not return. It is a direct wrapper around ecall.
+ */
+noreturn void abort();
+
+/**
  * @brief Log a string to the runtime's logging system.
  * @param str Pointer to the string to log
  * @param n Length of the string in bytes
@@ -159,8 +165,8 @@ int strncmp(const char *str1, const char *str2, size_t n);
 void *malloc(size_t size);
 
 /**
- * @brief Allocate a block of memory for an array of nmemb elements of size bytes
- * each, and initialize all bytes in the allocated storage to zero.
+ * @brief Allocate a block of memory for an array of nmemb elements of size
+ * bytes each, and initialize all bytes in the allocated storage to zero.
  * @param nmemb Number of elements to allocate
  * @param size Size of each element in bytes
  * @return Pointer to the allocated memory, or NULL if allocation fails
@@ -285,10 +291,8 @@ int tolower(int c);
  */
 int toupper(int c);
 
-#define __assert_fail(expr, file, line)                     \
-	(void)log_str(                                                \
-		"Assertion failed: " expr ", file " file ", line " #line \
-	)
+#define __assert_fail(expr, file, line) \
+	(log_str("Assertion failed: " expr ", file " file ", line " #line), abort())
 
 #ifndef NDEBUG
 #define assert(expr) \
@@ -298,15 +302,84 @@ int toupper(int c);
 #endif
 
 struct SensorData {
-	bool visible : 1;		// whether this tile is visible
-	uint8_t terrain : 2; 	// 0: plain, 1: water, 3: obstacle
-	bool is_base : 1;		// whether there is a base on this tile
-	bool is_resource : 1;	// whether there is a resource zone on this tile
-	bool has_unit : 1;		// whether there is a unit on this tile
-	bool has_bullet : 1;	// whether there is a bullet on this tile
-	bool alliance_unit : 1;	// whether the unit on this tile is an allied unit (if has_unit is true)
+	bool visible : 1;       // whether this tile is visible
+	uint8_t terrain : 2;    // 0: plain, 1: water, 3: obstacle
+	bool is_base : 1;       // whether there is a base on this tile
+	bool is_resource : 1;   // whether there is a resource zone on this tile
+	bool has_unit : 1;      // whether there is a unit on this tile
+	bool has_bullet : 1;    // whether there is a bullet on this tile
+	bool alliance_unit : 1; // whether the unit on this tile is an allied unit
+	                        // (if has_unit is true)
 };
 
+/**
+ * @brief Get the current turn number.
+ * @return Current turn number, starting from 1 and incrementing each tick.
+ * @note This function is a direct wrapper around ecall.
+ */
+int turn();
+
+/**
+ * @brief Read sensor data for surrounding tiles into the provided buffer.
+ * @param data Pointer to a buffer to store the sensor data.
+ * @return Number of tiles for which data is written, or a negative error code
+ * @note There must be enough space in the buffer to hold the data for all tiles
+ * in the vision. Specifically, the buffer size should be at least 25 for base
+ * and units without vision upgrade, and at least 81 for units with vision
+ * upgrade.
+ * This function is a direct wrapper around ecall.
+ */
 int read_sensor(struct SensorData data[]);
+
+struct DeviceInfo {
+	uint8_t id : 5;       /**< 0 = base, 1-15 = unit id */
+	uint8_t upgrades : 3; /**< bit0=capacity, bit1=vision, bit2=damage; units only */
+	uint8_t health;       /**< current health; always 0 for base */
+	uint16_t energy;      /**< current energy carried */
+};
+
+/**
+ * @brief Retrieve information about the current device (base or unit).
+ * @return A DeviceInfo struct with id, upgrades, health and energy fields.
+ * @note For the base, upgrades and health are always zero and energy reflects
+ * the base energy pool. For units, id is 1-15. This function is a direct
+ * wrapper around ecall.
+ */
+struct DeviceInfo dev_info();
+
+/**
+ * @brief Send a message to all allied devices.
+ * @param data Pointer to the message payload buffer.
+ * @param len Number of bytes to send.
+ * @return 0 on success, or a negative error code on failure.
+ * @note The length must be between 1 and 512 (inclusive). This function can
+ * be called at most once per turn. Messages sent in the current turn are
+ * received in the next turn or later.
+ * This function is a direct wrapper around ecall.
+ */
+int send_msg(const uint8_t *data, int len);
+
+/**
+ * @brief Receive one message from the incoming queue.
+ * @param data Pointer to the destination buffer.
+ * @param max_len Maximum number of bytes to write into @p data.
+ * @return Number of bytes received, 0 if no message is available, or a
+ * negative error code on failure.
+ * @note If the next message is larger than @p max_len, only the first
+ * @p max_len bytes are copied and the rest is discarded. Passing
+ * @p max_len == 0 is valid and skips one queued message without writing to
+ * memory.
+ * This function is a direct wrapper around ecall.
+ */
+int recv_msg(uint8_t *data, int max_len);
+
+/**
+ * @brief Generate a pseudo-random 32-bit unsigned integer.
+ * @return A pseudo-random value in the full uint32_t range.
+ * @note The generator state is managed by the runtime and seeded at runtime
+ * startup.
+ * This function is a direct wrapper around ecall.
+ */
+uint32_t rand();
 
 #endif // CORELIB_H

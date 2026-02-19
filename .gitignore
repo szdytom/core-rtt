@@ -7,3 +7,4 @@ report.svg
 *.a
 *.elf
 *.o
+*.d

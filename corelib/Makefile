@@ -1,32 +1,54 @@
+# Makefile for building the core library and test executables
+
+# We are working in the RISCV 32-bit environment, however, most distros like Arch Linux only provide a single riscv64-elf-gcc which can target both 32-bit and 64-bit. So we use riscv64-elf-gcc with -mabi=ilp32 to generate 32-bit code.
 CC = riscv64-elf-gcc
+# The binary utilities (ar, objcopy, etc.) are separate and we need the 32-bit version of ar to create the library archive.
 AR = riscv32-elf-ar
-CFLAGS = -O2 -ffreestanding -nostdlib -nostdinc -march=rv32g -mabi=ilp32 -Wall -ffunction-sections -fdata-sections
-TEST_CFLAGS = -I. -L. -lcorelib -static -Wl,--gc-sections
 
-all: libcorelib.a test_base.elf test_dummy.elf test_heap.elf test_misc.elf test_msg.elf
+# Compiler flags for both library and tests
+CFLAGS = -O2 -ffreestanding -nostdlib -nostdinc \
+         -march=rv32g -mabi=ilp32 \
+         -Wall -ffunction-sections -fdata-sections \
+         -I. # include current dir for corelib.h
 
-corelib.o: corelib.c
-	$(CC) $(CFLAGS) -c corelib.c -o corelib.o
+# Linker flags (used only when linking executables)
+LDFLAGS = -static -Wl,--gc-sections
 
-libcorelib.a: corelib.o
-	$(AR) rcs libcorelib.a corelib.o
+# Libraries to link against for tests
+TEST_LIBS = -L. -lcorelib
 
-test_base.elf: test/base.c libcorelib.a
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) test/base.c -o test_base.elf
+# Source files
+LIB_SRC = corelib.c
+LIB_OBJ = $(LIB_SRC:.c=.o)
 
-test_dummy.elf: test/dummy.c libcorelib.a
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) test/dummy.c -o test_dummy.elf
+# List of test source files and corresponding ELF targets
+TEST_SRCS = test/base.c test/dummy.c test/heap.c \
+            test/misc.c test/msg.c
+TEST_ELFS = $(TEST_SRCS:.c=.elf)
 
-test_heap.elf: test/heap.c libcorelib.a
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) test/heap.c -o test_heap.elf
+# Default target: build library and all test executables
+all: libcorelib.a $(TEST_ELFS)
 
-test_misc.elf: test/misc.c libcorelib.a
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) test/misc.c -o test_misc.elf
+# Rule to compile the library object file and generate dependency files (*.d)
+$(LIB_OBJ): %.o: %.c corelib.h
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-test_msg.elf: test/msg.c libcorelib.a
-	$(CC) $(CFLAGS) $(TEST_CFLAGS) test/msg.c -o test_msg.elf
+# Archive the library
+libcorelib.a: $(LIB_OBJ)
+	$(AR) rcs $@ $^
 
-.PHONY: all clean symlinks
+# Pattern rule to build each test executable
+# Depends on the library, the source file, and the public header (to recompile
+# when the API changes). Dependency files (*.d) are also generated.
+$(TEST_ELFS): %.elf: %.c libcorelib.a corelib.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -MMD -MP $< $(TEST_LIBS) -o $@
 
+# Include automatically generated dependency files (if they exist)
+-include $(LIB_OBJ:.o=.d) $(TEST_ELFS:.elf=.d)
+
+# Phony targets (not real files)
+.PHONY: all clean
+
+# Clean up all generated files
 clean:
-	rm -f *.o *.a *.elf
+	rm -f *.o *.a *.elf *.d

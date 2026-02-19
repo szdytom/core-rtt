@@ -20,6 +20,12 @@ enum class UpgradeType : std::uint8_t {
 
 class World;
 
+struct MessagePacket {
+	static constexpr std::size_t packet_size = 512;
+	std::uint8_t length;
+	std::array<std::uint8_t, packet_size> data;
+};
+
 struct Player {
 	int id;               // 1 or 2
 	pos_t base_x, base_y; // top-left corner of the base
@@ -29,6 +35,9 @@ struct Player {
 
 	std::vector<std::uint8_t> unit_elf; // ELF binary for unit
 	std::vector<std::uint8_t> base_elf; // ELF binary for base
+
+	std::vector<MessagePacket> incoming_messages;
+	std::vector<MessagePacket> outgoing_messages;
 
 	Player() noexcept = default;
 	Player(int id) noexcept;

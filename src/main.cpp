@@ -33,6 +33,9 @@ int main() {
 		2, load_binary("player2_base.elf"), load_binary("player2_unit.elf")
 	);
 
-	world->step();
+	for (int i = 0; i < 5; ++i) {
+		std::cout << "Tick " << world->currentTick() + 1 << std::endl;
+		world->step();
+	}
 	return 0;
 }

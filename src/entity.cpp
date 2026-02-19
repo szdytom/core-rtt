@@ -108,17 +108,8 @@ void Unit::step(World &world, Player &player) noexcept {
 		}
 	}
 
-	// Against pointer invalidation issues, set up the ecall context on each
-	// step instead of setting it up once and assuming it remains valid.
-	// not a good practice, but we keep it until we have a better solution for
-	// pointer management in the runtime.
-	_ecall_ctx.player = &player;
-	_ecall_ctx.unit = this;
-	_ecall_ctx.world = &world;
-	_machine->set_userdata(&_ecall_ctx);
-
-	constexpr int max_instructions_per_turn = 100'000;
-	if (_machine->simulate<false>(max_instructions_per_turn)) {
+	_ecall_ctx.simulate(world, player, this, *_machine);
+	if (_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
 		_machine.reset();
 	}
 }

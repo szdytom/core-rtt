@@ -30,6 +30,10 @@ The memory is divided into two regions: the flat quick-access region and the pag
 
 Accessing an address outside of the flat region will be automatically handled by the page fault mechanism, which allocates a new page and maps it to the faulting address. There can be up to 64KB or 16 pages of memory used for the paged region.
 
+The runtime provides environment calls for memory allocation and management. These calls can usually be more memory efficient than implementing memory management in the program itself, as they store the metadata of allocated memory externally in the runtime instead of in the program's memory. Each of these calls has a instruction penalty of 2000, which can be larger than a memory management implementation in the program itself, if done efficiently. Therefore, players can choose to use the provided memory management calls or implement their own memory management scheme based on their needs.
+
+Another downside of using the provided memory management calls is that these calls may overcommit the memory usage. Please do expect that sometimes `malloc` returned a valid pointer, but actually reading/writing to the pointer results in a out-of-memory crash.
+
 ## Runtime
 
 There are two different runtimes in the game: base runtime and unit runtime. The base runtime is responsible for controlling the base, while the unit runtime is responsible for controlling individual units. The player can submit separate programs for the base and units.
@@ -84,7 +88,7 @@ int log(const char* str, int n);
 
 Logs a message of `n` bytes from the provided `str` pointer to the game log. The function returns 0 on success, or negative error code on failure (e.g., invalid pointer).
 
-The length `n` must be between 1 and 512, inclusive. The message will be truncated if it exceeds the maximum length.
+The length `n` must be between 1 and 512, inclusive. The call will fail if the length is out of range with error `OUT_OF_RANGE`. The call will also fail if the pointer cannot be read with error `INVALID_POINTER`.
 
 It is recommended to output ASCII strings only, as non-ASCII characters may not be displayed properly in the game log. The string can but not necessarily be null-terminated, as the length is explicitly provided.
 
@@ -203,7 +207,7 @@ Returns the number of tiles successfully read on success, or a negative error co
 **Signature**:
 
 ```c
-int receive_msg(int n, uint8_t buf[]);
+int recv_msg(uint8_t buf[], int n);
 ```
 
 **Description**:
@@ -212,9 +216,15 @@ Receives a message from the message queue of at most `n` bytes and saves it to t
 
 If the size of the message in the queue is greater than `n`, only the first `n` bytes are received, and the remaining bytes are discarded.
 
+The length `n` must be non-negative. The `buf` pointer will not be dereferenced if `n` is zero, i.e. `receive_msg(nullptr, 0);` is a valid call to skip a message in the queue without writing to any buffer.
+
+If the length `n` is negative, the call will fail with error `OUT_OF_RANGE`. If the pointer is cannot be written to, the call will fail with error `INVALID_POINTER`.
+
+It is worth noting that messages sent in the same turn will be received in the next turn or later, that is, messages are not sent and received instantaneously. The device will receive messages sent by allied devices *including* itself. 
+
 **Availability**: Base runtime and Unit runtime.
 
-**Instruction Penalty**: 1 / 4 times bytes received.
+**Instruction Penalty**: number of bytes received.
 
 ### Message Sending
 
@@ -223,7 +233,7 @@ If the size of the message in the queue is greater than `n`, only the first `n` 
 **Signature**:
 
 ```c
-int send_msg(int n, const uint8_t buf[]);
+int send_msg(const uint8_t buf[], int n);
 ```
 
 **Description**:
@@ -231,6 +241,10 @@ int send_msg(int n, const uint8_t buf[]);
 Sends a message of `n` bytes from the provided `buf` array to all allied devices. The length `n` must be between 1 and 512, inclusive. The function returns 0 on success, or negative error code on failure.
 
 This function can only be invoked once per turn. Attempting to send more than one message in a turn will result in an error.
+
+If the length `n` is out of range, the call will fail with error `OUT_OF_RANGE`. If the pointer cannot be read, the call will fail with error `INVALID_POINTER`. If a message has already been sent in the current turn, the call will fail with error `ON_COOLDOWN`.
+
+It is worth noting that messages sent in the same turn will be received in the next turn or later, that is, messages are not sent and received instantaneously. The device will receive messages sent by allied devices *including* itself.
 
 **Availability**: Base runtime and Unit runtime.
 
@@ -431,7 +445,7 @@ The function can only be invoked once per turn. Attempting to withdraw more than
 
 ### Memory Allocation and Management
 
-**Call Number**: 0x40-0x43
+**Call Number**: 0x40-0x44
 
 **Signature**:
 

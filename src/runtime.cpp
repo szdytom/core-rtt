@@ -1,10 +1,12 @@
 #include "corertt/runtime.h"
 #include "corertt/world.h"
+#include "corertt/xoroshiro.h"
 #include "cpptrace/cpptrace.hpp"
 #include <bit>
 #include <cstdlib>
 #include <iostream>
 #include <libriscv/common.hpp>
+#include <libriscv/types.hpp>
 #include <memory>
 #include <print>
 #include <string_view>
@@ -36,8 +38,10 @@ RuntimeECallContext *check_userdata(RVMachine &machine) {
 }
 #endif
 
-void debug_memory_allocation(RVMachine &machine) {
+#ifndef NDEBUG
+void ecall_ebreak(RVMachine &machine) {
 	std::println(
+		std::cerr,
 		"Flat arena: {}\n"
 		"  Arena size: {}\n"
 		"  Initial rodata end: {}\n"
@@ -60,17 +64,36 @@ void debug_memory_allocation(RVMachine &machine) {
 		machine.memory.pages_active(), machine.memory.owned_pages_active()
 	);
 }
+#else
+void ecall_ebreak(RVMachine &machine) {}
+#endif
+
+void ecall_abort(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	ctx->stop_reason = StoppedReason::ABORTED;
+	std::println(std::cerr, "ECALL ABORT invoked by guest program");
+	machine.stop();
+}
 
 void ecall_log(RVMachine &machine) {
+	constexpr int length_limit = 512;
 	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
+	if (len < 1 || len > length_limit) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	auto ctx = check_userdata(machine);
+
 	try {
 		std::unique_ptr<char[]> buffer = std::make_unique<char[]>(len);
 		machine.copy_from_guest(buffer.get(), ptr, len);
 		std::string_view view(buffer.get(), buffer.get() + len);
-		std::println("ECALL LOG: {}", view);
-		machine.set_result(ActionResult::Success);
+		std::println("LOG FROM {}-{}: {}", ctx->player->id, (ctx->unit ? ctx->unit->id : 0), view);
+		machine.penalize(len);
+		machine.set_result(ActionResult::OK);
 	} catch (...) {
-		machine.set_result(ActionResult::PageFault);
+		machine.set_result(ActionResult::INVALID_POINTER);
 		return;
 	}
 }
@@ -184,13 +207,81 @@ void ecall_read_sensor(RVMachine &machine) {
 		machine.penalize(total_tiles);
 		machine.set_result(total_tiles);
 	} catch (...) {
-		machine.set_result(ActionResult::PageFault);
+		machine.set_result(ActionResult::INVALID_POINTER);
 	}
+}
+
+void ecall_recv_msg(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	const auto &messages = ctx->player->incoming_messages;
+	if (ctx->msg_idx >= messages.size()) {
+		// Read 0 bytes
+		machine.set_result(0);
+		return;
+	}
+
+	const auto &msg = messages[ctx->msg_idx++];
+	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
+	if (len < 0) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	if (len == 0) {
+		// Skip message
+		machine.set_result(0);
+		return;
+	}
+
+	int copy_len = std::min<int>(len, msg.length);
+	try {
+		machine.copy_to_guest(ptr, msg.data.data(), copy_len);
+		machine.set_result(copy_len);
+	} catch (...) {
+		machine.set_result(ActionResult::INVALID_POINTER);
+	}
+}
+
+void ecall_send_msg(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
+	if (len < 0 || len > MessagePacket::packet_size) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	if (ctx->flags.send_msg) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+	ctx->flags.send_msg = true;
+
+	try {
+		MessagePacket msg;
+		msg.length = len;
+		machine.copy_from_guest(msg.data.data(), ptr, len);
+		// COCURRRENT LOCKME
+		// lock_player(ctx->player)
+		ctx->player->outgoing_messages.push_back(std::move(msg));
+		// unlock_player(ctx->player)
+		machine.set_result(ActionResult::OK);
+	} catch (...) {
+		machine.set_result(ActionResult::INVALID_POINTER);
+	}
+}
+
+void ecall_rand(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	constexpr std::uint32_t u32_mask = 0xFF'FF'FF'FF;
+	std::uint32_t rand_val = ctx->rng.next() & u32_mask;
+	machine.set_result(rand_val);
 }
 
 } // namespace
 
 void RuntimeECallContext::bind(RVMachine &machine) noexcept {
+	rng = Xoroshiro128PP{Seed::device_random()};
+	stop_reason = StoppedReason::NOT_STOPPED;
 	machine.set_userdata(this);
 	machine.cpu.reg(riscv::REG_SP) = 0;
 	machine.set_printer([](const auto &, const auto, auto) {
@@ -202,19 +293,71 @@ void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 	};
 
 	// Register ecall handlers
+	machine.install_syscall_handler(ECallNumber::ABORT, ecall_abort);
 	machine.install_syscall_handler(ECallNumber::LOG, ecall_log);
 	machine.install_syscall_handler(ECallNumber::TURN, ecall_turn);
 	machine.install_syscall_handler(ECallNumber::DEV_INFO, ecall_dev_info);
 	machine.install_syscall_handler(
 		ECallNumber::READ_SENSOR, ecall_read_sensor
 	);
-	machine.install_syscall_handler(
-		riscv::SYSCALL_EBREAK, debug_memory_allocation
-	);
+	machine.install_syscall_handler(ECallNumber::RECV_MSG, ecall_recv_msg);
+	machine.install_syscall_handler(ECallNumber::SEND_MSG, ecall_send_msg);
+	machine.install_syscall_handler(ECallNumber::RAND, ecall_rand);
+
+	machine.install_syscall_handler(riscv::SYSCALL_EBREAK, ecall_ebreak);
 
 	auto heap_addr = machine.memory.heap_address();
 	constexpr size_t heap_size = 128 * 1024;
 	machine.setup_native_heap(ECallNumber::HEAP_BASE_ID, heap_addr, heap_size);
+}
+
+void RuntimeECallContext::simulate(
+	World &world, Player &player, Unit *unit, RVMachine &machine
+) noexcept {
+	msg_idx = 0;
+	flags = {};
+	this->world = &world;
+	this->player = &player;
+	this->unit = unit;
+	machine.set_userdata(this);
+
+	constexpr int max_cycles = 100'000;
+	try {
+		machine.simulate<false>(max_cycles);
+	} catch (const riscv::MachineException &e) {
+		std::println(
+			std::cerr, "Machine exception: {} (code {})", e.what(), e.type()
+		);
+
+		switch (e.type()) {
+		case riscv::ILLEGAL_OPERATION:
+		case riscv::ILLEGAL_OPCODE:
+		case riscv::UNIMPLEMENTED_INSTRUCTION:
+		case riscv::UNIMPLEMENTED_INSTRUCTION_LENGTH:
+			stop_reason = StoppedReason::ILLEGAL_INSTRUCTION;
+			break;
+
+		case riscv::OUT_OF_MEMORY:
+			stop_reason = StoppedReason::OUT_OF_MEMORY;
+
+		case riscv::PROTECTION_FAULT:
+		case riscv::EXECUTION_SPACE_PROTECTION_FAULT:
+			stop_reason = StoppedReason::PAGE_PROTECTION_FAULT;
+			break;
+
+		case riscv::MISALIGNED_INSTRUCTION:
+		case riscv::INVALID_ALIGNMENT:
+			stop_reason = StoppedReason::ALIGNMENT_FAULT;
+			break;
+
+		default:
+			stop_reason = StoppedReason::UNKOWN_EXCEPTION;
+			break;
+		}
+	} catch (...) {
+		std::println(std::cerr, "Unknown exception during simulation");
+		stop_reason = StoppedReason::UNKOWN_EXCEPTION;
+	}
 }
 
 } // namespace cr

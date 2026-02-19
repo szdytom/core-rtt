@@ -1,6 +1,7 @@
 #ifndef CORERTT_RUNTIME_H
 #define CORERTT_RUNTIME_H
 
+#include "corertt/xoroshiro.h"
 #include <cstddef>
 #include <libriscv/common.hpp>
 #include <libriscv/machine.hpp>
@@ -13,18 +14,29 @@ class Player;
 class World;
 
 enum class ActionResult : std::int32_t {
-	Success = 0,
-	PageFault = -1,
-	InvalidUnit = -2,
-	InsufficientEnergy = -3,
-	OnCooldown = -4,
-	CapacityFull = -5,
-	InvalidID = -6,
-	OutOfBounds = -7,
+	OK = 0,
+	INVALID_POINTER = -1,
+	INVALID_UNIT = -2,
+	INSUFFICIENT_ENERGY = -3,
+	ON_COOLDOWN = -4,
+	CAPACITY_FULL = -5,
+	INVALID_ID = -6,
+	OUT_OF_RANGE = -7,
+};
+
+enum class StoppedReason : std::int32_t {
+	NOT_STOPPED = 0,
+	ABORTED,
+	PAGE_PROTECTION_FAULT,
+	ALIGNMENT_FAULT,
+	ILLEGAL_INSTRUCTION,
+	OUT_OF_MEMORY,
+	UNKOWN_EXCEPTION
 };
 
 struct ECallNumber {
 	// Debugging calls
+	static constexpr std::size_t ABORT = 0x00;
 	static constexpr std::size_t LOG = 0x01;
 
 	// Common calls
@@ -62,16 +74,26 @@ inline const riscv::MachineOptions<riscv::RISCV32> RUNTIME_OPTION = {
 	.stack_size = 4 * 1024,   // 4KB stack
 };
 
+struct ECallInvokedFlags {
+	bool send_msg : 1 = false;
+};
+
 struct RuntimeECallContext {
 	World *world;         // borrowed pointer
 	Player *player;       // borrowed pointer
 	Unit *unit = nullptr; // borrowed, nullptr for base calls
+	StoppedReason stop_reason;
+	int msg_idx;
+	Xoroshiro128PP rng;
+	ECallInvokedFlags flags;
 
 	// Vision cache for units: stores which tiles are visible
 	// Size is (2*visionRange+1)^2 for units, indexed by [dy * (2*range+1) + dx]
 	std::vector<bool> visible_tiles;
 
-	void simulate(RVMachine &machine) noexcept;
+	void simulate(
+		World &world, Player &player, Unit *unit, RVMachine &machine
+	) noexcept;
 	void bind(RVMachine &machine) noexcept;
 };
 

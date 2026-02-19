@@ -37,18 +37,27 @@ Player::Player(int id) noexcept
 }
 
 void Player::step(World &world) noexcept {
+	// Shuffle outgoing messages to prevent reliance on message order?
+	// In thoery we should do so to maximize the security of the messaging
+	// system, but I'm quiet interested in seeing some creative uses of message
+	// ordering by players, so let's keep it for now.
+	// Note: the current message order is the order of manufacture actions,
+	// which is deterministic and known to players anyway.
+
+	// std::shuffle(
+	// 	outgoing_messages.begin(), outgoing_messages.end(),
+	// 	Xoroshiro128PP::globalInstance()
+	// );
+	incoming_messages = std::move(outgoing_messages);
+	outgoing_messages.clear();
+
 	if (!_base_machine) {
 		_base_machine = std::make_unique<RVMachine>(base_elf, RUNTIME_OPTION);
 		_base_ecall_ctx.bind(*_base_machine);
 	}
 
-	_base_ecall_ctx.world = &world;
-	_base_ecall_ctx.player = this;
-	_base_ecall_ctx.unit = nullptr;
-	_base_machine->set_userdata(&_base_ecall_ctx);
-
-	constexpr int max_instructions_per_turn = 5000'000;
-	if (_base_machine->simulate<false>(max_instructions_per_turn)) {
+	_base_ecall_ctx.simulate(world, *this, nullptr, *_base_machine);
+	if (_base_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
 		_base_machine.reset();
 	}
 }
@@ -483,22 +492,22 @@ ActionResult World::manufactureUnit(
 
 	constexpr energy_t manufacture_cost = 500;
 	if (player.base_energy < manufacture_cost) {
-		return ActionResult::InsufficientEnergy;
+		return ActionResult::INSUFFICIENT_ENERGY;
 	}
 
 	if (new_unit_id < 1 || new_unit_id > max_units) {
-		return ActionResult::InvalidID;
+		return ActionResult::INVALID_ID;
 	}
 
 	if (player.units[new_unit_id - 1] != nullptr
 	    && player.units[new_unit_id - 1]->health > 0) {
-		return ActionResult::InvalidID;
+		return ActionResult::INVALID_ID;
 	}
 
 	// All checks passed, create the unit at a random empty tile in the base
 	player.base_energy -= manufacture_cost;
 
-	return ActionResult::Success;
+	return ActionResult::OK;
 }
 
 void World::_spawnUnitAtBase(std::uint8_t player_id, std::uint8_t unit_id) {
@@ -551,34 +560,34 @@ ActionResult World::repairUnit(
 
 	// Validate unit ID
 	if (unit_id < 1 || unit_id > max_units) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	Unit *unit = player.units[unit_id - 1];
 
 	if (!unit || unit->health == 0) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	if (!isInBase(unit->x, unit->y, player_id)) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	// Calculate repair cost
 	health_t missing_health = Unit::MAX_HEALTH - unit->health;
 	if (missing_health == 0) {
-		return ActionResult::InvalidUnit; // No repair needed
+		return ActionResult::INVALID_UNIT; // No repair needed
 	}
 
 	energy_t repair_cost = 2 * missing_health;
 	if (player.base_energy < repair_cost) {
-		return ActionResult::InsufficientEnergy;
+		return ActionResult::INSUFFICIENT_ENERGY;
 	}
 
 	// Perform repair
 	player.base_energy -= repair_cost;
 	unit->health = Unit::MAX_HEALTH;
-	return ActionResult::Success;
+	return ActionResult::OK;
 }
 
 ActionResult World::upgradeUnit(
@@ -588,11 +597,11 @@ ActionResult World::upgradeUnit(
 	Unit *unit = player.units[unit_id - 1];
 
 	if (!unit || unit->health == 0) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	if (!isInBase(unit->x, unit->y, player_id)) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	energy_t cost;
@@ -614,11 +623,11 @@ ActionResult World::upgradeUnit(
 	}
 
 	if (already_upgraded) {
-		return ActionResult::InvalidUnit;
+		return ActionResult::INVALID_UNIT;
 	}
 
 	if (player.base_energy < cost) {
-		return ActionResult::InsufficientEnergy;
+		return ActionResult::INSUFFICIENT_ENERGY;
 	}
 
 	player.base_energy -= cost;
@@ -635,7 +644,7 @@ ActionResult World::upgradeUnit(
 		break;
 	}
 
-	return ActionResult::Success;
+	return ActionResult::OK;
 }
 
 bool World::isInBounds(pos_t x, pos_t y) const noexcept {

@@ -21,6 +21,5 @@ int main() {
 	}
 	log(output, ptr - output);
 	log_str("Test complete");
-
 	while (true) {}
 }

@@ -197,7 +197,8 @@ void _start() {
 	main();
 
 	// Should never reach here
-	__builtin_unreachable();
+	// __builtin_unreachable();
+	abort();
 }
 
 int turn() {

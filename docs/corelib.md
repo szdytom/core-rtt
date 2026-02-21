@@ -177,7 +177,7 @@ enum {
 	UPGRADE_CAPACITY = 0,
 	UPGRADE_VISION = 1,
 	UPGRADE_DAMAGE = 2,
-}
+};
 
 enum {
 	TERRAIN_EMPTY = 0,

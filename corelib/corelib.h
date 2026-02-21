@@ -397,6 +397,113 @@ int recv_msg(uint8_t *data, int max_len);
  */
 uint32_t rand();
 
+struct GameInfo {
+	uint8_t map_width;    // width of the map in tiles
+	uint8_t map_height;   // height of the map in tiles
+	uint8_t base_size;    // side length of the square base area in tiles
+	uint8_t reserved[13]; // reserved for future use
+};
+
+/**
+ * @brief Retrieve gamerule and meta information of the current game.
+ * @param info Pointer to a GameInfo struct to populate.
+ * @return 0 on success, or a negative error code on failure.
+ * @note This function is a direct wrapper around ecall.
+ */
+int meta(struct GameInfo *info);
+
+struct PosInfo {
+	uint8_t x;          // x coordinate (column) of the device
+	uint8_t y;          // y coordinate (row) of the device
+	uint8_t reserved[2]; // reserved for future use
+};
+
+/**
+ * @brief Get the position of the current device.
+ * @return A PosInfo struct with the current x and y coordinates.
+ * @note For the base, the returned coordinates are the top-left corner.
+ * This function is a direct wrapper around ecall.
+ */
+struct PosInfo pos();
+
+/**
+ * @brief Manufacture a new unit with the specified id.
+ * @param id Unit id to assign (1-15, must not be in use).
+ * @return 0 on success, or a negative error code on failure.
+ * @note Base runtime only. This function is a direct wrapper around ecall.
+ */
+int manufact(int id);
+
+/**
+ * @brief Repair the unit with the specified id.
+ * @param id Id of the unit to repair.
+ * @return 0 on success, or a negative error code on failure.
+ * @note Unit must be in the base area. Base runtime only.
+ * This function is a direct wrapper around ecall.
+ */
+int repair(int id);
+
+/**
+ * @brief Install an upgrade on the unit with the specified id.
+ * @param id Id of the unit to upgrade.
+ * @param type Upgrade type: 0=capacity, 1=vision, 2=damage.
+ * @return 0 on success, or a negative error code on failure.
+ * @note Unit must be in the base area. Base runtime only.
+ * This function is a direct wrapper around ecall.
+ */
+int upgrade(int id, int type);
+
+/**
+ * @brief Fire a bullet in the specified direction.
+ * @param direction Direction: 0=up, 1=right, 2=down, 3=left.
+ * @param power Energy cost deducted from the unit.
+ * @return 0 on success, or a negative error code on failure.
+ * @note Unit runtime only. 3-turn cooldown after a successful fire.
+ * This function is a direct wrapper around ecall.
+ */
+int fire(int direction, int power);
+
+/**
+ * @brief Queue a move in the specified direction for the next turn.
+ * @param direction Direction: 0=up, 1=right, 2=down, 3=left.
+ * @return 0 on success, or a negative error code on failure.
+ * @note If called multiple times per turn only the last call takes effect.
+ * Unit runtime only. This function is a direct wrapper around ecall.
+ */
+int move(int direction);
+
+/**
+ * @brief Deposit energy from the unit into the base.
+ * @param amount Amount of energy to deposit (must be positive).
+ * @return 0 on success, or a negative error code on failure.
+ * @note Unit runtime only. Mutually exclusive with withdraw in the same turn.
+ * This function is a direct wrapper around ecall.
+ */
+int deposit(int amount);
+
+/**
+ * @brief Withdraw energy from the base into the unit.
+ * @param amount Amount of energy to withdraw.
+ * @return 0 on success, or a negative error code on failure.
+ * @note Unit runtime only. Mutually exclusive with deposit in the same turn.
+ * This function is a direct wrapper around ecall.
+ */
+int withdraw(int amount);
+
+struct MemoryInfo {
+	size_t bytes_free;   // free bytes remaining in the managed heap
+	size_t bytes_used;   // bytes currently allocated
+	size_t chunks_used;  // number of live allocation chunks
+};
+
+/**
+ * @brief Retrieve memory usage statistics for the runtime-managed heap.
+ * @param info Pointer to a MemoryInfo struct to populate.
+ * @return 0 on success, or a negative error code on failure.
+ * @note This function is a direct wrapper around ecall.
+ */
+int meminfo(struct MemoryInfo *info);
+
 enum {
 	DIR_UP = 0,
 	DIR_RIGHT = 1,
@@ -413,7 +520,8 @@ enum {
 	UPGRADE_CAPACITY = 0,
 	UPGRADE_VISION = 1,
 	UPGRADE_DAMAGE = 2,
-}
+};
+
 #define UPGRADE_BIT_OF(upg) (1U << (upg))
 #define HAS_UPGRADE(upgrades, upg) (((upgrades) & UPGRADE_BIT_OF(upg)) != 0)
 

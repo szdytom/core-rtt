@@ -248,6 +248,80 @@ uint32_t rand() {
 	return arg0;
 }
 
+int meta(struct GameInfo *info) {
+	register int call_id asm("a7") = 0x0F;
+	register int arg0 asm("a0") = (int)info;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id) : "memory");
+	return arg0;
+}
+
+struct PosInfo pos() {
+	register int call_id asm("a7") = 0x15;
+	register uint32_t raw asm("a0");
+	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
+	union { uint32_t r; struct PosInfo p; } u;
+	u.r = raw;
+	return u.p;
+}
+
+int manufact(int id) {
+	register int call_id asm("a7") = 0x20;
+	register int arg0 asm("a0") = id;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+int repair(int id) {
+	register int call_id asm("a7") = 0x21;
+	register int arg0 asm("a0") = id;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+int upgrade(int id, int type) {
+	register int call_id asm("a7") = 0x22;
+	register int arg0 asm("a0") = id;
+	register int arg1 asm("a1") = type;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id), "r"(arg1));
+	return arg0;
+}
+
+int fire(int direction, int power) {
+	register int call_id asm("a7") = 0x30;
+	register int arg0 asm("a0") = direction;
+	register int arg1 asm("a1") = power;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id), "r"(arg1));
+	return arg0;
+}
+
+int move(int direction) {
+	register int call_id asm("a7") = 0x31;
+	register int arg0 asm("a0") = direction;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+int deposit(int amount) {
+	register int call_id asm("a7") = 0x32;
+	register int arg0 asm("a0") = amount;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+int withdraw(int amount) {
+	register int call_id asm("a7") = 0x33;
+	register int arg0 asm("a0") = amount;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id));
+	return arg0;
+}
+
+int meminfo(struct MemoryInfo *info) {
+	register int call_id asm("a7") = 0x44;
+	register int arg0 asm("a0") = (int)info;
+	asm volatile("ecall" : "+r"(arg0) : "r"(call_id) : "memory");
+	return arg0;
+}
+
 noreturn void abort() {
 	register int call_id asm("a7") = 0x00;
 	asm volatile("ecall" : : "r"(call_id));

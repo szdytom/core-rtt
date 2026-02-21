@@ -305,6 +305,20 @@ int tolower(int c);
  */
 int toupper(int c);
 
+/**
+ * @brief Compute the absolute value of an integer.
+ * @param x Integer value
+ * @return Absolute value of x
+ */
+int abs(int x);
+
+/**
+ * @brief Compute the absolute value of a long integer.
+ * @param x Long integer value
+ * @return Absolute value of x
+ */
+long int labs(long int x);
+
 #define __assert_fail(expr, file, line) \
 	(log_str("Assertion failed: " expr ", file " file ", line " #line), abort())
 

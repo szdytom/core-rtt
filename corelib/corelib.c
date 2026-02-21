@@ -164,6 +164,14 @@ int toupper(int c) {
 	return c;
 }
 
+int abs(int x) {
+	return x < 0 ? -x : x;
+}
+
+long int labs(long int x) {
+	return x < 0 ? -x : x;
+}
+
 void _start() {
 	// First, configure the global pointer
 	asm volatile(".option push 				\t\n\

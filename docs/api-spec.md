@@ -8,7 +8,9 @@ This document describes the API for the game *Core RTT*. It is intended for all 
 
 ## Sandbox
 
-The game emulates player's programs in a RISC-V sandbox. The sandbox supports 32-bit RISC-V instructions of RV32GCB(imafdc_zicsr_zifence_zicond_zba_zbb_zbc_zbs). The sandbox can be considered as a completely freestanding RISC-V environment, which means that there is no operating system or standard library available. The only way for the player's program to interact with the game world is through the provided environment calls.
+The game emulates player's programs in a RISC-V sandbox. The sandbox supports 32-bit RISC-V instructions of RV32GCB(imafdc_zicsr_zifence_zicond_zba_zbb_zbc_zbs). The suggested architecture and ABI flags for compiling the player's program are `-march=rv32gv_zba_zbb_zbc_zbs -mabi=ilp32d`.
+
+The sandbox can be considered as a completely freestanding RISC-V environment, which means that there is no operating system or standard library available. The only way for the player's program to interact with the game world is through the provided environment calls.
 
 The default stack pointer (sp) is set to zero. Generally, the program need to be compiled with `-nostdlib -nostdinc -ffreestanding` flags.
 

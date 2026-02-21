@@ -7,7 +7,7 @@ AR = riscv32-elf-ar
 
 # Compiler flags for both library and tests
 CFLAGS = -O2 -ffreestanding -nostdlib -nostdinc \
-         -march=rv32g -mabi=ilp32 \
+         -march=rv32gv_zba_zbb_zbc_zbs -mabi=ilp32d \
          -Wall -ffunction-sections -fdata-sections \
          -I. # include current dir for corelib.h
 

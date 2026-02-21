@@ -103,6 +103,20 @@ int strlen(const char *str);
 char *strcpy(char *dest, const char *src);
 
 /**
+ * @brief Copy up to n bytes from src to dest, stopping if a null terminator is
+ * encountered in src.
+ * @param dest Pointer to the destination buffer
+ * @param src Pointer to the source string
+ * @param n Maximum number of bytes to copy
+ * @return Pointer to the destination buffer
+ * @note If src is shorter than n bytes, the remainder of dest will be padded
+ * with null bytes. If src is longer than n bytes, only n bytes are copied and
+ * dest will not be null-terminated. The destination buffer must be large enough
+ * to hold at least n bytes.
+ */
+char *strncpy(char *dest, const char *src, size_t n);
+
+/**
  * @brief Copy a specified number of bytes from src to dest.
  * @param dest Pointer to the destination buffer
  * @param src Pointer to the source buffer
@@ -332,10 +346,11 @@ int turn();
 int read_sensor(struct SensorData data[]);
 
 struct DeviceInfo {
-	uint8_t id : 5;       /**< 0 = base, 1-15 = unit id */
-	uint8_t upgrades : 3; /**< bit0=capacity, bit1=vision, bit2=damage; units only */
-	uint8_t health;       /**< current health; always 0 for base */
-	uint16_t energy;      /**< current energy carried */
+	uint8_t id : 5; /**< 0 = base, 1-15 = unit id */
+	uint8_t upgrades
+		: 3;         /**< bit0=capacity, bit1=vision, bit2=damage; units only */
+	uint8_t health;  /**< current health; always 0 for base */
+	uint16_t energy; /**< current energy carried */
 };
 
 /**
@@ -381,5 +396,43 @@ int recv_msg(uint8_t *data, int max_len);
  * This function is a direct wrapper around ecall.
  */
 uint32_t rand();
+
+enum {
+	DIR_UP = 0,
+	DIR_RIGHT = 1,
+	DIR_DOWN = 2,
+	DIR_LEFT = 3,
+};
+
+#define DIR_X_OFFSET_OF(dir) \
+	((dir) == DIR_RIGHT ? 1 : ((dir) == DIR_LEFT ? -1 : 0))
+#define DIR_Y_OFFSET_OF(dir) \
+	((dir) == DIR_DOWN ? 1 : ((dir) == DIR_UP ? -1 : 0))
+
+enum {
+	UPGRADE_CAPACITY = 0,
+	UPGRADE_VISION = 1,
+	UPGRADE_DAMAGE = 2,
+}
+#define UPGRADE_BIT_OF(upg) (1U << (upg))
+#define HAS_UPGRADE(upgrades, upg) (((upgrades) & UPGRADE_BIT_OF(upg)) != 0)
+
+enum {
+	TERRAIN_EMPTY = 0,
+	TERRAIN_WATER = 1,
+	TERRAIN_OBSTACLE = 3,
+};
+
+enum {
+	EC_OK = 0,
+	EC_INVALID_POINTER = -1,
+	EC_INVALID_UNIT = -2,
+	EC_INSUFFICIENT_ENERGY = -3,
+	EC_ON_COOLDOWN = -4,
+	EC_CAPACITY_FULL = -5,
+	EC_INVALID_ID = -6,
+	EC_OUT_OF_RANGE = -7,
+	EC_UNSUPPORTED_RUNTIME = -8,
+};
 
 #endif // CORELIB_H

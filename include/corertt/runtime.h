@@ -22,6 +22,7 @@ enum class ActionResult : std::int32_t {
 	CAPACITY_FULL = -5,
 	INVALID_ID = -6,
 	OUT_OF_RANGE = -7,
+	UNSUPPORTED_RUNTIME = -8,
 };
 
 enum class StoppedReason : std::int32_t {

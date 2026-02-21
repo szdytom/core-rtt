@@ -364,10 +364,10 @@ int fire(int direction, int power);
 
 Fires a bullet in the specified `direction`. The `direction` can be one of the following:
 
-- 0: Up
-- 1: Right
-- 2: Down
-- 3: Left
+- 0: Up (decreasing y coordinate)
+- 1: Right (increasing x coordinate)
+- 2: Down (increasing y coordinate)
+- 3: Left (decreasing x coordinate)
 
 The function returns 0 on success, or negative error code on failure (e.g., insufficient energy, invalid direction).
 
@@ -393,10 +393,10 @@ int move(int direction);
 
 Moves the unit in the specified `direction`. The `direction` can be one of the following:
 
-- 0: Up
-- 1: Right
-- 2: Down
-- 3: Left
+- 0: Up (decreasing y coordinate)
+- 1: Right (increasing x coordinate)
+- 2: Down (increasing y coordinate)
+- 3: Left (decreasing x coordinate)
 
 If the `direction` is not one of the above values, the call will fail with error `OUT_OF_RANGE`.
 

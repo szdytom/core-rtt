@@ -560,13 +560,13 @@ ActionResult World::repairUnit(
 
 	// Validate unit ID
 	if (unit_id < 1 || unit_id > max_units) {
-		return ActionResult::INVALID_UNIT;
+		return ActionResult::INVALID_ID;
 	}
 
 	Unit *unit = player.units[unit_id - 1];
 
 	if (!unit || unit->health == 0) {
-		return ActionResult::INVALID_UNIT;
+		return ActionResult::INVALID_ID;
 	}
 
 	if (!isInBase(unit->x, unit->y, player_id)) {
@@ -594,10 +594,15 @@ ActionResult World::upgradeUnit(
 	std::uint8_t player_id, std::uint8_t unit_id, UpgradeType type
 ) noexcept {
 	auto &player = _players[player_id - 1];
+
+	if (unit_id < 1 || unit_id > max_units) {
+		return ActionResult::INVALID_ID;
+	}
+
 	Unit *unit = player.units[unit_id - 1];
 
 	if (!unit || unit->health == 0) {
-		return ActionResult::INVALID_UNIT;
+		return ActionResult::INVALID_ID;
 	}
 
 	if (!isInBase(unit->x, unit->y, player_id)) {
@@ -620,6 +625,8 @@ ActionResult World::upgradeUnit(
 		cost = 600;
 		already_upgraded = unit->upgrades.damage;
 		break;
+	default:
+		return ActionResult::OUT_OF_RANGE;
 	}
 
 	if (already_upgraded) {

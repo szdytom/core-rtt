@@ -40,7 +40,7 @@ There are two different runtimes in the game: base runtime and unit runtime. The
 
 The base runtime is started at the beginning of the game and runs until the game ends. The unit runtime is started whenever a new unit is manufactured and runs until the unit is destroyed.
 
-Some environment calls are only available in the base runtime or unit runtime. The documentation of each environment call will specify its availability.
+Some environment calls are only available in the base runtime or unit runtime. The documentation of each environment call will specify its availability. Invoking a function that is exclusive to a different runtime will fail with error `UNSUPPORTED_RUNTIME`.
 
 ## Instruction Limit
 
@@ -115,12 +115,14 @@ int meta(struct GameInfo* info);
 
 **Description**:
 
-Retrieves the gamerule and meta information of the current game and saves it to the provided `info` pointer. The function returns 0 on success, or negative error code on failure (e.g., invalid pointer). The `GameInfo` structure contains the following fields:
+Retrieves the gamerule and meta information of the current game and saves it to the provided `info` pointer. The `GameInfo` structure contains the following fields:
 
 - `map_width`: the width of the map in tiles.
 - `map_height`: the height of the map in tiles.
 - `base_size`: the size of the base in tiles (the base is a square area of `base_size` x `base_size` tiles).
 - `reserved`: reserved for future use and should be ignored.
+
+The function returns 0 on success. It will fail if the pointer cannot be written to with error `INVALID_POINTER`.
 
 **Availability**: Base runtime and Unit runtime.
 
@@ -188,7 +190,7 @@ int read_sensor(struct SensorData data[]);
 
 **Description**:
 
-Reads the sensor data of surrounding tiles and saves it to the provided `data` array. Each element in the `data` array corresponds to a tile in the visible area of the device. The function returns 0 on success, or -1 if an error occurs (e.g., invalid pointer).
+Reads the sensor data of surrounding tiles and saves it to the provided `data` array. Each element in the `data` array corresponds to a tile in the visible area of the device. The function returns 0 on success, or fail with `INVALID_POINTER` if the pointer cannot be written to.
 
 The `data` array should have a size of 25 for base and units without vision upgrade, or 81 for units with vision upgrade. The tiles are ordered in row-major order, centered on the current device.
 
@@ -286,11 +288,15 @@ int manufact(int id);
 
 **Description**:
 
-Manufactures a new unit with the specified `id`. The `id` must be a positive integer between 1 and 15, inclusive. The function returns 0 on success, or negative error code on failure (e.g., insufficient energy, invalid id, maximum unit limit reached).
+Manufactures a new unit with the specified `id`. The `id` must be a positive integer between 1 and 15, inclusive. The function returns 0 on success, or negative error code on failure.
 
 The `id` must not have been previously assigned to an existing unit, or must belong to a unit that has been destroyed.
 
-The new unit spawns on a random empty tile within the base area. This function can only be invoked once per turn. Attempting to manufacture more than one unit in a turn will result in an error.
+Manufacturing a new unit costs energy, if there isn't enough energy in the base, the call will fail with error `INSUFFICIENT_ENERGY`. If the `id` is out of range or already in use, the call will fail with error `INVALID_ID`.
+
+The new unit spawns on a random empty tile within the base area. If all tiles in the base area are occupied, the call will fail with error `CAPACITY_FULL`.
+
+This function can only be invoked once per turn (only successful manufacturing attempts count). Attempting to manufacture more than one unit in a turn will result in an `ON_COOLDOWN` error.
 
 **Availability**: Base runtime only.
 
@@ -310,9 +316,9 @@ int repair(int id);
 
 Repairs the unit with the specified `id`. The function returns 0 on success, or negative error code on failure (e.g., insufficient energy, invalid id, unit not in base area).
 
-The repair cost is 2 energy per health point restored. For example, if a unit has 80 health, repairing it to full health (100) will cost 40 energy.
+Repairing a unit costs energy, if there isn't enough energy in the base, the call will fail with error `INSUFFICIENT_ENERGY`. If the `id` is invalid, belongs to the base, The call will fail with error `INVALID_ID`. If the `id` belongs to a unit that is not currently in the base area or already at full health, the call will fail with error `INVALID_UNIT`.
 
-This function can only be invoked once per turn. Attempting to repair more than one unit in a turn will result in an error.
+This function can only be invoked once per turn (only successful repair attempts count). Attempting to repair more than one unit in a turn will result in an `ON_COOLDOWN` error.
 
 **Availability**: Base runtime only.
 
@@ -336,9 +342,9 @@ Upgrades the unit with the specified `id` by installing an upgrade of the specif
 - 1: Vision Upgrade
 - 2: Damage Upgrade
 
-The function returns 0 on success, or negative error code on failure (e.g., insufficient energy, invalid id, invalid type, unit not in base area, upgrade already installed).
+The function returns 0 on success, or negative error code on failure. Upgrading a unit costs energy, if there isn't enough energy in the base, the call will fail with error `INSUFFICIENT_ENERGY`. If the `id` is invalid, belongs to the base, the call will fail with error `INVALID_ID`. If the `id` belongs to a unit that is not currently in the base area, or already has the specified upgrade, the call will fail with error `INVALID_UNIT`. If the `type` is not one of the above values, the call will fail with error `OUT_OF_RANGE`.
 
-This function can only be invoked once per turn. Attempting to upgrade more than one unit in a turn will result in an error.
+This function can only be invoked once per turn (only successful upgrade attempts count). Attempting to upgrade more than one unit in a turn will result in an `ON_COOLDOWN` error.
 
 **Availability**: Base runtime only.
 
@@ -365,9 +371,9 @@ Fires a bullet in the specified `direction`. The `direction` can be one of the f
 
 The function returns 0 on success, or negative error code on failure (e.g., insufficient energy, invalid direction).
 
-The `power` parameter specifies the energy cost of firing the bullet. The unit must have enough carried energy to cover the cost. The damage dealt by the bullet is equal to the `power` value if the unit does not have the Damage Upgrade, or twice the `power` value if the unit has the Damage Upgrade.
+The `power` parameter specifies the energy cost of firing the bullet. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`. If the `direction` is not one of the above values, the call will fail with error `OUT_OF_RANGE`.
 
-The function can only be invoked once per turn. Attempting to fire more than one bullet in a turn will result in an error. Furthermore, within the same turn and the next 2 turns after a successful fire, the unit cannot fire another bullet.
+The function can only be invoked once per turn. Furthermore, within the same turn and the next 2 turns after a successful fire, the unit cannot fire another bullet. Attempting to fire a bullet during the cooldown period will result in an `ON_COOLDOWN` error.
 
 **Availability**: Unit runtime only.
 
@@ -392,11 +398,13 @@ Moves the unit in the specified `direction`. The `direction` can be one of the f
 - 2: Down
 - 3: Left
 
-The function returns 0 on success, or negative error code on failure (e.g., invalid direction, obstacle in the way).
+If the `direction` is not one of the above values, the call will fail with error `OUT_OF_RANGE`.
+
+The function returns 0 on success, or negative error code on failure.
 
 It is worth noting that a failed move attempt (due to obstacles, boundaries, etc.) is not considered as failing to invoke the function, i.e., the function will still return 0 in such cases.
 
-If the function is invoked multiple times in the same turn, only the last invocation takes effect.
+If the function is invoked multiple times in the same turn, only the last invocation takes effect. If the last invocation has an invalid direction, there will be no movement in the next turn.
 
 The move will take effect in the turn after the current turn, that is, the move taken in turn T will be executed at the beginning of turn T+1.
 
@@ -416,9 +424,11 @@ int deposit(int amount);
 
 **Description**:
 
-Deposits the specified `amount` of energy from the unit to the base. The function returns 0 on success, or negative error code on failure (e.g., insufficient carried energy, invalid amount).
+Deposits the specified `amount` of energy from the unit to the base. The function returns 0 on success, or negative error code on failure.
 
-The function can only be invoked once per turn. Attempting to deposit more than once in a turn will result in an error. Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn.
+The `amount` must be positive. If the `amount` is not positive, the call will fail with error `OUT_OF_RANGE`. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`.
+
+The function can only be invoked once per turn (only successful deposit attempts count). Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn. Attempting to invoke `deposit` twice in the same turn, or invoking `deposit` after a successful invocation of `withdraw` in the same turn, will result in an `ON_COOLDOWN` error.
 
 **Availability**: Unit runtime only.
 
@@ -437,7 +447,7 @@ int withdraw(int amount);
 
 Withdraws the specified `amount` of energy from the base to the unit. The function returns 0 on success, or negative error code on failure (e.g., insufficient base energy, invalid amount).
 
-The function can only be invoked once per turn. Attempting to withdraw more than once in a turn will result in an error. Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn.
+The function can only be invoked once per turn (only successful withdraw attempts count). Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn. Attempting to invoke `withdraw` twice in the same turn, or invoking `withdraw` after a successful invocation of `deposit` in the same turn, will result in an `ON_COOLDOWN` error.
 
 **Availability**: Unit runtime only.
 
@@ -493,6 +503,14 @@ Returns a pseudo-random 32-bit unsigned integer. The random number generator is 
 
 ## Error Handling and Error Codes
 
-When an environment call fails, it will return a negative error code. 
+When an environment call fails, it will return a negative error code. The following error codes are defined:
 
-TODO: document the error codes.
+- `INVALID_POINTER` (-1): The provided pointer cannot be dereferenced as required.
+- `INVALID_UNIT` (-2): The specified unit does not meet the requirements for the action.
+- `INSUFFICIENT_ENERGY` (-3): The device does not have enough energy to perform the action.
+- `ON_COOLDOWN` (-4): The action cannot be performed this turn due to cooldown restrictions.
+- `CAPACITY_FULL` (-5): The base has no empty tile to spawn a new unit.
+- `INVALID_ID` (-6): The specified ID is invalid.
+- `OUT_OF_RANGE` (-7): The specified value is out of the valid range.
+- `UNSUPPORTED_RUNTIME` (-8): The function is not supported in the current runtime.
+

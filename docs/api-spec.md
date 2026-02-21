@@ -8,7 +8,7 @@ This document describes the API for the game *Core RTT*. It is intended for all 
 
 ## Sandbox
 
-The game emulates player's programs in a RISC-V sandbox. The sandbox supports 32-bit RISC-V instructions of RV32GCB(imafdc_zicsr_zifence_zicond_zba_zbb_zbc_zbs). The suggested architecture and ABI flags for compiling the player's program are `-march=rv32gv_zba_zbb_zbc_zbs -mabi=ilp32d`.
+The game emulates player's programs in a RISC-V sandbox. The sandbox supports 32-bit RISC-V instructions of RV32GCB(imafdc_zicsr_zifence_zicond_zba_zbb_zbc_zbs). The suggested architecture and ABI flags for compiling the player's program are `-march=rv32g_zba_zbb_zbc_zbs -mabi=ilp32d`.
 
 The sandbox can be considered as a completely freestanding RISC-V environment, which means that there is no operating system or standard library available. The only way for the player's program to interact with the game world is through the provided environment calls.
 
@@ -428,7 +428,7 @@ int deposit(int amount);
 
 Deposits the specified `amount` of energy from the unit to the base. The function returns 0 on success, or negative error code on failure.
 
-The `amount` must be positive. If the `amount` is not positive, the call will fail with error `OUT_OF_RANGE`. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`.
+The `amount` must be positive. If the `amount` is not positive, the call will fail with error `OUT_OF_RANGE`. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`. Energy can only be deposited when the unit is in the base area, otherwise the call will fail with error `INVALID_UNIT`.
 
 The function can only be invoked once per turn (only successful deposit attempts count). Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn. Attempting to invoke `deposit` twice in the same turn, or invoking `deposit` after a successful invocation of `withdraw` in the same turn, will result in an `ON_COOLDOWN` error.
 

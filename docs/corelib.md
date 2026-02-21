@@ -8,7 +8,7 @@ To integrate the corelib into your guest program, you can include the corelib he
 
 The `libcorelib.a` is built with `-ffunction-sections` and `-fdata-sections` flags, which allows for dead code elimination when linking. You can use the `--gc-sections` flag with your linker to ensure that only the necessary parts of the corelib are included in your final binary, reducing the overall size. Note: the flag is `-Wl,--gc-sections` when using the C compiler to link.
 
-The corelib is built for the RISC-V architecture with the `-march=rv32gv_zba_zbb_zbc_zbs` and `-mabi=ilp32d` flags, which means it uses the RV32GCB instruction set and the ILP32D ABI. Make sure to compile your guest program with compatible flags to ensure proper integration with the corelib, or if you are using a different architecture or ABI, you need to build the corelib from source yourself with the appropriate flags.
+The corelib is built for the RISC-V architecture with the `-march=rv32g_zba_zbb_zbc_zbs` and `-mabi=ilp32d` flags, which means it uses the RV32GCB instruction set and the ILP32D ABI. Make sure to compile your guest program with compatible flags to ensure proper integration with the corelib, or if you are using a different architecture or ABI, you need to build the corelib from source yourself with the appropriate flags.
 
 ## Functionality
 

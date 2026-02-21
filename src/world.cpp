@@ -338,7 +338,7 @@ void World::_processUnitMovement() noexcept {
 			}
 		}
 
-		if (occ == -1 || !active[occ]) {
+		if (occ == -1) {
 			// Shouldn't happen
 #ifndef NDEBUG
 			std::cerr << "Error: occupant not found or inactive\n";

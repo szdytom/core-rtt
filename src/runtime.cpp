@@ -1,4 +1,5 @@
 #include "corertt/runtime.h"
+#include "corertt/entity.h"
 #include "corertt/world.h"
 #include "corertt/xoroshiro.h"
 #include "cpptrace/cpptrace.hpp"
@@ -89,12 +90,39 @@ void ecall_log(RVMachine &machine) {
 		std::unique_ptr<char[]> buffer = std::make_unique<char[]>(len);
 		machine.copy_from_guest(buffer.get(), ptr, len);
 		std::string_view view(buffer.get(), buffer.get() + len);
-		std::println("LOG FROM {}-{}: {}", ctx->player->id, (ctx->unit ? ctx->unit->id : 0), view);
+		std::println(
+			"LOG FROM {}-{}: {}", ctx->player->id,
+			(ctx->unit ? ctx->unit->id : 0), view
+		);
 		machine.penalize(len);
 		machine.set_result(ActionResult::OK);
 	} catch (...) {
 		machine.set_result(ActionResult::INVALID_POINTER);
 		return;
+	}
+}
+
+void ecall_meta(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	struct GameInfo {
+		std::uint8_t map_width;
+		std::uint8_t map_height;
+		std::uint8_t base_size;
+		std::uint8_t reserved[13];
+	};
+	static_assert(sizeof(GameInfo) == 16, "GameInfo must be 16 bytes");
+	GameInfo info{};
+	info.map_width = static_cast<std::uint8_t>(ctx->world->width());
+	info.map_height = static_cast<std::uint8_t>(ctx->world->height());
+	info.base_size = static_cast<std::uint8_t>(
+		ctx->world->tilemap().baseSize()
+	);
+	try {
+		auto [ptr] = machine.sysargs<RVMachine::address_t>();
+		machine.copy_to_guest(ptr, &info, sizeof(info));
+		machine.set_result(ActionResult::OK);
+	} catch (...) {
+		machine.set_result(ActionResult::INVALID_POINTER);
 	}
 }
 
@@ -270,6 +298,231 @@ void ecall_send_msg(RVMachine &machine) {
 	}
 }
 
+void ecall_manufact(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.manufact) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [unit_id] = machine.sysargs<int>();
+	// COCURRENT LOCKME
+	// lock_world(ctx->world); lock_player(ctx->player);
+	auto res = ctx->world->manufactureUnit(ctx->player->id, unit_id);
+	// unlock_world(ctx->world); unlock_player(ctx->player);
+	if (res == ActionResult::OK) {
+		ctx->flags.manufact = true;
+	}
+	machine.set_result(res);
+}
+
+void ecall_repair(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.repair) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [unit_id] = machine.sysargs<int>();
+	auto res = ctx->world->repairUnit(ctx->player->id, unit_id);
+	if (res == ActionResult::OK) {
+		ctx->flags.repair = true;
+	}
+	machine.set_result(res);
+}
+
+void ecall_upgrade(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.upgrade) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [unit_id, upgrade_id] = machine.sysargs<int, int>();
+	auto upgrade_type = static_cast<UpgradeType>(upgrade_id);
+	auto res = ctx->world->upgradeUnit(ctx->player->id, unit_id, upgrade_type);
+	if (res == ActionResult::OK) {
+		ctx->flags.upgrade = true;
+	}
+	machine.set_result(res);
+}
+
+void ecall_fire(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (!ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (!ctx->unit->canAttack()) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [dir_id, power] = machine.sysargs<int, int>();
+	if (dir_id < 0 || dir_id > 3 || power < 1) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	auto dir = static_cast<Direction>(dir_id);
+	if (power > ctx->unit->energy) {
+		machine.set_result(ActionResult::INSUFFICIENT_ENERGY);
+		return;
+	}
+	auto damage = power * (ctx->unit->upgrades.damage ? 2 : 1);
+	if (damage > std::numeric_limits<health_t>::max()) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	ctx->unit->energy -= power;
+	ctx->unit->pending_attack = {
+		.damage = static_cast<health_t>(damage),
+		.direction = dir,
+	};
+	ctx->unit->attack_cooldown = 3;
+	machine.set_result(ActionResult::OK);
+}
+
+void ecall_move(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (!ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.move) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [dir_id] = machine.sysargs<int>();
+	if (dir_id < 0 || dir_id > 3) {
+		ctx->unit->pending_move = std::nullopt;
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	auto dir = static_cast<Direction>(dir_id);
+	ctx->unit->pending_move = dir;
+	ctx->flags.move = true;
+	machine.set_result(ActionResult::OK);
+}
+
+void ecall_deposit(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (!ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.deposit_withdraw) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [amount] = machine.sysargs<int>();
+	if (amount < 1) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	if (amount > ctx->unit->energy) {
+		machine.set_result(ActionResult::INSUFFICIENT_ENERGY);
+		return;
+	}
+
+	if (!ctx->world->isInBase(ctx->unit->x, ctx->unit->y, ctx->player->id)) {
+		machine.set_result(ActionResult::INVALID_UNIT);
+		return;
+	}
+
+	ctx->unit->energy -= amount;
+	// COCURRENT LOCKME
+	// lock_player(ctx->player);
+	auto value = ctx->player->base_energy + amount;
+	if (value > std::numeric_limits<energy_t>::max()) {
+		value = std::numeric_limits<energy_t>::max();
+	}
+	ctx->player->base_energy = value;
+	// unlock_player(ctx->player);
+	ctx->flags.deposit_withdraw = true;
+	machine.set_result(ActionResult::OK);
+}
+
+void ecall_withdraw(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	if (!ctx->unit) {
+		machine.set_result(ActionResult::UNSUPPORTED_RUNTIME);
+		return;
+	}
+
+	if (ctx->flags.deposit_withdraw) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+
+	auto [amount] = machine.sysargs<int>();
+	if (amount < 1) {
+		machine.set_result(ActionResult::OUT_OF_RANGE);
+		return;
+	}
+
+	if (amount > ctx->player->base_energy) {
+		machine.set_result(ActionResult::INSUFFICIENT_ENERGY);
+		return;
+	}
+
+	if (!ctx->world->isInBase(ctx->unit->x, ctx->unit->y, ctx->player->id)) {
+		machine.set_result(ActionResult::INVALID_UNIT);
+		return;
+	}
+
+	auto value = ctx->unit->energy + amount;
+	if (value > ctx->unit->maxCapacity()) {
+		value = ctx->unit->maxCapacity();
+	}
+	ctx->unit->energy = value;
+	// COCURRENT LOCKME
+	// lock_player(ctx->player);
+	ctx->player->base_energy -= amount;
+	// unlock_player(ctx->player);
+	ctx->flags.deposit_withdraw = true;
+	machine.set_result(ActionResult::OK);
+}
+
+void ecall_pos(RVMachine &machine) {
+	auto ctx = check_userdata(machine);
+	std::uint8_t x, y;
+	if (ctx->unit) {
+		x = static_cast<std::uint8_t>(ctx->unit->x);
+		y = static_cast<std::uint8_t>(ctx->unit->y);
+	} else {
+		x = static_cast<std::uint8_t>(ctx->player->base_x);
+		y = static_cast<std::uint8_t>(ctx->player->base_y);
+	}
+	// Pack as {x, y, 0, 0} into a uint32_t (little-endian).
+	std::uint32_t result = static_cast<std::uint32_t>(x)
+		| (static_cast<std::uint32_t>(y) << 8);
+	machine.set_result(result);
+}
+
 void ecall_rand(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
 	constexpr std::uint32_t u32_mask = 0xFF'FF'FF'FF;
@@ -295,6 +548,7 @@ void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 	// Register ecall handlers
 	machine.install_syscall_handler(ECallNumber::ABORT, ecall_abort);
 	machine.install_syscall_handler(ECallNumber::LOG, ecall_log);
+	machine.install_syscall_handler(ECallNumber::META, ecall_meta);
 	machine.install_syscall_handler(ECallNumber::TURN, ecall_turn);
 	machine.install_syscall_handler(ECallNumber::DEV_INFO, ecall_dev_info);
 	machine.install_syscall_handler(
@@ -302,7 +556,15 @@ void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 	);
 	machine.install_syscall_handler(ECallNumber::RECV_MSG, ecall_recv_msg);
 	machine.install_syscall_handler(ECallNumber::SEND_MSG, ecall_send_msg);
+	machine.install_syscall_handler(ECallNumber::POS, ecall_pos);
 	machine.install_syscall_handler(ECallNumber::RAND, ecall_rand);
+	machine.install_syscall_handler(ECallNumber::MANUFACT, ecall_manufact);
+	machine.install_syscall_handler(ECallNumber::REPAIR, ecall_repair);
+	machine.install_syscall_handler(ECallNumber::UPGRADE, ecall_upgrade);
+	machine.install_syscall_handler(ECallNumber::FIRE, ecall_fire);
+	machine.install_syscall_handler(ECallNumber::MOVE, ecall_move);
+	machine.install_syscall_handler(ECallNumber::DEPOSIT, ecall_deposit);
+	machine.install_syscall_handler(ECallNumber::WITHDRAW, ecall_withdraw);
 
 	machine.install_syscall_handler(riscv::SYSCALL_EBREAK, ecall_ebreak);
 

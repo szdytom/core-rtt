@@ -41,11 +41,13 @@ struct ECallNumber {
 	static constexpr std::size_t LOG = 0x01;
 
 	// Common calls
+	static constexpr std::size_t META = 0x0F;
 	static constexpr std::size_t TURN = 0x10;
 	static constexpr std::size_t DEV_INFO = 0x11;
 	static constexpr std::size_t READ_SENSOR = 0x12;
 	static constexpr std::size_t RECV_MSG = 0x13;
 	static constexpr std::size_t SEND_MSG = 0x14;
+	static constexpr std::size_t POS = 0x15;
 
 	// Base calls
 	static constexpr std::size_t MANUFACT = 0x20;
@@ -77,6 +79,11 @@ inline const riscv::MachineOptions<riscv::RISCV32> RUNTIME_OPTION = {
 
 struct ECallInvokedFlags {
 	bool send_msg : 1 = false;
+	bool manufact : 1 = false;
+	bool repair : 1 = false;
+	bool upgrade : 1 = false;
+	bool move : 1 = false;
+	bool deposit_withdraw : 1 = false;
 };
 
 struct RuntimeECallContext {

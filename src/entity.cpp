@@ -85,12 +85,12 @@ void Unit::step(World &world, Player &player) noexcept {
 		if (!world.isInBounds(tx, ty)) {
 			continue;
 		}
+		_ecall_ctx.visible_tiles[idx] = true;
 
 		const auto tile = tilemap.tileOf(tx, ty);
 		if (tile.terrain == Tile::OBSTACLE) {
 			continue;
 		}
-		_ecall_ctx.visible_tiles[idx] = true;
 
 		const pos_t dx[] = {0, 0, -1, 1};
 		const pos_t dy[] = {-1, 1, 0, 0};
@@ -115,8 +115,8 @@ void Unit::step(World &world, Player &player) noexcept {
 }
 
 Bullet::Bullet(
-	pos_t x, pos_t y, Direction dir, std::uint16_t dmg, std::uint8_t pid
+	pos_t x, pos_t y, Direction dir, health_t dmg, std::uint8_t pid
 ) noexcept
-	: x(x), y(y), direction(dir), damage(dmg), player_id(pid) {}
+	: x(x), y(y), direction(dir), player_id(pid), damage(dmg) {}
 
 } // namespace cr

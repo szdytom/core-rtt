@@ -67,12 +67,12 @@ struct Bullet {
 	pos_t x;
 	pos_t y;
 	Direction direction;
-	std::uint16_t damage;   // damage value
 	std::uint8_t player_id; // 1 or 2, owner of the bullet
+	health_t damage;        // damage value
 
 	Bullet() noexcept = default;
 	Bullet(
-		pos_t x, pos_t y, Direction dir, std::uint16_t dmg, std::uint8_t pid
+		pos_t x, pos_t y, Direction dir, health_t dmg, std::uint8_t pid
 	) noexcept;
 };
 

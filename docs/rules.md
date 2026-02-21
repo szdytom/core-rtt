@@ -86,26 +86,25 @@ Within a turn, actions are strictly executed in the following order:
 
 ## Interface Summary
 
-The program accesses the following interfaces:
+The program can access the following interface to interact with the game environment:
 
-- `turn()`: Reads the current turn number.
-- `dev_info(data)`: Retrieves the unit's own ID, carried energy, installed upgrades, etc.
-- `read_sensor(data)`: Gets information about surrounding tiles (terrain, units, etc.) and saves it to `data`.
-- `receive_msg(buf)`: Receives messages from the queue.
-- `send_msg(n, buf)`: Sends a message in the specified direction.
+- `meta(struct GameInfo* info)`: Retrieves game meta information (map size, base size, etc.).
+- `turn()`: Returns the current turn number.
+- `dev_info()`: Returns information about the current device (base or unit).
+- `read_sensor(struct SensorData data[])`: Reads sensor data of surrounding tiles.
+- `recv_msg(uint8_t buf[], int n)`: Receives a message from the queue.
+- `send_msg(const uint8_t buf[], int n)`: Sends a message to all allied devices (once per turn).
+- `pos()`: Returns the current coordinates (x, y) of the unit or base.
 
-The base program can additionally access:
+Base runtime only:
+- `manufact(int id)`: Manufactures a new unit with the specified ID.
+- `repair(int id)`: Repairs the unit with the specified ID.
+- `upgrade(int id, int type)`: Upgrades the unit with the specified ID and upgrade type.
 
-- `manufact(id)`: Produces a new unit with the assigned ID. The ID must not have been previously assigned or must belong to a unit that has been destroyed.
-- `repair(id)`: Repairs the unit with the specified ID.
-- `upgrade(id, type)`: Installs an upgrade of the specified type for the unit with the given ID.
+Unit runtime only:
+- `fire(int direction, int power)`: Fires a bullet in the specified direction, consuming energy.
+- `move(int direction)`: Moves the unit in the specified direction.
+- `deposit(int amount)`: Deposits energy from the unit to the base.
+- `withdraw(int amount)`: Withdraws energy from the base to the unit.
 
-Unit programs can additionally access:
-
-- `pos()`: Gets the current coordinates (x, y).
-- `move(direction)`: Moves the unit.
-- `attack(direction, power)`: Fires a bullet, paying the specified power amount of energy.
-- `deposit(amount)`: Deposits the specified amount of energy into the base.
-- `withdraw(amount)`: Withdraws the specified amount of energy from the base.
-
-For complete technical details, refer to the interface documentation.
+For complete technical details, refer to the API specification.

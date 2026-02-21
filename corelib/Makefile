@@ -7,7 +7,7 @@ AR = riscv32-elf-ar
 
 # Compiler flags for both library and tests
 CFLAGS = -O2 -ffreestanding -nostdlib -nostdinc \
-         -march=rv32gv_zba_zbb_zbc_zbs -mabi=ilp32d \
+         -march=rv32g_zba_zbb_zbc_zbs -mabi=ilp32d \
          -Wall -ffunction-sections -fdata-sections \
          -I. # include current dir for corelib.h
 
@@ -23,7 +23,8 @@ LIB_OBJ = $(LIB_SRC:.c=.o)
 
 # List of test source files and corresponding ELF targets
 TEST_SRCS = test/base.c test/dummy.c test/heap.c \
-            test/misc.c test/msg.c
+            test/misc.c test/msg.c \
+            test/unit_fight.c test/deposit_withdraw.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_ELFS = $(TEST_SRCS:.c=.elf)
 

@@ -3,11 +3,9 @@
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <chrono>
 #include <cstdint>
-#include <deque>
 #include <format>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
@@ -16,6 +14,7 @@
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/terminal.hpp>
 #include <mutex>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -72,7 +71,10 @@ struct RenderedLogLine {
 
 struct LogPanelLayoutState {
 	ftxui::Box content_box{};
-	int available_rows = 1;
+
+	int availableRows() const noexcept {
+		return content_box.y_max - content_box.y_min + 1;
+	}
 };
 
 struct InfoPanelState {
@@ -212,37 +214,24 @@ int computeViewportSize(const World &world) noexcept {
 	);
 }
 
-std::vector<std::string> renderPayloadLines(std::string_view payload) {
+std::vector<std::string> renderPayloadLines(
+	std::string_view payload, std::string &&prefix
+) {
 	std::vector<std::string> lines;
-	lines.emplace_back();
+	const auto prefix_length = prefix.size();
+	lines.emplace_back(std::move(prefix));
 
+	bool pop_last = false;
 	for (std::size_t i = 0; i < payload.size(); ++i) {
-		const unsigned char ch = static_cast<unsigned char>(payload[i]);
-
-		if (ch == '\\' && i + 1 < payload.size()) {
-			const char next = payload[i + 1];
-			if (next == 'n') {
-				lines.emplace_back();
-				++i;
-				continue;
-			}
-			if (next == 't') {
-				lines.back().push_back('\t');
-				++i;
-				continue;
-			}
-			if (next == 'r') {
-				lines.back().push_back('\r');
-				++i;
-				continue;
-			}
-		}
+		const auto ch = payload[i];
 
 		if (ch == '\n') {
-			lines.emplace_back();
+			pop_last = true;
+			lines.emplace_back(std::string(prefix_length, ' '));
 			continue;
 		}
 
+		pop_last = false;
 		if (ch == '\t' || ch == '\r' || std::isprint(ch)) {
 			lines.back().push_back(ch);
 			continue;
@@ -251,52 +240,31 @@ std::vector<std::string> renderPayloadLines(std::string_view payload) {
 		lines.back() += std::format("\\x{:02X}", static_cast<int>(ch));
 	}
 
-	if (lines.empty()) {
-		lines.emplace_back();
+	if (pop_last) {
+		lines.pop_back();
 	}
 	return lines;
 }
 
-std::string_view logTypeLabel(LogType type) noexcept {
-	switch (type) {
-	case LogType::CUSTOM:
-		return "CUSTOM";
-	case LogType::UNIT_CREATION:
-		return "UNIT_CREATE";
-	case LogType::UNIT_DESTRUCTION:
-		return "UNIT_DESTROY";
-	case LogType::EXECUTION_EXCEPTION:
-		return "EXEC_EXIT";
-	case LogType::BASE_CAPTURED:
-		return "BASE_CAPTURE";
-	}
-	return "UNKNOWN";
-}
-
-std::vector<RenderedLogLine> formatLogEntryLines(const LogEntry &entry) {
-	const std::string dev = entry.unit_id == 0
+void formatLogEntryLines(
+	const LogEntry &entry, std::vector<RenderedLogLine> &out_lines
+) {
+	const std::string dev_name = entry.unit_id == 0
 		? "base"
-		: std::format("u{}", entry.unit_id);
-	const std::string prefix = std::format(
-		"[T{} P{}-{} {}] ", entry.tick, entry.player_id, dev,
-		logTypeLabel(entry.type)
+		: std::format("{:02}", entry.unit_id);
+
+	std::string prefix = std::format(
+		"[{:04} P{}-{} {}] ", entry.tick, entry.player_id, dev_name,
+		entry.source == LogSource::SYSTEM ? "SYS" : "USR"
 	);
 
-	auto payload_lines = renderPayloadLines(entry.payload);
-	if (payload_lines.empty()) {
-		payload_lines.emplace_back();
-	}
+	auto payload_lines = renderPayloadLines(entry.payload, std::move(prefix));
 
-	std::vector<RenderedLogLine> formatted;
-	formatted.reserve(payload_lines.size());
-	formatted.push_back({prefix + payload_lines.front(), false});
-	for (std::size_t i = 1; i < payload_lines.size(); ++i) {
-		formatted.push_back({
-			std::format("{:>{}}{}", "", prefix.size(), payload_lines[i]),
-			true,
-		});
+	// Reverse the lines
+	for (auto it = payload_lines.rbegin(); it != payload_lines.rend(); ++it) {
+		out_lines.push_back({std::move(*it), true});
 	}
-	return formatted;
+	out_lines.back().is_continuation = false;
 }
 
 std::vector<RenderedLogLine> collectVisibleLogLines(
@@ -306,58 +274,31 @@ std::vector<RenderedLogLine> collectVisibleLogLines(
 		return {};
 	}
 
-	std::deque<std::vector<RenderedLogLine>> selected_logs;
-	int used_rows = 0;
-
-	const auto begin = world.runtimeLogsBegin();
-	for (auto it = world.runtimeLogsEnd();
-	     it != begin && used_rows < available_rows;) {
-		--it;
-		auto lines = formatLogEntryLines(*it);
-		const int line_count = static_cast<int>(lines.size());
-
-		if (used_rows + line_count > available_rows) {
-			if (used_rows == 0) {
-				if (line_count > available_rows) {
-					const auto keep_begin = lines.end()
-						- static_cast<std::ptrdiff_t>(available_rows);
-					lines = std::vector<RenderedLogLine>(
-						keep_begin, lines.end()
-					);
-				}
-				selected_logs.push_front(std::move(lines));
-			}
+	std::vector<RenderedLogLine> lines;
+	const auto log_range = world.runtimeLogs();
+	for (auto &entry : (log_range | std::views::reverse)) {
+		formatLogEntryLines(entry, lines);
+		if (lines.size() >= available_rows) {
 			break;
 		}
-
-		used_rows += line_count;
-		selected_logs.push_front(std::move(lines));
 	}
 
-	std::vector<RenderedLogLine> visible_lines;
-	if (selected_logs.empty()) {
-		visible_lines.push_back({std::string(UiConst::no_logs_yet), true});
-		return visible_lines;
+	if (lines.empty()) {
+		lines.push_back({std::string(UiConst::no_logs_yet), false});
+		return lines;
 	}
 
-	for (const auto &log_lines : selected_logs) {
-		visible_lines.insert(
-			visible_lines.end(), log_lines.begin(), log_lines.end()
-		);
+	if (lines.size() > available_rows) {
+		lines.resize(available_rows);
 	}
-	return visible_lines;
+	std::reverse(lines.begin(), lines.end());
+	return lines;
 }
 
 ftxui::Element renderLogPanel(const World &world, LogPanelLayoutState &layout) {
 	using namespace ftxui;
 
-	const int measured_rows = layout.content_box.y_max
-		- layout.content_box.y_min + 1;
-	if (measured_rows > 0) {
-		layout.available_rows = measured_rows;
-	}
-
-	auto visible_lines = collectVisibleLogLines(world, layout.available_rows);
+	auto visible_lines = collectVisibleLogLines(world, layout.availableRows());
 
 	std::vector<Element> rendered_lines;
 	rendered_lines.reserve(visible_lines.size());
@@ -404,11 +345,6 @@ ftxui::Element renderInfoPanel(
 		vbox({
 			text(std::string(UiConst::controls_line_1)),
 			text(std::string(UiConst::controls_line_2)),
-			text(
-				std::format(
-					"Step interval: {} ms", panel_state.step_interval_ms
-				)
-			),
 			separator(),
 			text(std::format("Current tick: {}", panel_state.tick)),
 			renderGameStatusLine(panel_state),
@@ -522,35 +458,33 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 			return true;
 		}
 
-		if (event == Event::Character('q') || event == Event::Character('Q')
-		    || event == Event::Escape) {
+		if (event == Event::q || event == Event::Q || event == Event::Escape) {
 			logic_thread.request_stop();
 			screen.ExitLoopClosure()();
 			return true;
 		}
 
-		if (event == Event::Character('w') || event == Event::Character('W')
-		    || event == Event::ArrowUp) {
+		if (event == Event::w || event == Event::W || event == Event::ArrowUp) {
 			std::scoped_lock lock(world_mutex);
 			camera.y -= 1;
 			clampCamera(world, camera);
 			moved = true;
 		}
-		if (event == Event::Character('s') || event == Event::Character('S')
+		if (event == Event::s || event == Event::S
 		    || event == Event::ArrowDown) {
 			std::scoped_lock lock(world_mutex);
 			camera.y += 1;
 			clampCamera(world, camera);
 			moved = true;
 		}
-		if (event == Event::Character('a') || event == Event::Character('A')
+		if (event == Event::a || event == Event::A
 		    || event == Event::ArrowLeft) {
 			std::scoped_lock lock(world_mutex);
 			camera.x -= 1;
 			clampCamera(world, camera);
 			moved = true;
 		}
-		if (event == Event::Character('d') || event == Event::Character('D')
+		if (event == Event::d || event == Event::D
 		    || event == Event::ArrowRight) {
 			std::scoped_lock lock(world_mutex);
 			camera.x += 1;

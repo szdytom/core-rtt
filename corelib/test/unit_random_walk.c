@@ -66,20 +66,19 @@ static int pickDirection(void) {
 	return -1;
 }
 
-static void logStep(int unit_id, int t, int pos_x, int pos_y, int dir, int ret) {
+static void logStep(int pos_x, int pos_y, int dir, int ret) {
+	const char *dir_str = "UDLR";
+
 	char *p = line;
-	p = appendStr(p, "[rw] unit=");
-	p = appendInt(p, unit_id);
-	p = appendStr(p, " tick=");
-	p = appendInt(p, t);
-	p = appendStr(p, " pos=(");
+	p = appendStr(p, "[rw] pos=(");
 	p = appendInt(p, pos_x);
 	p = appendStr(p, ",");
 	p = appendInt(p, pos_y);
 	p = appendStr(p, ") dir=");
-	p = appendInt(p, dir);
-	p = appendStr(p, " move_ret=");
-	p = appendInt(p, ret);
+	*p++ = dir_str[dir];
+	if (ret != 0) {
+		p = appendStr(p, " FAILED");
+	}
 	*p++ = '\n';
 	log(line, p - line);
 }
@@ -98,14 +97,12 @@ int main() {
 
 		read_sensor(sensor);
 		int dir = pickDirection();
-		int ret = EC_OUT_OF_RANGE;
 		if (dir >= 0) {
-			ret = move(dir);
-		}
-
-		if (unit_id == 1) {
-			struct PosInfo p = pos();
-			logStep(unit_id, t, p.x, p.y, dir, ret);
+			int ret = move(dir);
+			if (unit_id == 1) {
+				struct PosInfo p = pos();
+				logStep(p.x, p.y, dir, ret);
+			}
 		}
 	}
 }

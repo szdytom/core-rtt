@@ -17,9 +17,9 @@ class Player;
 
 enum class Direction : std::uint8_t {
 	Up = 0,
-	Down = 1,
-	Left = 2,
-	Right = 3,
+	Right = 1,
+	Down = 2,
+	Left = 3,
 };
 
 struct Upgrades {

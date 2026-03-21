@@ -11,6 +11,7 @@ FetchContent_Declare(msft_proxy4
 	GIT_REPOSITORY https://github.com/microsoft/proxy.git
 	GIT_TAG 4.0.1
 	GIT_SHALLOW ON
+	GIT_PROGRESS ON
 	EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(msft_proxy4)
@@ -21,6 +22,7 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
 	GIT_TAG        v1.0.4
 	GIT_SHALLOW ON
+	GIT_PROGRESS ON
 	EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(cpptrace)
@@ -31,6 +33,7 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/p-ranav/argparse.git
 	GIT_TAG v3.2
 	GIT_SHALLOW ON
+	GIT_PROGRESS ON
 	EXCLUDE_FROM_ALL SYSTEM
 )
 FetchContent_MakeAvailable(argparse)
@@ -40,6 +43,7 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/libriscv/libriscv.git
 	GIT_TAG v1.15
 	GIT_SHALLOW ON
+	GIT_PROGRESS ON
 	EXCLUDE_FROM_ALL SYSTEM
 )
 option(RISCV_64I "" OFF)
@@ -49,8 +53,19 @@ option(RISCV_32I "" ON)
 FetchContent_MakeAvailable(riscv)
 target_compile_definitions(riscv PUBLIC RISCV_SYSCALLS_MAX=200)
 
+FetchContent_Declare(
+	ftxui
+	GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
+	GIT_TAG v6.1.9
+	GIT_SHALLOW ON
+	GIT_PROGRESS ON
+	EXCLUDE_FROM_ALL SYSTEM
+)
+FetchContent_MakeAvailable(ftxui)
+
 add_executable(corertt
 	src/main.cpp
+	src/tui.cpp
 	src/noise.cpp
 	src/xoroshiro.cpp
 	src/tilemap.cpp
@@ -70,4 +85,7 @@ target_link_libraries(corertt PRIVATE
 	cpptrace::cpptrace
 	argparse::argparse
 	riscv
+	ftxui::screen
+	ftxui::dom
+	ftxui::component
 )

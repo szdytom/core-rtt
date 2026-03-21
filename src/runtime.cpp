@@ -1,16 +1,16 @@
 #include "corertt/runtime.h"
 #include "corertt/entity.h"
+#include "corertt/log.h"
 #include "corertt/world.h"
 #include "corertt/xoroshiro.h"
-#include "cpptrace/cpptrace.hpp"
 #include <bit>
+#include <cpptrace/basic.hpp>
 #include <cstdlib>
 #include <iostream>
 #include <libriscv/common.hpp>
 #include <libriscv/types.hpp>
 #include <memory>
 #include <print>
-#include <string_view>
 
 namespace cr {
 
@@ -72,26 +72,11 @@ void ecall_ebreak(RVMachine &machine) {}
 void ecall_abort(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
 	ctx->stop_reason = StoppedReason::ABORTED;
-	std::println(std::cerr, "ECALL ABORT invoked by guest program");
 	machine.stop();
 }
 
 void ecall_log(RVMachine &machine) {
 	constexpr int length_limit = 512;
-
-	auto sanitize_log = [](std::string_view raw) {
-		std::string sanitized;
-		sanitized.reserve(raw.size());
-		for (const unsigned char ch : raw) {
-			if (ch == '\n' || ch == '\t' || ch == '\r' || isprint(ch)) {
-				sanitized.push_back(ch);
-				continue;
-			}
-
-			sanitized += std::format("\\x{:02X}", static_cast<int>(ch));
-		}
-		return sanitized;
-	};
 
 	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
 	if (len < 1 || len > length_limit) {
@@ -102,12 +87,12 @@ void ecall_log(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
 
 	try {
-		std::unique_ptr<char[]> buffer = std::make_unique<char[]>(len);
-		machine.copy_from_guest(buffer.get(), ptr, len);
-		const std::string_view view(buffer.get(), len);
-		ctx->world->appendRuntimeLog(
-			ctx->player->id, (ctx->unit ? ctx->unit->id : 0), sanitize_log(view)
+		auto entry = LogEntry::customLog(
+			ctx->world->currentTick(), ctx->player->id,
+			(ctx->unit ? ctx->unit->id : 0), static_cast<std::size_t>(len)
 		);
+		machine.copy_from_guest(entry.owner.get(), ptr, len);
+		ctx->world->appendLog(std::move(entry));
 		machine.penalize(len);
 		machine.set_result(ActionResult::OK);
 	} catch (...) {
@@ -601,10 +586,6 @@ void RuntimeECallContext::simulate(
 	try {
 		machine.simulate<false>(max_cycles);
 	} catch (const riscv::MachineException &e) {
-		std::println(
-			std::cerr, "Machine exception: {} (code {})", e.what(), e.type()
-		);
-
 		switch (e.type()) {
 		case riscv::ILLEGAL_OPERATION:
 		case riscv::ILLEGAL_OPCODE:
@@ -631,7 +612,6 @@ void RuntimeECallContext::simulate(
 			break;
 		}
 	} catch (...) {
-		std::println(std::cerr, "Unknown exception during simulation");
 		stop_reason = StoppedReason::UNKOWN_EXCEPTION;
 	}
 }

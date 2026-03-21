@@ -72,6 +72,7 @@ add_executable(corertt
 	src/world.cpp
 	src/entity.cpp
 	src/runtime.cpp
+	src/log.cpp
 )
 
 target_compile_features(corertt PRIVATE cxx_std_23)

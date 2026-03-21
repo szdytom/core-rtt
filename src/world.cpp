@@ -1,5 +1,6 @@
 #include "corertt/world.h"
 #include "corertt/entity.h"
+#include "corertt/log.h"
 #include "corertt/runtime.h"
 #include "corertt/xoroshiro.h"
 #include <algorithm>
@@ -58,6 +59,12 @@ void Player::step(World &world) noexcept {
 
 	_base_ecall_ctx.simulate(world, *this, nullptr, *_base_machine);
 	if (_base_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
+		world.appendLog(
+			LogEntry::executionExceptionLog(
+				world.currentTick(), static_cast<std::uint8_t>(id), 0,
+				_base_ecall_ctx.stop_reason
+			)
+		);
 		_base_machine.reset();
 	}
 }
@@ -221,6 +228,25 @@ void World::_handleBulletCollision(
 }
 
 void World::_processUnitMovement() noexcept {
+	for (const auto &unit : _units) {
+		if (unit->health != 0) {
+			continue;
+		}
+
+		appendLog(
+			LogEntry::unitDestructionLog(
+				currentTick(), unit->player_id, unit->id
+			)
+		);
+		_players[unit->player_id - 1].units[unit->id - 1] = nullptr;
+
+		auto &tile = _tilemap.tileOf(unit->x, unit->y);
+		if (tile.occupied_state == Tile::OCCUPIED_BY_UNIT
+		    && tile.unit_ptr == unit.get()) {
+			tile.unsetOccupant();
+		}
+	}
+
 	auto is_destroyed = [](const auto &u) {
 		return u->health == 0;
 	};
@@ -550,6 +576,7 @@ void World::_spawnUnit(
 	tile.occupied_state = Tile::OCCUPIED_BY_UNIT;
 
 	_players[player_id - 1].units[unit_id - 1] = new_unit.get();
+	appendLog(LogEntry::unitCreationLog(currentTick(), player_id, unit_id));
 	_units.push_back(std::move(new_unit));
 }
 
@@ -725,30 +752,20 @@ void World::setPlayerProgram(
 	player.unit_elf = std::move(unit_elf);
 }
 
-void World::appendRuntimeLog(
-	std::uint8_t player_id, std::uint8_t unit_id, std::string message
-) {
-	_runtime_logs.push_back(RuntimeLogEntry{
-		.tick = currentTick(),
-		.player_id = player_id,
-		.unit_id = unit_id,
-		.message = std::move(message),
-	});
+void World::appendLog(LogEntry entry) {
+	_runtime_logs.push_back(std::move(entry));
 
 	while (_runtime_logs.size() > max_runtime_logs) {
 		_runtime_logs.pop_front();
 	}
 }
 
-std::vector<RuntimeLogEntry>
-World::runtimeLogsSnapshot(std::size_t max_entries) const {
-	if (_runtime_logs.empty() || max_entries == 0) {
-		return {};
-	}
+World::RuntimeLogConstIterator World::runtimeLogsBegin() const noexcept {
+	return _runtime_logs.cbegin();
+}
 
-	const std::size_t count = std::min(max_entries, _runtime_logs.size());
-	const auto begin = _runtime_logs.end() - static_cast<std::ptrdiff_t>(count);
-	return std::vector<RuntimeLogEntry>(begin, _runtime_logs.end());
+World::RuntimeLogConstIterator World::runtimeLogsEnd() const noexcept {
+	return _runtime_logs.cend();
 }
 
 } // namespace cr

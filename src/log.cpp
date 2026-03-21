@@ -87,4 +87,38 @@ LogEntry LogEntry::executionExceptionLog(
 	};
 }
 
+LogEntry LogEntry::baseCapturedLog(
+	std::uint32_t tick, std::uint8_t captured_player_id,
+	std::uint8_t winner_player_id
+) {
+	using namespace std::string_view_literals;
+
+#ifndef NDEBUG
+	if ((captured_player_id != 1 && captured_player_id != 2)
+	    || (winner_player_id != 1 && winner_player_id != 2)
+	    || captured_player_id == winner_player_id) {
+		std::cerr << "Invalid base capture player ids: captured="
+				  << static_cast<int>(captured_player_id) << ", winner="
+				  << static_cast<int>(winner_player_id) << std::endl;
+		cpptrace::generate_trace().print(std::cerr);
+		std::abort();
+	}
+#endif
+
+	static constexpr std::array<std::string_view, 3> messages = {
+		""sv,
+		"Base captured, player 2 wins"sv,
+		"Base captured, player 1 wins"sv,
+	};
+
+	return LogEntry{
+		.tick = tick,
+		.player_id = captured_player_id,
+		.unit_id = 0,
+		.source = LogSource::SYSTEM,
+		.type = LogType::BASE_CAPTURED,
+		.payload = messages[captured_player_id],
+	};
+}
+
 } // namespace cr

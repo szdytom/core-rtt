@@ -70,6 +70,18 @@ public:
 		return tick;
 	}
 
+	bool isGameOver() const noexcept {
+		return _winner_player_id != 0;
+	}
+
+	std::uint8_t winnerPlayerId() const noexcept {
+		return _winner_player_id;
+	}
+
+	std::uint8_t capturedPlayerId() const noexcept {
+		return _captured_player_id;
+	}
+
 	const Tilemap &tilemap() const noexcept {
 		return _tilemap;
 	}
@@ -116,6 +128,8 @@ private:
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;
 	std::deque<LogEntry> _runtime_logs;
+	std::uint8_t _winner_player_id = 0;
+	std::uint8_t _captured_player_id = 0;
 
 	// Helper methods
 	void _processBulletMovement() noexcept;

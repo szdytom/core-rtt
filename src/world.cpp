@@ -109,10 +109,17 @@ World::World(Tilemap tilemap) noexcept
 }
 
 void World::step() noexcept {
+	if (isGameOver()) {
+		return;
+	}
+
 	tick += 1;
 	_processBulletMovement();
 	_processUnitMovement();
 	_checkBaseCaptureCondition();
+	if (isGameOver()) {
+		return;
+	}
 	_collectEnergy();
 
 	for (auto &player : _players) {
@@ -455,9 +462,12 @@ void World::_processUnitMovement() noexcept {
 }
 
 void World::_checkBaseCaptureCondition() noexcept {
+	if (isGameOver()) {
+		return;
+	}
+
 	for (int pid : {1, 2}) {
 		auto &player = _players[pid - 1];
-		int enemy_id = 3 - pid;
 
 		int own_units_in_base = 0;
 		int enemy_units_in_base = 0;
@@ -487,6 +497,22 @@ void World::_checkBaseCaptureCondition() noexcept {
 		// Simultaneous capture, match continues
 		_players[0].base_capture_counter -= 1;
 		_players[1].base_capture_counter -= 1;
+		return;
+	}
+
+	for (int pid : {1, 2}) {
+		if (_players[pid - 1].base_capture_counter < base_capture_threshold) {
+			continue;
+		}
+
+		_captured_player_id = static_cast<std::uint8_t>(pid);
+		_winner_player_id = static_cast<std::uint8_t>(3 - pid);
+		appendLog(
+			LogEntry::baseCapturedLog(
+				currentTick(), _captured_player_id, _winner_player_id
+			)
+		);
+		return;
 	}
 }
 

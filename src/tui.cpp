@@ -133,6 +133,8 @@ std::string_view logTypeLabel(LogType type) noexcept {
 		return "UNIT_DESTROY";
 	case LogType::EXECUTION_EXCEPTION:
 		return "EXEC_EXIT";
+	case LogType::BASE_CAPTURED:
+		return "BASE_CAPTURE";
 	}
 	return "UNKNOWN";
 }
@@ -252,6 +254,14 @@ ftxui::Element renderInfoPanel(
 			text(std::format("Step interval: {} ms", step_interval.count())),
 			separator(),
 			text(std::format("Current tick: {}", world.currentTick())),
+			text(
+				world.isGameOver()
+					? std::format(
+						  "Game over: P{} wins (P{} base captured)",
+						  world.winnerPlayerId(), world.capturedPlayerId()
+					  )
+					: "Game status: Running"
+			),
 			text(std::format("View origin: ({}, {})", camera.x, camera.y)),
 		})
 	);
@@ -357,11 +367,17 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 			if (stop_token.stop_requested()) {
 				break;
 			}
+
+			bool game_over = false;
 			{
 				std::scoped_lock lock(world_mutex);
 				world.step();
+				game_over = world.isGameOver();
 			}
 			screen.PostEvent(Event::Custom);
+			if (game_over) {
+				break;
+			}
 			next_tick += step_interval;
 		}
 	});

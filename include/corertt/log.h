@@ -19,6 +19,7 @@ enum class LogType : std::uint8_t {
 	UNIT_CREATION,
 	UNIT_DESTRUCTION,
 	EXECUTION_EXCEPTION,
+	BASE_CAPTURED,
 };
 
 struct LogEntry {
@@ -48,6 +49,11 @@ struct LogEntry {
 	static LogEntry executionExceptionLog(
 		std::uint32_t tick, std::uint8_t player_id, std::uint8_t unit_id,
 		StoppedReason reason
+	);
+
+	static LogEntry baseCapturedLog(
+		std::uint32_t tick, std::uint8_t captured_player_id,
+		std::uint8_t winner_player_id
 	);
 };
 

@@ -725,4 +725,30 @@ void World::setPlayerProgram(
 	player.unit_elf = std::move(unit_elf);
 }
 
+void World::appendRuntimeLog(
+	std::uint8_t player_id, std::uint8_t unit_id, std::string message
+) {
+	_runtime_logs.push_back(RuntimeLogEntry{
+		.tick = currentTick(),
+		.player_id = player_id,
+		.unit_id = unit_id,
+		.message = std::move(message),
+	});
+
+	while (_runtime_logs.size() > max_runtime_logs) {
+		_runtime_logs.pop_front();
+	}
+}
+
+std::vector<RuntimeLogEntry>
+World::runtimeLogsSnapshot(std::size_t max_entries) const {
+	if (_runtime_logs.empty() || max_entries == 0) {
+		return {};
+	}
+
+	const std::size_t count = std::min(max_entries, _runtime_logs.size());
+	const auto begin = _runtime_logs.end() - static_cast<std::ptrdiff_t>(count);
+	return std::vector<RuntimeLogEntry>(begin, _runtime_logs.end());
+}
+
 } // namespace cr

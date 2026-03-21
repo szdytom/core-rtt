@@ -5,7 +5,9 @@
 #include "corertt/runtime.h"
 #include "corertt/tilemap.h"
 #include <array>
+#include <deque>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace cr {
@@ -24,6 +26,13 @@ struct MessagePacket {
 	static constexpr std::size_t packet_size = 512;
 	std::uint8_t length;
 	std::array<std::uint8_t, packet_size> data;
+};
+
+struct RuntimeLogEntry {
+	std::uint32_t tick;
+	std::uint8_t player_id;
+	std::uint8_t unit_id; // 0 means base
+	std::string message;
 };
 
 struct Player {
@@ -95,13 +104,21 @@ public:
 		int player_id, std::vector<std::uint8_t> base_elf,
 		std::vector<std::uint8_t> unit_elf
 	) noexcept;
+	void appendRuntimeLog(
+		std::uint8_t player_id, std::uint8_t unit_id, std::string message
+	);
+	std::vector<RuntimeLogEntry>
+	runtimeLogsSnapshot(std::size_t max_entries) const;
 
 private:
+	static constexpr std::size_t max_runtime_logs = 512;
+
 	std::uint32_t tick;
 	Tilemap _tilemap;
 	Player _players[2];
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;
+	std::deque<RuntimeLogEntry> _runtime_logs;
 
 	// Helper methods
 	void _processBulletMovement() noexcept;

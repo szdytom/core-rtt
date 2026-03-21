@@ -78,6 +78,21 @@ void ecall_abort(RVMachine &machine) {
 
 void ecall_log(RVMachine &machine) {
 	constexpr int length_limit = 512;
+
+	auto sanitize_log = [](std::string_view raw) {
+		std::string sanitized;
+		sanitized.reserve(raw.size());
+		for (const unsigned char ch : raw) {
+			if (ch == '\n' || ch == '\t' || ch == '\r' || isprint(ch)) {
+				sanitized.push_back(ch);
+				continue;
+			}
+
+			sanitized += std::format("\\x{:02X}", static_cast<int>(ch));
+		}
+		return sanitized;
+	};
+
 	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
 	if (len < 1 || len > length_limit) {
 		machine.set_result(ActionResult::OUT_OF_RANGE);
@@ -89,10 +104,9 @@ void ecall_log(RVMachine &machine) {
 	try {
 		std::unique_ptr<char[]> buffer = std::make_unique<char[]>(len);
 		machine.copy_from_guest(buffer.get(), ptr, len);
-		std::string_view view(buffer.get(), buffer.get() + len);
-		std::println(
-			"LOG FROM {}-{}: {}", ctx->player->id,
-			(ctx->unit ? ctx->unit->id : 0), view
+		const std::string_view view(buffer.get(), len);
+		ctx->world->appendRuntimeLog(
+			ctx->player->id, (ctx->unit ? ctx->unit->id : 0), sanitize_log(view)
 		);
 		machine.penalize(len);
 		machine.set_result(ActionResult::OK);

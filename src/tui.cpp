@@ -23,6 +23,7 @@ namespace {
 constexpr int min_map_window_outer_width = 3;
 constexpr int min_map_window_outer_height = 3;
 constexpr int info_panel_preferred_min_width = 24;
+constexpr std::size_t sidebar_log_limit = 18;
 
 struct CameraState {
 	int x = 0;
@@ -63,6 +64,28 @@ int computeViewportSize(const World &world) noexcept {
 			{world.width(), world.height(), map_content_max_rows, map_content_max_cols}
 		)
 	);
+}
+
+std::string escapeForSidebar(std::string_view input) {
+	std::string escaped;
+	escaped.reserve(input.size());
+	for (const char ch : input) {
+		switch (ch) {
+		case '\n':
+			escaped += "\\n";
+			break;
+		case '\t':
+			escaped += "\\t";
+			break;
+		case '\r':
+			escaped += "\\r";
+			break;
+		default:
+			escaped.push_back(ch);
+			break;
+		}
+	}
+	return escaped;
 }
 
 ftxui::Element renderMapCell(const World &world, int x, int y) {
@@ -172,6 +195,24 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 		std::scoped_lock lock(world_mutex);
 		camera.viewport_size = computeViewportSize(world);
 		clampCamera(world, camera);
+		const auto recent_logs = world.runtimeLogsSnapshot(sidebar_log_limit);
+
+		std::vector<Element> log_lines;
+		log_lines.reserve(recent_logs.size() + 2);
+		if (recent_logs.empty()) {
+			log_lines.push_back(text("(no logs yet)") | dim);
+		} else {
+			for (const auto &entry : recent_logs) {
+				const std::string dev = entry.unit_id == 0
+					? "base"
+					: std::format("u{}", entry.unit_id);
+				const std::string line = std::format(
+					"[T{} P{}-{}] {}", entry.tick, entry.player_id, dev,
+					escapeForSidebar(entry.message)
+				);
+				log_lines.push_back(text(line));
+			}
+		}
 
 		Element map_panel = renderMapPanel(world, camera);
 		Element info_panel = window(
@@ -183,7 +224,9 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 				separator(),
 				text(std::format("Current tick: {}", world.currentTick())),
 				text(std::format("View origin: ({}, {})", camera.x, camera.y)),
-				text("Details panel: TODO"),
+				separator(),
+				text("Runtime logs:"),
+				vbox(std::move(log_lines)) | yframe,
 			})
 		);
 

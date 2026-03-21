@@ -3,8 +3,10 @@
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
+#include <cstdint>
 #include <deque>
 #include <format>
 #include <ftxui/component/component.hpp>
@@ -15,6 +17,7 @@
 #include <ftxui/screen/terminal.hpp>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -22,9 +25,39 @@ namespace cr {
 
 namespace {
 
+namespace UiConst {
 constexpr int min_map_window_outer_width = 3;
 constexpr int min_map_window_outer_height = 3;
 constexpr int info_panel_preferred_min_width = 24;
+
+constexpr char glyph_empty = ' ';
+constexpr char glyph_plain = '.';
+constexpr char glyph_player_1_unit = 'A';
+constexpr char glyph_player_2_unit = 'V';
+constexpr char glyph_bullet = '*';
+constexpr char glyph_base = 'B';
+constexpr char glyph_resource = '$';
+constexpr char glyph_obstacle = '#';
+constexpr char glyph_water = '~';
+
+constexpr std::string_view map_title_format = "Map {}x{}  Tick {}";
+constexpr std::string_view no_logs_yet = "(no logs yet)";
+constexpr std::string_view status_running = "Game status: Running";
+constexpr std::string_view controls_line_1 = "W/A/S/D or arrow keys: move view";
+constexpr std::string_view controls_line_2 = "Q/Esc: quit";
+
+const ftxui::Color color_plain = ftxui::Color::RGB(190, 190, 190);
+const ftxui::Color color_unit = ftxui::Color::RGB(255, 255, 255);
+const ftxui::Color color_bullet_p1 = ftxui::Color::RGB(255, 120, 120);
+const ftxui::Color color_bullet_p2 = ftxui::Color::RGB(130, 210, 255);
+const ftxui::Color color_base_p1 = ftxui::Color::RGB(220, 90, 90);
+const ftxui::Color color_base_p2 = ftxui::Color::RGB(110, 170, 255);
+const ftxui::Color color_resource = ftxui::Color::RGB(245, 208, 74);
+const ftxui::Color color_obstacle = ftxui::Color::RGB(130, 130, 130);
+const ftxui::Color color_water = ftxui::Color::RGB(95, 170, 255);
+const ftxui::Color color_win = ftxui::Color::RGB(92, 201, 110);
+const ftxui::Color color_loss = ftxui::Color::RGB(229, 96, 96);
+} // namespace UiConst
 
 struct CameraState {
 	int x = 0;
@@ -42,6 +75,107 @@ struct LogPanelLayoutState {
 	int available_rows = 1;
 };
 
+struct InfoPanelState {
+	std::uint32_t tick = 0;
+	int camera_x = 0;
+	int camera_y = 0;
+	int step_interval_ms = 0;
+	bool game_over = false;
+	std::uint8_t winner_player_id = 0;
+	std::uint8_t captured_player_id = 0;
+};
+
+struct MapCellVisual {
+	char glyph = UiConst::glyph_plain;
+	ftxui::Color fg = UiConst::color_plain;
+	bool emphasize = false;
+};
+
+MapCellVisual describeMapCell(const World &world, int x, int y) noexcept {
+	if (!world.isInBounds(x, y)) {
+		return {
+			.glyph = UiConst::glyph_empty,
+			.fg = UiConst::color_plain,
+			.emphasize = false,
+		};
+	}
+
+	const Tile tile = world.tilemap().tileOf(x, y);
+
+	if (tile.occupied_state == Tile::OCCUPIED_BY_UNIT && tile.unit_ptr) {
+		return {
+			.glyph = tile.unit_ptr->player_id == 1
+				? UiConst::glyph_player_1_unit
+				: UiConst::glyph_player_2_unit,
+			.fg = UiConst::color_unit,
+			.emphasize = true,
+		};
+	}
+
+	if (tile.occupied_state == Tile::OCCUPIED_BY_BULLET && tile.bullet_ptr) {
+		return {
+			.glyph = UiConst::glyph_bullet,
+			.fg = tile.bullet_ptr->player_id == 1 ? UiConst::color_bullet_p1
+												  : UiConst::color_bullet_p2,
+			.emphasize = true,
+		};
+	}
+
+	if (tile.is_base) {
+		return {
+			.glyph = UiConst::glyph_base,
+			.fg = tile.side == 1 ? UiConst::color_base_p1
+								 : UiConst::color_base_p2,
+			.emphasize = false,
+		};
+	}
+
+	if (tile.is_resource) {
+		return {
+			.glyph = UiConst::glyph_resource,
+			.fg = UiConst::color_resource,
+			.emphasize = false,
+		};
+	}
+
+	if (tile.terrain == Tile::OBSTACLE) {
+		return {
+			.glyph = UiConst::glyph_obstacle,
+			.fg = UiConst::color_obstacle,
+			.emphasize = false,
+		};
+	}
+
+	if (tile.terrain == Tile::WATER) {
+		return {
+			.glyph = UiConst::glyph_water,
+			.fg = UiConst::color_water,
+			.emphasize = false,
+		};
+	}
+
+	return {
+		.glyph = UiConst::glyph_plain,
+		.fg = UiConst::color_plain,
+		.emphasize = false,
+	};
+}
+
+InfoPanelState buildInfoPanelState(
+	const World &world, const CameraState &camera,
+	std::chrono::milliseconds step_interval
+) noexcept {
+	return {
+		.tick = world.currentTick(),
+		.camera_x = camera.x,
+		.camera_y = camera.y,
+		.step_interval_ms = static_cast<int>(step_interval.count()),
+		.game_over = world.isGameOver(),
+		.winner_player_id = world.winnerPlayerId(),
+		.captured_player_id = world.capturedPlayerId(),
+	};
+}
+
 void clampCamera(const World &world, CameraState &camera) noexcept {
 	const int max_x = std::max(0, world.width() - camera.viewport_size);
 	const int max_y = std::max(0, world.height() - camera.viewport_size);
@@ -55,15 +189,15 @@ int computeViewportSize(const World &world) noexcept {
 	const int terminal_rows = std::max(1, terminal_size.dimy);
 
 	const int map_content_max_rows = std::max(
-		1, terminal_rows - (min_map_window_outer_height - 1)
+		1, terminal_rows - (UiConst::min_map_window_outer_height - 1)
 	);
 
 	const int reserved_info_width = terminal_cols
-			> info_panel_preferred_min_width
-		? info_panel_preferred_min_width
+			> UiConst::info_panel_preferred_min_width
+		? UiConst::info_panel_preferred_min_width
 		: 0;
 	const int map_outer_max_width = std::max(
-		min_map_window_outer_width, terminal_cols - reserved_info_width
+		UiConst::min_map_window_outer_width, terminal_cols - reserved_info_width
 	);
 
 	// Map content width is (2 * n - 1), and window adds 2 columns.
@@ -202,7 +336,7 @@ std::vector<RenderedLogLine> collectVisibleLogLines(
 
 	std::vector<RenderedLogLine> visible_lines;
 	if (selected_logs.empty()) {
-		visible_lines.push_back({"(no logs yet)", true});
+		visible_lines.push_back({std::string(UiConst::no_logs_yet), true});
 		return visible_lines;
 	}
 
@@ -240,29 +374,50 @@ ftxui::Element renderLogPanel(const World &world, LogPanelLayoutState &layout) {
 	return window(text("Runtime logs"), std::move(content));
 }
 
+ftxui::Element renderGameStatusLine(const InfoPanelState &state) {
+	using namespace ftxui;
+
+	if (!state.game_over) {
+		return text(std::string(UiConst::status_running));
+	}
+
+	Element winner = text(std::format("P{} wins", state.winner_player_id))
+		| color(UiConst::color_win) | bold;
+	Element
+		loser = text(std::format("P{} base captured", state.captured_player_id))
+		| color(UiConst::color_loss) | bold;
+
+	return hbox({text("Game over: "), winner, text(" | "), loser});
+}
+
 ftxui::Element renderInfoPanel(
 	const World &world, const CameraState &camera,
 	std::chrono::milliseconds step_interval, LogPanelLayoutState &log_layout
 ) {
 	using namespace ftxui;
+	const InfoPanelState panel_state = buildInfoPanelState(
+		world, camera, step_interval
+	);
 
 	Element status_panel = window(
 		text("Info"),
 		vbox({
-			text("W/A/S/D or arrow keys: move view"),
-			text("Q/Esc: quit"),
-			text(std::format("Step interval: {} ms", step_interval.count())),
-			separator(),
-			text(std::format("Current tick: {}", world.currentTick())),
+			text(std::string(UiConst::controls_line_1)),
+			text(std::string(UiConst::controls_line_2)),
 			text(
-				world.isGameOver()
-					? std::format(
-						  "Game over: P{} wins (P{} base captured)",
-						  world.winnerPlayerId(), world.capturedPlayerId()
-					  )
-					: "Game status: Running"
+				std::format(
+					"Step interval: {} ms", panel_state.step_interval_ms
+				)
 			),
-			text(std::format("View origin: ({}, {})", camera.x, camera.y)),
+			separator(),
+			text(std::format("Current tick: {}", panel_state.tick)),
+			renderGameStatusLine(panel_state),
+			text(
+				std::format(
+					"View origin: ({}, {})", panel_state.camera_x,
+					panel_state.camera_y
+				)
+			),
 		})
 	);
 
@@ -271,45 +426,11 @@ ftxui::Element renderInfoPanel(
 
 ftxui::Element renderMapCell(const World &world, int x, int y) {
 	using namespace ftxui;
+	const MapCellVisual cell_visual = describeMapCell(world, x, y);
 
-	if (!world.isInBounds(x, y)) {
-		return text(" ");
-	}
-
-	const Tile tile = world.tilemap().tileOf(x, y);
-	char glyph = '.';
-	Color fg = Color::RGB(190, 190, 190);
-	bool emphasize = false;
-
-	if (tile.occupied_state == Tile::OCCUPIED_BY_UNIT && tile.unit_ptr) {
-		glyph = tile.unit_ptr->player_id == 1 ? 'A' : 'V';
-		fg = Color::RGB(255, 255, 255);
-		emphasize = true;
-	} else if (
-		tile.occupied_state == Tile::OCCUPIED_BY_BULLET && tile.bullet_ptr
-	) {
-		glyph = '*';
-		fg = tile.bullet_ptr->player_id == 1
-			? Color::RGB(255, 120, 120)
-			: Color::RGB(130, 210, 255);
-		emphasize = true;
-	} else if (tile.is_base) {
-		glyph = 'B';
-		fg = tile.side == 1 ? Color::RGB(220, 90, 90)
-							: Color::RGB(110, 170, 255);
-	} else if (tile.is_resource) {
-		glyph = '$';
-		fg = Color::RGB(245, 208, 74);
-	} else if (tile.terrain == Tile::OBSTACLE) {
-		glyph = '#';
-		fg = Color::RGB(130, 130, 130);
-	} else if (tile.terrain == Tile::WATER) {
-		glyph = '~';
-		fg = Color::RGB(95, 170, 255);
-	}
-
-	Element cell = text(std::string(1, glyph)) | color(fg);
-	if (emphasize) {
+	Element cell = text(std::string(1, cell_visual.glyph))
+		| color(cell_visual.fg);
+	if (cell_visual.emphasize) {
 		cell = cell | bold;
 	}
 	return cell;
@@ -336,7 +457,7 @@ ftxui::Element renderMapPanel(const World &world, const CameraState &camera) {
 
 	const auto title = text(
 		std::format(
-			"Map {}x{}  Tick {}", world.width(), world.height(),
+			UiConst::map_title_format, world.width(), world.height(),
 			world.currentTick()
 		)
 	);

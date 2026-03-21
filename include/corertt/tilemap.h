@@ -105,6 +105,7 @@ public:
 	static Tilemap generate(const TilemapGenerationConfig &config);
 	static Tilemap load(std::span<char> data);
 	void saveAsText(std::ostream &os) const;
+	void saveAsBinary(std::ostream &os) const;
 
 private:
 	pos_t _width;

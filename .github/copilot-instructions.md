@@ -4,3 +4,4 @@
 - Use the latest C++23 features whenever applicable.
 - Fail-fast for error handling: prefer throwing exceptions for errors related to external inputs, aborting for internal logic errors (log the error message to stderr and invoke `cpptrace::generate_trace().print(std::cerr)` before aborting).
 - Mark functions that do not throw exceptions with `noexcept`.
+- Don't perform `static_cast` if a implicit conversion is automatically applied.

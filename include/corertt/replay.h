@@ -19,25 +19,25 @@ namespace cr {
 
 class World;
 
-enum class ReplayLogSource : std::uint8_t {
-	System = 0,
-	Player = 1,
-};
-
-enum class ReplayLogType : std::uint8_t {
-	Custom = 0,
-	UnitCreation = 1,
-	UnitDestruction = 2,
-	ExecutionException = 3,
-	BaseCaptured = 4,
-};
-
 struct ReplayLogEntry {
+	enum class Source : std::uint8_t {
+		System = 0,
+		Player = 1,
+	};
+
+	enum class Type : std::uint8_t {
+		Custom = 0,
+		UnitCreation = 1,
+		UnitDestruction = 2,
+		ExecutionException = 3,
+		BaseCaptured = 4,
+	};
+
 	std::uint32_t tick = 0;
 	std::uint8_t player_id = 0;
 	std::uint8_t unit_id = 0;
-	ReplayLogSource source = ReplayLogSource::System;
-	ReplayLogType type = ReplayLogType::Custom;
+	Source source = Source::System;
+	Type type = Type::Custom;
 	std::vector<std::byte> payload;
 
 	static ReplayLogEntry customLog(

@@ -316,7 +316,7 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 		tick.bullets.push_back(bullet);
 	}
 
-	constexpr std::uint16_t max_log_count = 4096;
+	constexpr std::uint16_t max_log_count = 64;
 	const auto log_count = reader.readU16();
 	if (log_count > max_log_count) {
 		throw std::runtime_error("Replay decode failed: log_count exceeds maximum allowed value");

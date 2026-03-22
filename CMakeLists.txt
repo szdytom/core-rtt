@@ -38,6 +38,14 @@ FetchContent_Declare(msft_proxy4
 )
 FetchContent_MakeAvailable(msft_proxy4)
 
+# nlohmann_json
+FetchContent_Declare(
+	json
+	URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+	EXCLUDE_FROM_ALL SYSTEM
+)
+FetchContent_MakeAvailable(json)
+
 # cpptrace
 FetchContent_Declare(
 	cpptrace
@@ -85,9 +93,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ftxui)
 
-add_executable(corertt
-	src/main.cpp
-	src/tui.cpp
+add_library(corertt_core STATIC
 	src/noise.cpp
 	src/xoroshiro.cpp
 	src/tilemap.cpp
@@ -97,19 +103,40 @@ add_executable(corertt
 	src/replay.cpp
 )
 
-target_compile_features(corertt PRIVATE cxx_std_23)
+target_compile_features(corertt_core PUBLIC cxx_std_23)
 
-target_include_directories(corertt PRIVATE
+target_include_directories(corertt_core PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_BINARY_DIR}/generated/include
 )
 
-target_link_libraries(corertt PRIVATE
+target_link_libraries(corertt_core PUBLIC
 	msft_proxy4::proxy
 	cpptrace::cpptrace
-	argparse::argparse
 	riscv
+	nlohmann_json::nlohmann_json
+)
+
+add_executable(corertt
+	src/main.cpp
+	src/tui.cpp
+)
+
+target_link_libraries(corertt PRIVATE
+	corertt_core
+	argparse::argparse
 	ftxui::screen
 	ftxui::dom
 	ftxui::component
+
+)
+
+add_executable(corertt_replay_log
+	src/tools/replay_log_extract.cpp
+)
+
+target_link_libraries(corertt_replay_log PRIVATE
+	corertt_core
+	argparse::argparse
+	nlohmann_json::nlohmann_json
 )

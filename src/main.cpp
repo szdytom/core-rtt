@@ -9,8 +9,27 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
+
+namespace {
+
+struct ProgramOptions {
+	int width = 64;
+	int height = 64;
+	int base_size = 5;
+	int resources = 5;
+	int step_interval_ms = 200;
+	std::string p1_base = "player1_base.elf";
+	std::string p1_unit = "player1_unit.elf";
+	std::string p2_base = "player2_base.elf";
+	std::string p2_unit = "player2_unit.elf";
+	std::optional<std::string> seed;
+	std::string replay_file;
+	std::string play_replay;
+};
 
 std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	std::ifstream file(path.data(), std::ios::binary);
@@ -25,7 +44,22 @@ std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	);
 }
 
-int main(int argc, char *argv[]) {
+void writeChunk(std::ofstream *stream, std::span<const std::byte> chunk) {
+	if (stream == nullptr || chunk.empty()) {
+		return;
+	}
+
+	stream->write(
+		reinterpret_cast<const char *>(chunk.data()),
+		static_cast<std::streamsize>(chunk.size())
+	);
+	stream->flush();
+	if (!stream->good()) {
+		throw std::runtime_error("Failed to write replay file");
+	}
+}
+
+ProgramOptions parseOptions(int argc, char *argv[]) {
 	argparse::ArgumentParser program(
 		"corertt", std::string(cr::program_version_with_commit)
 	);
@@ -48,7 +82,7 @@ int main(int argc, char *argv[]) {
 	program.add_argument("--step-interval-ms")
 		.default_value(200)
 		.scan<'i', int>()
-		.help("world step interval in milliseconds");
+		.help("step or playback interval in milliseconds");
 	program.add_argument("--p1-base")
 		.default_value(std::string("player1_base.elf"))
 		.help("path to player 1 base ELF");
@@ -65,99 +99,194 @@ int main(int argc, char *argv[]) {
 		.help("seed for map generation (omitted means device-random)");
 	program.add_argument("--replay-file")
 		.default_value(std::string(""))
-		.help("optional path to write binary replay");
+		.help("optional path to write binary replay in live mode");
+	program.add_argument("--play-replay")
+		.default_value(std::string(""))
+		.help("optional replay file path for playback mode");
 
 	try {
 		program.parse_args(argc, argv);
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << '\n';
 		std::cerr << program;
-		return 1;
+		throw;
 	}
 
-	cr::TilemapGenerationConfig config;
-	config.width = program.get<int>("--width");
-	config.height = program.get<int>("--height");
-	config.base_size = program.get<int>("--base-size");
-	config.num_resources = program.get<int>("--resources");
+	ProgramOptions options;
+	options.width = program.get<int>("--width");
+	options.height = program.get<int>("--height");
+	options.base_size = program.get<int>("--base-size");
+	options.resources = program.get<int>("--resources");
+	options.step_interval_ms = program.get<int>("--step-interval-ms");
+	options.p1_base = program.get<std::string>("--p1-base");
+	options.p1_unit = program.get<std::string>("--p1-unit");
+	options.p2_base = program.get<std::string>("--p2-base");
+	options.p2_unit = program.get<std::string>("--p2-unit");
 	if (program.is_used("--seed")) {
-		config.seed = cr::Seed::from_string(program.get<std::string>("--seed"));
-	} else {
-		config.seed = cr::Seed::device_random();
+		options.seed = program.get<std::string>("--seed");
 	}
-	const int step_interval_ms = program.get<int>("--step-interval-ms");
-	if (step_interval_ms <= 0) {
-		std::cerr << "--step-interval-ms must be positive\n";
-		return 1;
-	}
+	options.replay_file = program.get<std::string>("--replay-file");
+	options.play_replay = program.get<std::string>("--play-replay");
+	return options;
+}
 
-	try {
-		auto world = std::make_unique<cr::World>(cr::Tilemap::generate(config));
-
-		world->setPlayerProgram(
-			1, loadBinary(program.get<std::string>("--p1-base")),
-			loadBinary(program.get<std::string>("--p1-unit"))
-		);
-		world->setPlayerProgram(
-			2, loadBinary(program.get<std::string>("--p2-base")),
-			loadBinary(program.get<std::string>("--p2-unit"))
-		);
-
-		std::unique_ptr<cr::ReplayRecorder> replay_recorder;
-		std::unique_ptr<cr::ReplayStreamEncoder> replay_encoder;
-		std::unique_ptr<std::ofstream> replay_stream;
-
-		const auto replay_file_path = program.get<std::string>("--replay-file");
-		if (!replay_file_path.empty()) {
-			replay_recorder = std::make_unique<cr::ReplayRecorder>(*world);
-			replay_encoder = std::make_unique<cr::ReplayStreamEncoder>();
-			replay_stream = std::make_unique<std::ofstream>(
-				replay_file_path, std::ios::binary | std::ios::trunc
-			);
-			if (!replay_stream->is_open()) {
+int runPlaybackMode(
+	const ProgramOptions &options, std::chrono::milliseconds step_interval
+) {
+	cr::ReplayByteStream replay_stream;
+	std::jthread producer_thread([&](std::stop_token stop_token) {
+		try {
+			std::ifstream input(options.play_replay, std::ios::binary);
+			if (!input.is_open()) {
 				throw std::runtime_error(
 					std::format(
-						"Failed to open replay file: {}", replay_file_path
+						"Failed to open replay file for playback: {}",
+						options.play_replay
 					)
 				);
 			}
 
-			const auto header_bytes = replay_encoder->encodeHeader(
-				replay_recorder->header()
+			const auto replay_data = cr::readReplay(input);
+			cr::ReplayStreamEncoder replay_encoder;
+			replay_stream.pushBytes(
+				replay_encoder.encodeHeader(replay_data.header)
 			);
-			replay_stream->write(
-				reinterpret_cast<const char *>(header_bytes.data()),
-				static_cast<std::streamsize>(header_bytes.size())
-			);
-			replay_stream->flush();
-		}
 
-		return cr::runTui(
-			*world, std::chrono::milliseconds(step_interval_ms),
-			[&](cr::World &tick_world) {
-			if (!replay_recorder || !replay_encoder || !replay_stream) {
-				return;
+			auto next_tick_time = std::chrono::steady_clock::now();
+			for (const auto &tick : replay_data.ticks) {
+				if (stop_token.stop_requested()) {
+					break;
+				}
+
+				next_tick_time += step_interval;
+				replay_stream.pushBytes(replay_encoder.encodeTick(tick));
+				std::this_thread::sleep_until(next_tick_time);
 			}
 
-			replay_recorder->addTick(tick_world);
-			const auto &tick = replay_recorder->ticks().back();
-			const auto tick_bytes = replay_encoder->encodeTick(tick);
-			replay_stream->write(
-				reinterpret_cast<const char *>(tick_bytes.data()),
-				static_cast<std::streamsize>(tick_bytes.size())
-			);
-			replay_stream->flush();
-
-			if (tick_world.gameOver()) {
-				const auto end_bytes = replay_encoder->encodeEnd();
-				replay_stream->write(
-					reinterpret_cast<const char *>(end_bytes.data()),
-					static_cast<std::streamsize>(end_bytes.size())
-				);
-				replay_stream->flush();
+			auto end_bytes = replay_encoder.encodeEnd();
+			if (!end_bytes.empty()) {
+				replay_stream.pushBytes(std::move(end_bytes));
 			}
+		} catch (const std::exception &e) {
+			std::cerr << e.what() << '\n';
 		}
+
+		replay_stream.close();
+	});
+
+	const int tui_exit_code = cr::runTui(replay_stream, step_interval);
+	producer_thread.request_stop();
+	return tui_exit_code;
+}
+
+int runLiveMode(
+	const ProgramOptions &options, std::chrono::milliseconds step_interval
+) {
+	cr::TilemapGenerationConfig config;
+	config.width = options.width;
+	config.height = options.height;
+	config.base_size = options.base_size;
+	config.num_resources = options.resources;
+	if (options.seed.has_value()) {
+		config.seed = cr::Seed::from_string(*options.seed);
+	} else {
+		config.seed = cr::Seed::device_random();
+	}
+
+	auto world = std::make_shared<cr::World>(cr::Tilemap::generate(config));
+	world->setPlayerProgram(
+		1, loadBinary(options.p1_base), loadBinary(options.p1_unit)
+	);
+	world->setPlayerProgram(
+		2, loadBinary(options.p2_base), loadBinary(options.p2_unit)
+	);
+
+	auto replay_recorder = std::make_shared<cr::ReplayRecorder>(*world);
+	auto replay_encoder = std::make_shared<cr::ReplayStreamEncoder>();
+	auto replay_stream = std::make_shared<cr::ReplayByteStream>();
+
+	std::shared_ptr<std::ofstream> replay_file_stream;
+	if (!options.replay_file.empty()) {
+		replay_file_stream = std::make_shared<std::ofstream>(
+			options.replay_file, std::ios::binary | std::ios::trunc
 		);
+		if (!replay_file_stream->is_open()) {
+			throw std::runtime_error(
+				std::format(
+					"Failed to open replay file: {}", options.replay_file
+				)
+			);
+		}
+	}
+
+	auto header_bytes = replay_encoder->encodeHeader(replay_recorder->header());
+	replay_stream->pushBytes(header_bytes);
+	writeChunk(replay_file_stream.get(), header_bytes);
+
+	std::jthread producer_thread([&](std::stop_token stop_token) {
+		try {
+			auto next_tick_time = std::chrono::steady_clock::now()
+				+ step_interval;
+			while (!stop_token.stop_requested()) {
+				std::this_thread::sleep_until(next_tick_time);
+				if (stop_token.stop_requested()) {
+					break;
+				}
+
+				world->step();
+				replay_recorder->addTick(*world);
+				const auto &tick = replay_recorder->ticks().back();
+
+				auto tick_bytes = replay_encoder->encodeTick(tick);
+				replay_stream->pushBytes(tick_bytes);
+				writeChunk(replay_file_stream.get(), tick_bytes);
+
+				next_tick_time += step_interval;
+				if (world->gameOver()) {
+					break;
+				}
+			}
+
+			auto end_bytes = replay_encoder->encodeEnd();
+			if (!end_bytes.empty()) {
+				replay_stream->pushBytes(end_bytes);
+				writeChunk(replay_file_stream.get(), end_bytes);
+			}
+		} catch (const std::exception &e) {
+			std::cerr << e.what() << '\n';
+		}
+
+		replay_stream->close();
+	});
+
+	const int tui_exit_code = cr::runTui(*replay_stream, step_interval);
+	producer_thread.request_stop();
+	return tui_exit_code;
+}
+
+} // namespace
+
+int main(int argc, char *argv[]) {
+	ProgramOptions options;
+	try {
+		options = parseOptions(argc, argv);
+	} catch (...) {
+		return 1;
+	}
+
+	if (options.step_interval_ms <= 0) {
+		std::cerr << "--step-interval-ms must be positive\n";
+		return 1;
+	}
+	const auto step_interval = std::chrono::milliseconds(
+		options.step_interval_ms
+	);
+
+	try {
+		if (!options.play_replay.empty()) {
+			return runPlaybackMode(options, step_interval);
+		}
+		return runLiveMode(options, step_interval);
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << '\n';
 		return 1;

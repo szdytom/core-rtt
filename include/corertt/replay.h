@@ -3,9 +3,13 @@
 
 #include "corertt/runtime.h"
 #include <array>
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <iosfwd>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -181,6 +185,24 @@ private:
 	std::vector<std::byte> _buffer;
 	std::size_t _cursor = 0;
 	ReplayHeader _header;
+};
+
+class ReplayByteStream {
+public:
+	void pushBytes(std::vector<std::byte> bytes);
+	void close() noexcept;
+
+	bool waitPopNext(
+		std::vector<std::byte> &out_chunk,
+		std::chrono::milliseconds wait_timeout
+	);
+	bool isDrained() const noexcept;
+
+private:
+	mutable std::mutex _mutex;
+	std::condition_variable _cond;
+	std::deque<std::vector<std::byte>> _chunks;
+	bool _closed = false;
 };
 
 void writeReplay(std::ostream &os, const ReplayData &replay);

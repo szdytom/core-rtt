@@ -12,9 +12,7 @@ int main() {
 		logf("BSS segment: %p-%p\n", &__bss_start, &__BSS_END__);
 	}
 
-	{
-		logf("Some rodata: %p\n", "Hello, World!");
-	}
+	{ logf("Some rodata: %p\n", "Hello, World!"); }
 
 	log_str("========== Memory Allocator Test ==========\n");
 

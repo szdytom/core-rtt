@@ -70,7 +70,10 @@ void Player::step(World &world) noexcept {
 }
 
 World::World(Tilemap tilemap) noexcept
-	: tick(0), _tilemap(std::move(tilemap)), _players{Player(1), Player(2)}, _winner_player_id(0) {
+	: tick(0)
+	, _tilemap(std::move(tilemap))
+	, _players{Player(1), Player(2)}
+	, _winner_player_id(0) {
 	// Initialize player base positions based on tilemap
 	// Find out top-left corner of each base and assign to players
 	bool base_found[2] = {false, false};

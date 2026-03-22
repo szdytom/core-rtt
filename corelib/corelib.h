@@ -429,8 +429,8 @@ struct GameInfo {
 int meta(struct GameInfo *info);
 
 struct PosInfo {
-	uint8_t x;          // x coordinate (column) of the device
-	uint8_t y;          // y coordinate (row) of the device
+	uint8_t x;           // x coordinate (column) of the device
+	uint8_t y;           // y coordinate (row) of the device
 	uint8_t reserved[2]; // reserved for future use
 };
 
@@ -507,9 +507,9 @@ int deposit(int amount);
 int withdraw(int amount);
 
 struct MemoryInfo {
-	size_t bytes_free;   // free bytes remaining in the managed heap
-	size_t bytes_used;   // bytes currently allocated
-	size_t chunks_used;  // number of live allocation chunks
+	size_t bytes_free;  // free bytes remaining in the managed heap
+	size_t bytes_used;  // bytes currently allocated
+	size_t chunks_used; // number of live allocation chunks
 };
 
 /**
@@ -560,31 +560,41 @@ enum {
 };
 
 /**
- * @brief Format a string into a buffer, similar to snprintf but with only basic %d, %u, %x, %p %c, %s specifiers and no width/precision modifiers.
+ * @brief Format a string into a buffer, similar to snprintf but with only basic
+ * %d, %u, %x, %p %c, %s specifiers and no width/precision modifiers.
  * @param buffer Pointer to the destination buffer
  * @param buffer_size Size of the destination buffer in bytes
  * @param fmt Format string containing text and format specifiers
  * @param ... Additional arguments corresponding to the format specifiers
- * @return The number of bytes that would have been written, not including the null terminator.
+ * @return The number of bytes that would have been written, not including the
+ * null terminator.
  */
 int fmt_str(char *buffer, size_t buffer_size, const char *fmt, ...);
 
 /**
- * @brief Format a string with a va_list of arguments, similar to vsnprintf but with only basic %d, %u, %x, %p %c, %s specifiers and no width/precision modifiers (va_list version of fmt_str).
+ * @brief Format a string with a va_list of arguments, similar to vsnprintf but
+ * with only basic %d, %u, %x, %p %c, %s specifiers and no width/precision
+ * modifiers (va_list version of fmt_str).
  * @param buffer Pointer to the destination buffer
  * @param buffer_size Size of the destination buffer in bytes
  * @param fmt Format string containing text and format specifiers
- * @param args va_list of additional arguments corresponding to the format specifiers
- * @return The number of bytes that would have been written, not including the null terminator.
+ * @param args va_list of additional arguments corresponding to the format
+ * specifiers
+ * @return The number of bytes that would have been written, not including the
+ * null terminator.
  */
 int vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args);
 
 /**
- * @brief A printf-like function that formats a string and logs it using the runtime's logging system.
+ * @brief A printf-like function that formats a string and logs it using the
+ * runtime's logging system.
  * @param fmt Format string containing text and format specifiers
  * @param ... Additional arguments corresponding to the format specifiers
- * @return The number of bytes that would have been logged, not including the null terminator
- * @note This function internally uses fmt_str to format the string, and then logs it using log_str. The maximum length of the formatted string is 512 bytes (same as a single ecall log message).
+ * @return The number of bytes that would have been logged, not including the
+ * null terminator
+ * @note This function internally uses fmt_str to format the string, and then
+ * logs it using log_str. The maximum length of the formatted string is 512
+ * bytes (same as a single ecall log message).
  */
 int logf(const char *fmt, ...);
 

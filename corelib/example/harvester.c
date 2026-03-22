@@ -98,8 +98,9 @@ static bool isWalkableKnown(int x, int y) {
 		&& terrain_type[y][x] != TERRAIN_OBSTACLE;
 }
 
-static bool isVisibleOtherUnit(int target_x, int target_y, int self_x, int self_y,
-	int radius) {
+static bool isVisibleOtherUnit(
+	int target_x, int target_y, int self_x, int self_y, int radius
+) {
 	int side = radius * 2 + 1;
 	int sx = target_x - self_x + radius;
 	int sy = target_y - self_y + radius;
@@ -119,8 +120,9 @@ static bool isVisibleOtherUnit(int target_x, int target_y, int self_x, int self_
 	return !(target_x == self_x && target_y == self_y);
 }
 
-static bool cellHasVisibleUnit(int target_x, int target_y, int self_x, int self_y,
-	int radius) {
+static bool cellHasVisibleUnit(
+	int target_x, int target_y, int self_x, int self_y, int radius
+) {
 	int side = radius * 2 + 1;
 	int sx = target_x - self_x + radius;
 	int sy = target_y - self_y + radius;
@@ -215,8 +217,10 @@ static bool isTargetCell(int idx, int target_mode, int target_x, int target_y) {
 	return false;
 }
 
-static int bfsDirToMode(int start_x, int start_y, int self_x, int self_y,
-	int radius, int target_mode, int target_x, int target_y) {
+static int bfsDirToMode(
+	int start_x, int start_y, int self_x, int self_y, int radius,
+	int target_mode, int target_x, int target_y
+) {
 	int head = 0;
 	int tail = 0;
 	int start_idx = toIndex(start_x, start_y);
@@ -266,25 +270,31 @@ static int bfsDirToMode(int start_x, int start_y, int self_x, int self_y,
 	return -1;
 }
 
-static int nearestResourceDir(int start_x, int start_y, int self_x, int self_y,
-	int radius) {
-	return bfsDirToMode(start_x, start_y, self_x, self_y, radius,
-		MODE_TO_RESOURCE, -1, -1);
+static int nearestResourceDir(
+	int start_x, int start_y, int self_x, int self_y, int radius
+) {
+	return bfsDirToMode(
+		start_x, start_y, self_x, self_y, radius, MODE_TO_RESOURCE, -1, -1
+	);
 }
 
-static int frontierDir(int start_x, int start_y, int self_x, int self_y,
-	int radius) {
-	return bfsDirToMode(start_x, start_y, self_x, self_y, radius,
-		MODE_EXPLORE, -1, -1);
+static int frontierDir(
+	int start_x, int start_y, int self_x, int self_y, int radius
+) {
+	return bfsDirToMode(
+		start_x, start_y, self_x, self_y, radius, MODE_EXPLORE, -1, -1
+	);
 }
 
-static int pointDir(int start_x, int start_y, int target_x, int target_y,
-	int self_x, int self_y, int radius) {
+static int pointDir(
+	int start_x, int start_y, int target_x, int target_y, int self_x,
+	int self_y, int radius
+) {
 	if (!inBounds(target_x, target_y)) {
 		return -1;
 	}
 	if (!isPathWalkable(target_x, target_y, self_x, self_y, radius)
-		&& !(target_x == self_x && target_y == self_y)) {
+	    && !(target_x == self_x && target_y == self_y)) {
 		return -1;
 	}
 
@@ -360,7 +370,9 @@ static bool centerIsBase(const struct SensorData *data, int radius) {
 	return data[center].is_base;
 }
 
-static bool localStepBlocked(const struct SensorData *data, int radius, int dir) {
+static bool localStepBlocked(
+	const struct SensorData *data, int radius, int dir
+) {
 	int dx = DIR_X_OFFSET_OF(dir);
 	int dy = DIR_Y_OFFSET_OF(dir);
 	int side = radius * 2 + 1;
@@ -377,7 +389,7 @@ static bool localStepBlocked(const struct SensorData *data, int radius, int dir)
 		return false;
 	}
 	if (data[nidx].terrain == TERRAIN_WATER
-		|| data[nidx].terrain == TERRAIN_OBSTACLE) {
+	    || data[nidx].terrain == TERRAIN_OBSTACLE) {
 		return true;
 	}
 	if (data[nidx].has_unit) {
@@ -386,8 +398,9 @@ static bool localStepBlocked(const struct SensorData *data, int radius, int dir)
 	return false;
 }
 
-static bool shouldYieldToBlocker(int self_x, int self_y, int dir, int radius,
-	int current_turn) {
+static bool shouldYieldToBlocker(
+	int self_x, int self_y, int dir, int radius, int current_turn
+) {
 	int nx = self_x + DIR_X_OFFSET_OF(dir);
 	int ny = self_y + DIR_Y_OFFSET_OF(dir);
 	if (!cellHasVisibleUnit(nx, ny, self_x, self_y, radius)) {
@@ -486,7 +499,9 @@ static void processMessages(void) {
 	}
 }
 
-static void broadcastVisibleMap(const struct PosInfo p, const struct DeviceInfo info) {
+static void broadcastVisibleMap(
+	const struct PosInfo p, const struct DeviceInfo info
+) {
 	int radius = HAS_UPGRADE(info.upgrades, UPGRADE_VISION) ? 4 : 2;
 	int side = radius * 2 + 1;
 	struct MapDeltaPacket pkt;
@@ -600,8 +615,10 @@ int main() {
 		if (in_base && info.energy > 0) {
 			int dep_ret = deposit(info.energy);
 			if (dep_ret != EC_OK) {
-				logf("[hv] t=%d deposit(%d)=%d\n", current_turn, info.energy,
-					dep_ret);
+				logf(
+					"[hv] t=%d deposit(%d)=%d\n", current_turn, info.energy,
+					dep_ret
+				);
 			} else {
 				harvest_cycles++;
 				if ((harvest_cycles % 3) == 0) {
@@ -626,8 +643,9 @@ int main() {
 
 		int dir = -1;
 		if (mode == MODE_TO_BASE) {
-			dir = bfsDirToMode(p.x, p.y, p.x, p.y, radius,
-				MODE_TO_BASE, home_x, home_y);
+			dir = bfsDirToMode(
+				p.x, p.y, p.x, p.y, radius, MODE_TO_BASE, home_x, home_y
+			);
 			if (dir < 0) {
 				dir = pointDir(p.x, p.y, home_x, home_y, p.x, p.y, radius);
 			}
@@ -648,8 +666,9 @@ int main() {
 			}
 		}
 
-		if (dir >= 0 && shouldYieldToBlocker(p.x, p.y, dir, radius, current_turn)
-			&& stuck_turns >= 1) {
+		if (dir >= 0
+		    && shouldYieldToBlocker(p.x, p.y, dir, radius, current_turn)
+		    && stuck_turns >= 1) {
 			wait_turns = 2;
 		}
 
@@ -665,11 +684,15 @@ int main() {
 
 		broadcastVisibleMap(p, info);
 
-		if (current_turn <= 20 || (current_turn % 25) == 0 || stuck_turns >= 3) {
-			logf("[hv] t=%d pos=(%d,%d) e=%d mode=%s dir=%d stuck=%d wait=%d scout=%d target=(%d,%d)\n",
+		if (current_turn <= 20 || (current_turn % 25) == 0
+		    || stuck_turns >= 3) {
+			logf(
+				"[hv] t=%d pos=(%d,%d) e=%d mode=%s dir=%d stuck=%d wait=%d "
+				"scout=%d target=(%d,%d)\n",
 				current_turn, p.x, p.y, info.energy, modeNameOf(mode), dir,
 				stuck_turns, wait_turns, scout_turns, pending_target_x,
-				pending_target_y);
+				pending_target_y
+			);
 		}
 
 		if (wait_turns > 0) {

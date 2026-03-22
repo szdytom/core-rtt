@@ -76,10 +76,9 @@ int main(int argc, char *argv[]) {
 		"corertt", std::string(cr::program_version_with_commit)
 	);
 
-	program.add_argument("--width")
-		.default_value(64)
-		.scan<'i', int>()
-		.help("tilemap width");
+	program.add_argument("--width").default_value(64).scan<'i', int>().help(
+		"tilemap width"
+	);
 	program.add_argument("--height")
 		.default_value(64)
 		.scan<'i', int>()
@@ -145,11 +144,9 @@ int main(int argc, char *argv[]) {
 		const auto log_file_path = program.get<std::string>("--log-file");
 		if (!log_file_path.empty()) {
 			log_mirror = std::make_shared<RuntimeLogFileMirror>(log_file_path);
-			world->setRuntimeLogSink(
-				[log_mirror](const cr::LogEntry &entry) {
-					log_mirror->append(entry);
-				}
-			);
+			world->setRuntimeLogSink([log_mirror](const cr::LogEntry &entry) {
+				log_mirror->append(entry);
+			});
 		}
 
 		world->setPlayerProgram(

@@ -72,8 +72,10 @@ int main() {
 			log_sensor_map(my_id, t);
 
 			struct PosInfo p = pos();
-			logf("[fight] unit=%d tick=%d pos=(%d,%d) sensor_tiles=%d\n",
-				my_id, t, p.x, p.y, n);
+			logf(
+				"[fight] unit=%d tick=%d pos=(%d,%d) sensor_tiles=%d\n", my_id,
+				t, p.x, p.y, n
+			);
 		}
 
 		// --- Test: move ---
@@ -82,8 +84,10 @@ int main() {
 		int mv_ret = move(move_cycle[dir]);
 
 		if (my_id == 1) {
-			logf("[fight] unit=%d tick=%d move(dir=%d)=%d\n", my_id, t,
-				move_cycle[dir], mv_ret);
+			logf(
+				"[fight] unit=%d tick=%d move(dir=%d)=%d\n", my_id, t,
+				move_cycle[dir], mv_ret
+			);
 		}
 
 		// --- Test: fire ---
@@ -96,8 +100,10 @@ int main() {
 		if ((t - born_turn) % 3 == 0) {
 			int fire_ret = fire(fdir, 1);
 			if (my_id == 1) {
-				logf("[fight] unit=%d tick=%d fire(dir=%d,power=1)=%d\n",
-					my_id, t, fdir, fire_ret);
+				logf(
+					"[fight] unit=%d tick=%d fire(dir=%d,power=1)=%d\n", my_id,
+					t, fdir, fire_ret
+				);
 			}
 		}
 	}

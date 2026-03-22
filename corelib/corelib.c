@@ -12,7 +12,7 @@ int log_str(const char *str) {
 	return log(str, strlen(str));
 }
 
-static char* write_unsigned_decimal(char *p, char *end, unsigned int val) {
+static char *write_unsigned_decimal(char *p, char *end, unsigned int val) {
 	if (val == 0) {
 		if (p < end) {
 			*p++ = '0';
@@ -113,7 +113,8 @@ int vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args) {
 			p += len;
 		} else if (*f == 'p') {
 			uintptr_t val = (uintptr_t)va_arg(args, void *);
-			// %p has 0x prefix and is zero-padded to pointer width (8 hex digits for 32-bit)
+			// %p has 0x prefix and is zero-padded to pointer width (8 hex
+			// digits for 32-bit)
 			if (p < end) {
 				*p++ = '0';
 			}
@@ -144,13 +145,15 @@ int vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args) {
 		}
 	}
 
-	*p = '\0'; // null terminate the string
+	*p = '\0';         // null terminate the string
 	return p - buffer; // return the number of bytes written
 }
 
 int logf(const char *fmt, ...) {
-	// The ecall log message size limit is 512 bytes, but it don't require a null terminator.
-	// The fmt_str function will ensure that the formatted string is null-terminated and does not exceed the buffer size, so need to reserve 1 byte for null terminator.
+	// The ecall log message size limit is 512 bytes, but it don't require a
+	// null terminator. The fmt_str function will ensure that the formatted
+	// string is null-terminated and does not exceed the buffer size, so need to
+	// reserve 1 byte for null terminator.
 	char buffer[513];
 	va_list args;
 	va_start(args, fmt);
@@ -381,7 +384,10 @@ struct DeviceInfo dev_info() {
 	register uint32_t raw asm("a0");
 	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
 	// Reinterpret the packed 32-bit return value as the DeviceInfo struct.
-	union { uint32_t r; struct DeviceInfo d; } u;
+	union {
+		uint32_t r;
+		struct DeviceInfo d;
+	} u;
 	u.r = raw;
 	return u.d;
 }
@@ -420,7 +426,10 @@ struct PosInfo pos() {
 	register int call_id asm("a7") = 0x15;
 	register uint32_t raw asm("a0");
 	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
-	union { uint32_t r; struct PosInfo p; } u;
+	union {
+		uint32_t r;
+		struct PosInfo p;
+	} u;
 	u.r = raw;
 	return u.p;
 }

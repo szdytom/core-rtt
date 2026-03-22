@@ -40,8 +40,7 @@ static int pickDirection(void) {
 static void logStep(int pos_x, int pos_y, int dir, int ret) {
 	const char *dir_str = "UDLR";
 	if (ret != 0) {
-		logf("[rw] pos=(%d,%d) dir=%c FAILED\n", pos_x, pos_y,
-			dir_str[dir]);
+		logf("[rw] pos=(%d,%d) dir=%c FAILED\n", pos_x, pos_y, dir_str[dir]);
 		return;
 	}
 	logf("[rw] pos=(%d,%d) dir=%c\n", pos_x, pos_y, dir_str[dir]);

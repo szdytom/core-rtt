@@ -14,11 +14,16 @@ int main() {
 	int prev_tick = turn();
 	int prev_energy = info.energy;
 	while (true) {
-		while (turn() == prev_tick); // wait for next tick
+		while (turn() == prev_tick)
+			; // wait for next tick
 		prev_tick = turn();
 
 		if (prev_energy != info.energy) {
-			logf("%s: %d energy, current: %d\n", prev_energy > info.energy ? "Withdrew" : "Deposited", abs(info.energy - prev_energy), info.energy);
+			logf(
+				"%s: %d energy, current: %d\n",
+				prev_energy > info.energy ? "Withdrew" : "Deposited",
+				abs(info.energy - prev_energy), info.energy
+			);
 			prev_energy = info.energy;
 		}
 
@@ -29,7 +34,7 @@ int main() {
 			if (ret == EC_OK) {
 				prev_energy -= MANUFACTURE_COST;
 			}
-	
+
 			next_id++;
 			if (next_id >= 16) {
 				next_id = 1;

@@ -17,13 +17,17 @@ int main() {
 		last_turn = t;
 
 		// Log this unit's status (id, health, energy) every tick.
-		logf("[msg] unit=%d tick=%d hp=%d energy=%d\n", my_id, t,
-			info.health, info.energy);
+		logf(
+			"[msg] unit=%d tick=%d hp=%d energy=%d\n", my_id, t, info.health,
+			info.energy
+		);
 
 		// Unit 1 sends a broadcast message each tick.
 		if (my_id == 1) {
-			int msg_len = fmt_str((char *)msg_buf, sizeof(msg_buf),
-				"hello from unit 1, tick=%d", t);
+			int msg_len = fmt_str(
+				(char *)msg_buf, sizeof(msg_buf), "hello from unit 1, tick=%d",
+				t
+			);
 			send_msg(msg_buf, msg_len);
 		}
 

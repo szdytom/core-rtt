@@ -4,6 +4,7 @@
 #include "corertt/tui.h"
 #include "corertt/world.h"
 #include <argparse/argparse.hpp>
+#include <array>
 #include <chrono>
 #include <format>
 #include <fstream>
@@ -134,6 +135,7 @@ int runPlaybackMode(
 	const ProgramOptions &options, std::chrono::milliseconds step_interval
 ) {
 	cr::ReplayByteStream replay_stream;
+	cr::TuiRunner tui_runner(replay_stream, step_interval, true);
 	std::jthread producer_thread([&](std::stop_token stop_token) {
 		try {
 			std::ifstream input(options.play_replay, std::ios::binary);
@@ -146,36 +148,33 @@ int runPlaybackMode(
 				);
 			}
 
-			const auto replay_data = cr::readReplay(input);
-			cr::ReplayStreamEncoder replay_encoder;
-			replay_stream.pushBytes(
-				replay_encoder.encodeHeader(replay_data.header)
-			);
-
-			auto next_tick_time = std::chrono::steady_clock::now()
-				+ step_interval;
-			for (const auto &tick : replay_data.ticks) {
-				if (stop_token.stop_requested()) {
+			std::array<char, 4096> raw_chunk{};
+			while (!stop_token.stop_requested() && input.good()) {
+				input.read(
+					raw_chunk.data(),
+					static_cast<std::streamsize>(raw_chunk.size())
+				);
+				const auto read_size = input.gcount();
+				if (read_size <= 0) {
 					break;
 				}
 
-				std::this_thread::sleep_until(next_tick_time);
-				replay_stream.pushBytes(replay_encoder.encodeTick(tick));
-				next_tick_time += step_interval;
-			}
-
-			auto end_bytes = replay_encoder.encodeEnd(replay_data.end_marker);
-			if (!end_bytes.empty()) {
-				replay_stream.pushBytes(std::move(end_bytes));
+				auto bytes = std::vector<std::byte>(
+					reinterpret_cast<std::byte *>(raw_chunk.data()),
+					reinterpret_cast<std::byte *>(raw_chunk.data()) + read_size
+				);
+				replay_stream.pushBytes(std::move(bytes));
+				tui_runner.notifyUpdate();
 			}
 		} catch (const std::exception &e) {
 			std::cerr << e.what() << '\n';
 		}
 
 		replay_stream.close();
+		tui_runner.notifyUpdate();
 	});
 
-	const int tui_exit_code = cr::runTui(replay_stream, step_interval);
+	const int tui_exit_code = tui_runner.run();
 	producer_thread.request_stop();
 	return tui_exit_code;
 }
@@ -205,6 +204,7 @@ int runLiveMode(
 	auto replay_recorder = std::make_shared<cr::ReplayRecorder>(*world);
 	auto replay_encoder = std::make_shared<cr::ReplayStreamEncoder>();
 	auto replay_stream = std::make_shared<cr::ReplayByteStream>();
+	cr::TuiRunner tui_runner(*replay_stream, step_interval, false);
 
 	std::shared_ptr<std::ofstream> replay_file_stream;
 	if (!options.replay_file.empty()) {
@@ -222,6 +222,7 @@ int runLiveMode(
 
 	auto header_bytes = replay_encoder->encodeHeader(replay_recorder->header());
 	replay_stream->pushBytes(header_bytes);
+	tui_runner.notifyUpdate();
 	writeChunk(replay_file_stream.get(), header_bytes);
 
 	std::jthread producer_thread([&](std::stop_token stop_token) {
@@ -240,6 +241,7 @@ int runLiveMode(
 
 				auto tick_bytes = replay_encoder->encodeTick(tick);
 				replay_stream->pushBytes(tick_bytes);
+				tui_runner.notifyUpdate();
 				writeChunk(replay_file_stream.get(), tick_bytes);
 
 				next_tick_time += step_interval;
@@ -258,6 +260,7 @@ int runLiveMode(
 			auto end_bytes = replay_encoder->encodeEnd(end_marker);
 			if (!end_bytes.empty()) {
 				replay_stream->pushBytes(end_bytes);
+				tui_runner.notifyUpdate();
 				writeChunk(replay_file_stream.get(), end_bytes);
 			}
 		} catch (const std::exception &e) {
@@ -265,9 +268,10 @@ int runLiveMode(
 		}
 
 		replay_stream->close();
+		tui_runner.notifyUpdate();
 	});
 
-	const int tui_exit_code = cr::runTui(*replay_stream, step_interval);
+	const int tui_exit_code = tui_runner.run();
 	producer_thread.request_stop();
 	return tui_exit_code;
 }

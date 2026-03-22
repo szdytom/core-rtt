@@ -15,7 +15,7 @@ This document describes runtime execution, replay production/consumption, and TU
 - `ReplayRecorder`: snapshots world state after each tick.
 - `ReplayStreamEncoder`: converts replay header/ticks/end marker to binary chunks.
 - `ReplayByteStream`: thread-safe byte-chunk queue between producer and TUI consumer.
-- `ReplayStreamDecoder`: incremental decoder used by TUI.
+- `ReplayStreamDecoder`: incremental decoder used directly by UI thread.
 - TUI `PlaybackState`: pure data snapshot used for rendering (header/current tick/log history).
 
 ## Live mode flow
@@ -27,13 +27,11 @@ producer thread:
   replay_encoder.encodeTick(...)
   replay_byte_stream.pushBytes(...)
 
-TUI decode thread:
+UI thread:
   replay_byte_stream.waitPopNext(...)
   decoder.pushBytes(...)
-  decoder.tryReadNextTick() loop
+  on Event::Custom: parse at most one tick
   update PlaybackState
-
-UI thread:
   render from PlaybackState only
 ```
 
@@ -47,15 +45,13 @@ UI thread:
 
 ```text
 producer thread:
-  readReplay(file)
-  re-encode header/ticks/end as stream chunks
-  push chunks into ReplayByteStream with playback interval
+  stream raw replay bytes into ReplayByteStream
 
 TUI decode/render:
-  identical to live mode
+  identical to live mode, but tick pacing is controlled by UI thread
 ```
 
-This makes live display a special case of replay playback.
+This keeps live and playback on a single decode path while moving playback pacing to UI control.
 
 ## Log lifecycle
 
@@ -66,17 +62,20 @@ This makes live display a special case of replay playback.
 ## Threading model
 
 - Producer thread: generates replay byte chunks.
-- Decode thread (inside TUI): consumes chunks and updates playback state under mutex.
-- UI event/render thread: reads playback state under the same mutex.
+- UI event/render thread: consumes chunks, decodes records, and renders from playback state.
 
 Shared object with synchronization:
 
 - `ReplayByteStream`: internal mutex + condition variable.
-- `PlaybackState`: guarded by TUI-local mutex.
+
+The UI thread owns `PlaybackState`, so no additional playback-state mutex is needed.
 
 ## Failure handling
 
-- Incremental decoder returns no tick when bytes are insufficient and waits for more data.
+- Incremental decoder returns explicit read status (`NeedMoreData`, `Tick`, `End`) instead of using exceptions for incomplete input.
+- Binary format v3 is size-framed (`header size`, tick `size`):
+  - Declared size larger than known fields: decode known fields and ignore extension bytes.
+  - Declared size smaller than known fields: treat as format error.
 - Offline reader (`readReplay`) requires an end marker and rejects truncated files.
 - Producer catches exceptions, reports to stderr, and closes stream to unblock TUI.
 

@@ -3,7 +3,6 @@
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <format>
@@ -214,55 +213,14 @@ int computeViewportSize(const World &world) noexcept {
 	);
 }
 
-std::vector<std::string> renderPayloadLines(
-	std::string_view payload, std::string &&prefix
-) {
-	std::vector<std::string> lines;
-	const auto prefix_length = prefix.size();
-	lines.emplace_back(std::move(prefix));
-
-	bool pop_last = false;
-	for (std::size_t i = 0; i < payload.size(); ++i) {
-		const auto ch = payload[i];
-
-		if (ch == '\n') {
-			pop_last = true;
-			lines.emplace_back(std::string(prefix_length, ' '));
-			continue;
-		}
-
-		pop_last = false;
-		if (ch == '\t' || ch == '\r' || std::isprint(ch)) {
-			lines.back().push_back(ch);
-			continue;
-		}
-
-		lines.back() += std::format("\\x{:02X}", static_cast<int>(ch));
-	}
-
-	if (pop_last) {
-		lines.pop_back();
-	}
-	return lines;
-}
-
-void formatLogEntryLines(
+void appendRenderedLogLines(
 	const LogEntry &entry, std::vector<RenderedLogLine> &out_lines
 ) {
-	const std::string dev_name = entry.unit_id == 0
-		? "base"
-		: std::format("{:02}", entry.unit_id);
-
-	std::string prefix = std::format(
-		"[{:04} P{}-{} {}] ", entry.tick, entry.player_id, dev_name,
-		entry.source == LogSource::SYSTEM ? "SYS" : "USR"
-	);
-
-	auto payload_lines = renderPayloadLines(entry.payload, std::move(prefix));
+	auto payload_lines = formatLogEntryLines(entry);
 
 	// Reverse the lines
 	for (auto it = payload_lines.rbegin(); it != payload_lines.rend(); ++it) {
-		out_lines.push_back({std::move(*it), true});
+		out_lines.push_back({*it, true});
 	}
 	out_lines.back().is_continuation = false;
 }
@@ -277,7 +235,7 @@ std::vector<RenderedLogLine> collectVisibleLogLines(
 	std::vector<RenderedLogLine> lines;
 	const auto log_range = world.runtimeLogs();
 	for (auto &entry : (log_range | std::views::reverse)) {
-		formatLogEntryLines(entry, lines);
+		appendRenderedLogLines(entry, lines);
 		if (lines.size() >= available_rows) {
 			break;
 		}

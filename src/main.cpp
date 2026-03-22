@@ -1,3 +1,4 @@
+#include "corertt/log.h"
 #include "corertt/tilemap.h"
 #include "corertt/tui.h"
 #include "corertt/world.h"
@@ -9,6 +10,52 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+namespace {
+
+class RuntimeLogFileMirror {
+public:
+	explicit RuntimeLogFileMirror(const std::string &path): _path(path) {
+		_stream.open(path, std::ios::out | std::ios::trunc);
+		if (!_stream.is_open()) {
+			throw std::runtime_error(
+				std::format("Failed to open log file: {}", path)
+			);
+		}
+	}
+
+	void append(const cr::LogEntry &entry) noexcept {
+		if (_write_failed) {
+			return;
+		}
+
+		try {
+			const auto lines = cr::formatLogEntryLines(entry);
+			for (const auto &line : lines) {
+				_stream << line << '\n';
+			}
+			_stream.flush();
+			if (!_stream.good()) {
+				throw std::runtime_error(
+					std::format("Failed to write runtime logs to {}", _path)
+				);
+			}
+		} catch (const std::exception &e) {
+			std::cerr << e.what() << '\n';
+			_write_failed = true;
+		} catch (...) {
+			std::cerr << "Unknown error while writing runtime logs\n";
+			_write_failed = true;
+		}
+	}
+
+private:
+	std::ofstream _stream;
+	std::string _path;
+	bool _write_failed = false;
+};
+
+} // namespace
 
 std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	std::ifstream file(path.data(), std::ios::binary);
@@ -61,6 +108,9 @@ int main(int argc, char *argv[]) {
 	program.add_argument("-s", "--seed")
 		.default_value(std::string("test"))
 		.help("seed for map generation");
+	program.add_argument("--log-file")
+		.default_value(std::string(""))
+		.help("optional path to mirror runtime logs to file");
 
 	try {
 		program.parse_args(argc, argv);
@@ -82,15 +132,32 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	auto world = std::make_unique<cr::World>(cr::Tilemap::generate(config));
-	world->setPlayerProgram(
-		1, loadBinary(program.get<std::string>("--p1-base")),
-		loadBinary(program.get<std::string>("--p1-unit"))
-	);
-	world->setPlayerProgram(
-		2, loadBinary(program.get<std::string>("--p2-base")),
-		loadBinary(program.get<std::string>("--p2-unit"))
-	);
+	try {
+		auto world = std::make_unique<cr::World>(cr::Tilemap::generate(config));
 
-	return cr::runTui(*world, std::chrono::milliseconds(step_interval_ms));
+		std::shared_ptr<RuntimeLogFileMirror> log_mirror;
+		const auto log_file_path = program.get<std::string>("--log-file");
+		if (!log_file_path.empty()) {
+			log_mirror = std::make_shared<RuntimeLogFileMirror>(log_file_path);
+			world->setRuntimeLogSink(
+				[log_mirror](const cr::LogEntry &entry) {
+					log_mirror->append(entry);
+				}
+			);
+		}
+
+		world->setPlayerProgram(
+			1, loadBinary(program.get<std::string>("--p1-base")),
+			loadBinary(program.get<std::string>("--p1-unit"))
+		);
+		world->setPlayerProgram(
+			2, loadBinary(program.get<std::string>("--p2-base")),
+			loadBinary(program.get<std::string>("--p2-unit"))
+		);
+
+		return cr::runTui(*world, std::chrono::milliseconds(step_interval_ms));
+	} catch (const std::exception &e) {
+		std::cerr << e.what() << '\n';
+		return 1;
+	}
 }

@@ -6,6 +6,28 @@ set(CORERTT_VERSION "0.1")
 
 project(corertt VERSION ${CORERTT_VERSION} LANGUAGES CXX)
 
+find_package(Git QUIET)
+set(CORERTT_GIT_COMMIT_HASH "unknown")
+if (Git_FOUND)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-parse --short=12 HEAD
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+		OUTPUT_VARIABLE CORERTT_GIT_COMMIT_HASH
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		RESULT_VARIABLE CORERTT_GIT_HASH_RESULT
+	)
+	if (NOT CORERTT_GIT_HASH_RESULT EQUAL 0 OR CORERTT_GIT_COMMIT_HASH STREQUAL "")
+		set(CORERTT_GIT_COMMIT_HASH "unknown")
+	endif ()
+endif ()
+
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated/include/corertt)
+configure_file(
+	${CMAKE_CURRENT_SOURCE_DIR}/include/corertt/build_config.h.in
+	${CMAKE_CURRENT_BINARY_DIR}/generated/include/corertt/build_config.h
+	@ONLY
+)
+
 # msft_proxy
 FetchContent_Declare(msft_proxy4
 	GIT_REPOSITORY https://github.com/microsoft/proxy.git
@@ -79,6 +101,7 @@ target_compile_features(corertt PRIVATE cxx_std_23)
 
 target_include_directories(corertt PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/include
+	${CMAKE_CURRENT_BINARY_DIR}/generated/include
 )
 
 target_link_libraries(corertt PRIVATE

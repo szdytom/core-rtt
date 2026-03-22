@@ -1,3 +1,4 @@
+#include "corertt/build_config.h"
 #include "corertt/log.h"
 #include "corertt/tilemap.h"
 #include "corertt/tui.h"
@@ -71,7 +72,9 @@ std::vector<std::uint8_t> loadBinary(std::string_view path) {
 }
 
 int main(int argc, char *argv[]) {
-	argparse::ArgumentParser program("corertt");
+	argparse::ArgumentParser program(
+		"corertt", std::string(cr::program_version_with_commit)
+	);
 
 	program.add_argument("--width")
 		.default_value(64)
@@ -106,8 +109,7 @@ int main(int argc, char *argv[]) {
 		.default_value(std::string("player2_unit.elf"))
 		.help("path to player 2 unit ELF");
 	program.add_argument("-s", "--seed")
-		.default_value(std::string("test"))
-		.help("seed for map generation");
+		.help("seed for map generation (omitted means device-random)");
 	program.add_argument("--log-file")
 		.default_value(std::string(""))
 		.help("optional path to mirror runtime logs to file");
@@ -125,7 +127,11 @@ int main(int argc, char *argv[]) {
 	config.height = program.get<int>("--height");
 	config.base_size = program.get<int>("--base-size");
 	config.num_resources = program.get<int>("--resources");
-	config.seed = cr::Seed::from_string(program.get<std::string>("--seed"));
+	if (program.is_used("--seed")) {
+		config.seed = cr::Seed::from_string(program.get<std::string>("--seed"));
+	} else {
+		config.seed = cr::Seed::device_random();
+	}
 	const int step_interval_ms = program.get<int>("--step-interval-ms");
 	if (step_interval_ms <= 0) {
 		std::cerr << "--step-interval-ms must be positive\n";

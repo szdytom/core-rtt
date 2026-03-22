@@ -1,0 +1,15 @@
+#ifndef CORERTT_BUILD_CONFIG_H
+#define CORERTT_BUILD_CONFIG_H
+
+#include <string_view>
+
+namespace cr {
+
+inline constexpr std::string_view program_version = "@PROJECT_VERSION@";
+inline constexpr std::string_view git_commit_hash = "@CORERTT_GIT_COMMIT_HASH@";
+inline constexpr std::string_view program_version_with_commit =
+	"@PROJECT_VERSION@+@CORERTT_GIT_COMMIT_HASH@";
+
+} // namespace cr
+
+#endif

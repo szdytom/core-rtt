@@ -55,6 +55,7 @@ const ftxui::Color color_obstacle = ftxui::Color::RGB(130, 130, 130);
 const ftxui::Color color_water = ftxui::Color::RGB(95, 170, 255);
 const ftxui::Color color_win = ftxui::Color::RGB(92, 201, 110);
 const ftxui::Color color_loss = ftxui::Color::RGB(229, 96, 96);
+const ftxui::Color color_terminated = ftxui::Color::RGB(237, 189, 86);
 } // namespace UiConst
 
 struct CameraState {
@@ -80,7 +81,9 @@ struct PlaybackState {
 	bool has_header = false;
 	bool has_tick = false;
 	bool stream_ended = false;
+	bool has_end_marker = false;
 	ReplayHeader header;
+	ReplayEndMarker end_marker;
 	ReplayTickFrame current_tick;
 	std::vector<ReplayLogEntry> log_history;
 };
@@ -97,9 +100,8 @@ struct InfoPanelState {
 	int camera_y = 0;
 	int step_interval_ms = 0;
 	bool stream_ended = false;
-	bool game_over = false;
-	std::uint8_t winner_player_id = 0;
-	std::uint8_t captured_player_id = 0;
+	bool has_end_marker = false;
+	ReplayEndMarker end_marker;
 };
 
 bool isInBounds(const ReplayTilemap &tilemap, int x, int y) noexcept {
@@ -335,40 +337,43 @@ InfoPanelState buildInfoPanelState(
 	info_state.camera_y = camera.y;
 	info_state.step_interval_ms = static_cast<int>(step_interval.count());
 	info_state.stream_ended = playback_state.stream_ended;
+	info_state.has_end_marker = playback_state.has_end_marker;
+	if (playback_state.has_end_marker) {
+		info_state.end_marker = playback_state.end_marker;
+	}
 
 	if (!playback_state.has_tick) {
 		return info_state;
 	}
 
 	info_state.tick = playback_state.current_tick.tick;
-	for (const auto &player : playback_state.current_tick.players) {
-		if (player.base_capture_counter < 8) {
-			continue;
-		}
-		info_state.game_over = true;
-		info_state.captured_player_id = player.id;
-		info_state.winner_player_id = static_cast<std::uint8_t>(3 - player.id);
-		break;
-	}
-
 	return info_state;
 }
 
 ftxui::Element renderGameStatusLine(const InfoPanelState &info_state) {
 	using namespace ftxui;
 
-	if (info_state.game_over) {
-		Element
-			winner = text(std::format("P{} wins", info_state.winner_player_id))
-			| color(UiConst::color_win) | bold;
-		Element loser = text(
-							std::format(
-								"P{} base captured",
-								info_state.captured_player_id
+	if (info_state.has_end_marker) {
+		if (info_state.end_marker.termination == ReplayTermination::Completed) {
+			Element winner = text(
+								 std::format(
+									 "P{} wins",
+									 info_state.end_marker.winner_player_id
+								 )
+							 )
+				| color(UiConst::color_win) | bold;
+			Element loser = text(
+								std::format(
+									"P{} base captured",
+									info_state.end_marker.captured_player_id
+								)
 							)
-						)
-			| color(UiConst::color_loss) | bold;
-		return hbox({text("Game over: "), winner, text(" | "), loser});
+				| color(UiConst::color_loss) | bold;
+			return hbox({text("Game over: "), winner, text(" | "), loser});
+		}
+
+		return text("Replay terminated early (unfinished)")
+			| color(UiConst::color_terminated) | bold;
 	}
 
 	if (info_state.stream_ended) {
@@ -519,6 +524,7 @@ int runTui(
 			bool changed = false;
 
 			std::optional<ReplayHeader> maybe_header;
+			std::optional<ReplayEndMarker> maybe_end_marker;
 			std::vector<ReplayTickFrame> new_ticks;
 			while (true) {
 				auto tick = decoder.tryReadNextTick();
@@ -530,6 +536,9 @@ int runTui(
 
 			if (decoder.hasHeader()) {
 				maybe_header = decoder.header();
+			}
+			if (decoder.isEnded()) {
+				maybe_end_marker = decoder.endMarker();
 			}
 
 			{
@@ -553,6 +562,13 @@ int runTui(
 
 				if (decoder.isEnded() && !playback_state.stream_ended) {
 					playback_state.stream_ended = true;
+					changed = true;
+				}
+
+				if (maybe_end_marker.has_value()
+				    && !playback_state.has_end_marker) {
+					playback_state.end_marker = *maybe_end_marker;
+					playback_state.has_end_marker = true;
 					changed = true;
 				}
 			}

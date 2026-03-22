@@ -152,7 +152,8 @@ int runPlaybackMode(
 				replay_encoder.encodeHeader(replay_data.header)
 			);
 
-			auto next_tick_time = std::chrono::steady_clock::now() + step_interval;
+			auto next_tick_time = std::chrono::steady_clock::now()
+				+ step_interval;
 			for (const auto &tick : replay_data.ticks) {
 				if (stop_token.stop_requested()) {
 					break;
@@ -163,7 +164,7 @@ int runPlaybackMode(
 				next_tick_time += step_interval;
 			}
 
-			auto end_bytes = replay_encoder.encodeEnd();
+			auto end_bytes = replay_encoder.encodeEnd(replay_data.end_marker);
 			if (!end_bytes.empty()) {
 				replay_stream.pushBytes(std::move(end_bytes));
 			}
@@ -247,7 +248,14 @@ int runLiveMode(
 				}
 			}
 
-			auto end_bytes = replay_encoder->encodeEnd();
+			cr::ReplayEndMarker end_marker;
+			if (world->gameOver()) {
+				end_marker.termination = cr::ReplayTermination::Completed;
+				end_marker.winner_player_id = world->winnerPlayerId();
+				end_marker.captured_player_id = world->capturedPlayerId();
+			}
+
+			auto end_bytes = replay_encoder->encodeEnd(end_marker);
 			if (!end_bytes.empty()) {
 				replay_stream->pushBytes(end_bytes);
 				writeChunk(replay_file_stream.get(), end_bytes);

@@ -158,13 +158,25 @@ struct ReplayTickFrame {
 };
 
 struct ReplayHeader {
-	std::uint16_t version = 1;
+	std::uint16_t version = 2;
 	ReplayTilemap tilemap;
+};
+
+enum class ReplayTermination : std::uint8_t {
+	Completed = 0,
+	Aborted = 1,
+};
+
+struct ReplayEndMarker {
+	ReplayTermination termination = ReplayTermination::Aborted;
+	std::uint8_t winner_player_id = 0;
+	std::uint8_t captured_player_id = 0;
 };
 
 struct ReplayData {
 	ReplayHeader header;
 	std::vector<ReplayTickFrame> ticks;
+	ReplayEndMarker end_marker;
 };
 
 class ReplayRecorder {
@@ -198,7 +210,7 @@ public:
 
 	std::vector<std::byte> encodeHeader(const ReplayHeader &header);
 	std::vector<std::byte> encodeTick(const ReplayTickFrame &tick);
-	std::vector<std::byte> encodeEnd();
+	std::vector<std::byte> encodeEnd(const ReplayEndMarker &end_marker);
 
 private:
 	bool _header_written = false;
@@ -218,6 +230,7 @@ public:
 	}
 
 	const ReplayHeader &header() const;
+	const ReplayEndMarker &endMarker() const;
 	std::optional<ReplayTickFrame> tryReadNextTick();
 
 private:
@@ -226,6 +239,7 @@ private:
 	std::vector<std::byte> _buffer;
 	std::size_t _cursor = 0;
 	ReplayHeader _header;
+	std::optional<ReplayEndMarker> _end_marker;
 };
 
 class ReplayByteStream {

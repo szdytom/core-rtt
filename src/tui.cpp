@@ -171,7 +171,7 @@ InfoPanelState buildInfoPanelState(
 		.camera_x = camera.x,
 		.camera_y = camera.y,
 		.step_interval_ms = static_cast<int>(step_interval.count()),
-		.game_over = world.isGameOver(),
+		.game_over = world.gameOver(),
 		.winner_player_id = world.winnerPlayerId(),
 		.captured_player_id = world.capturedPlayerId(),
 	};
@@ -387,7 +387,7 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 			{
 				std::scoped_lock lock(world_mutex);
 				world.step();
-				game_over = world.isGameOver();
+				game_over = world.gameOver();
 			}
 			screen.PostEvent(Event::Custom);
 			if (game_over) {

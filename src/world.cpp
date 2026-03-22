@@ -70,7 +70,7 @@ void Player::step(World &world) noexcept {
 }
 
 World::World(Tilemap tilemap) noexcept
-	: tick(0), _tilemap(std::move(tilemap)), _players{Player(1), Player(2)} {
+	: tick(0), _tilemap(std::move(tilemap)), _players{Player(1), Player(2)}, _winner_player_id(0) {
 	// Initialize player base positions based on tilemap
 	// Find out top-left corner of each base and assign to players
 	bool base_found[2] = {false, false};
@@ -109,17 +109,19 @@ World::World(Tilemap tilemap) noexcept
 }
 
 void World::step() noexcept {
-	if (isGameOver()) {
+	if (gameOver()) {
 		return;
 	}
 
 	tick += 1;
 	_processBulletMovement();
 	_processUnitMovement();
+
 	_checkBaseCaptureCondition();
-	if (isGameOver()) {
+	if (gameOver()) {
 		return;
 	}
+
 	_collectEnergy();
 
 	for (auto &player : _players) {
@@ -462,7 +464,7 @@ void World::_processUnitMovement() noexcept {
 }
 
 void World::_checkBaseCaptureCondition() noexcept {
-	if (isGameOver()) {
+	if (gameOver()) {
 		return;
 	}
 
@@ -505,12 +507,9 @@ void World::_checkBaseCaptureCondition() noexcept {
 			continue;
 		}
 
-		_captured_player_id = static_cast<std::uint8_t>(pid);
-		_winner_player_id = static_cast<std::uint8_t>(3 - pid);
+		_winner_player_id = 3 - pid;
 		appendLog(
-			LogEntry::baseCapturedLog(
-				currentTick(), _captured_player_id, _winner_player_id
-			)
+			LogEntry::baseCapturedLog(currentTick(), pid, _winner_player_id)
 		);
 		return;
 	}

@@ -71,7 +71,7 @@ public:
 		return tick;
 	}
 
-	bool isGameOver() const noexcept {
+	bool gameOver() const noexcept {
 		return _winner_player_id != 0;
 	}
 
@@ -80,7 +80,7 @@ public:
 	}
 
 	std::uint8_t capturedPlayerId() const noexcept {
-		return _captured_player_id;
+		return 3 - _winner_player_id;
 	}
 
 	const Tilemap &tilemap() const noexcept {
@@ -138,8 +138,7 @@ private:
 	std::vector<std::unique_ptr<Bullet>> _bullets;
 	std::vector<LogEntry> _runtime_logs;
 	RuntimeLogSink _runtime_log_sink;
-	std::uint8_t _winner_player_id = 0;
-	std::uint8_t _captured_player_id = 0;
+	std::uint8_t _winner_player_id;
 
 	// Helper methods
 	void _processBulletMovement() noexcept;

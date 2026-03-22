@@ -11,6 +11,7 @@
 #include <istream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -319,7 +320,7 @@ ReplayHeader decodeReplayHeader(ByteReader &reader) {
 	return header;
 }
 
-std::vector<std::byte> toBytes(std::string_view text) {
+std::vector<std::byte> toBytes(std::string_view text) noexcept {
 	std::vector<std::byte> bytes;
 	bytes.reserve(text.size());
 	for (const auto ch : text) {
@@ -419,46 +420,127 @@ ReplayLogEntry ReplayLogEntry::baseCapturedLog(
 	};
 }
 
-std::vector<std::string> formatReplayLogEntryLines(
+FormatReplayLogEntryLines::FormatReplayLogEntryLines(
+	const ReplayLogEntry &entry
+)
+	: _entry(entry), _prefix(computePrefix(entry)) {}
+
+FormatReplayLogEntryLines::iterator::iterator() noexcept = default;
+
+FormatReplayLogEntryLines::iterator::iterator(
+	const ReplayLogEntry *entry, std::string prefix, bool is_begin
+)
+	: _entry(entry)
+	, _prefix(std::move(prefix))
+	, _prefix_length(_prefix.size())
+	, _payload_pos(0)
+	, _is_first_line(true)
+	, _done(!is_begin) {
+	if (_done || _entry == nullptr) {
+		_done = true;
+		return;
+	}
+
+	buildCurrentLine();
+}
+
+FormatReplayLogEntryLines::iterator::reference
+FormatReplayLogEntryLines::iterator::operator*() const noexcept {
+	return _current;
+}
+
+FormatReplayLogEntryLines::iterator::pointer
+FormatReplayLogEntryLines::iterator::operator->() const noexcept {
+	return &_current;
+}
+
+FormatReplayLogEntryLines::iterator &
+FormatReplayLogEntryLines::iterator::operator++() {
+	if (_done) {
+		return *this;
+	}
+
+	if (_payload_pos >= _entry->payload.size()) {
+		_done = true;
+		return *this;
+	}
+
+	buildCurrentLine();
+	return *this;
+}
+
+FormatReplayLogEntryLines::iterator
+FormatReplayLogEntryLines::iterator::operator++(int) {
+	auto temp = *this;
+	++(*this);
+	return temp;
+}
+
+bool FormatReplayLogEntryLines::iterator::operator==(
+	const iterator &other
+) const noexcept {
+	if (_done && other._done) {
+		return true;
+	}
+	if (_done != other._done) {
+		return false;
+	}
+	return _entry == other._entry && _payload_pos == other._payload_pos
+		&& _is_first_line == other._is_first_line;
+}
+
+bool FormatReplayLogEntryLines::iterator::operator!=(
+	const iterator &other
+) const noexcept {
+	return !(*this == other);
+}
+
+void FormatReplayLogEntryLines::iterator::buildCurrentLine() {
+	if (_is_first_line) {
+		_current = _prefix;
+		_is_first_line = false;
+	} else {
+		_current.assign(_prefix_length, ' ');
+	}
+
+	while (_payload_pos < _entry->payload.size()) {
+		const auto ch = static_cast<unsigned char>(
+			_entry->payload[_payload_pos]
+		);
+		++_payload_pos;
+
+		if (ch == '\n') {
+			return;
+		}
+
+		if (ch == '\t' || ch == '\r' || std::isprint(ch)) {
+			_current.push_back(static_cast<char>(ch));
+			continue;
+		}
+
+		_current += std::format("\\x{:02X}", static_cast<int>(ch));
+	}
+}
+
+FormatReplayLogEntryLines::iterator FormatReplayLogEntryLines::begin() const {
+	return iterator(&_entry, _prefix, true);
+}
+
+FormatReplayLogEntryLines::iterator FormatReplayLogEntryLines::end() const {
+	return iterator();
+}
+
+std::string FormatReplayLogEntryLines::computePrefix(
 	const ReplayLogEntry &entry
 ) {
 	const std::string dev_name = entry.unit_id == 0
 		? "base"
 		: std::format("{:02}", entry.unit_id);
 
-	const std::string prefix = std::format(
+	return std::format(
 		"[{:04} P{}-{} {}] ", entry.tick, entry.player_id, dev_name,
 		entry.source == ReplayLogEntry::Source::System ? "SYS" : "USR"
 	);
-
-	std::vector<std::string> lines;
-	const auto prefix_length = prefix.size();
-	lines.emplace_back(prefix);
-
-	bool pop_last = false;
-	for (std::size_t i = 0; i < entry.payload.size(); ++i) {
-		const auto ch = static_cast<unsigned char>(entry.payload[i]);
-
-		if (ch == '\n') {
-			pop_last = true;
-			lines.emplace_back(prefix_length, ' ');
-			continue;
-		}
-
-		pop_last = false;
-		if (ch == '\t' || ch == '\r' || std::isprint(ch)) {
-			lines.back().push_back(static_cast<char>(ch));
-			continue;
-		}
-
-		lines.back() += std::format("\\x{:02X}", static_cast<int>(ch));
-	}
-
-	if (pop_last) {
-		lines.pop_back();
-	}
-
-	return lines;
 }
 
 ReplayRecorder::ReplayRecorder(const World &world) {

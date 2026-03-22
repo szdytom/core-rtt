@@ -8,7 +8,8 @@ int main() {
 	// Log the sensor data into a map of characters
 	// . for not a unit, @ for unit
 	char *ptr = output;
-	*ptr++ = '\n';
+	strcpy(ptr, "Sensor data:\n");
+	ptr += strlen(ptr);
 	for (int i = 0; i < 25; i++) {
 		if (!data[i].visible) {
 			*ptr++ = '?';

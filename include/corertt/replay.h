@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <deque>
 #include <iosfwd>
+#include <iterator>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -62,8 +63,52 @@ struct ReplayLogEntry {
 		std::uint32_t tick, std::uint8_t winner_player_id
 	);
 };
+class FormatReplayLogEntryLines {
+public:
+	explicit FormatReplayLogEntryLines(const ReplayLogEntry &entry);
 
-std::vector<std::string> formatReplayLogEntryLines(const ReplayLogEntry &entry);
+	class iterator {
+	public:
+		using iterator_category = std::input_iterator_tag;
+		using value_type = std::string;
+		using difference_type = std::ptrdiff_t;
+		using pointer = const std::string *;
+		using reference = const std::string &;
+
+		iterator() noexcept;
+		reference operator*() const noexcept;
+		pointer operator->() const noexcept;
+		iterator &operator++();
+		iterator operator++(int);
+		bool operator==(const iterator &other) const noexcept;
+		bool operator!=(const iterator &other) const noexcept;
+
+	private:
+		friend class FormatReplayLogEntryLines;
+
+		iterator(
+			const ReplayLogEntry *entry, std::string prefix, bool is_begin
+		);
+		void buildCurrentLine();
+
+		const ReplayLogEntry *_entry = nullptr;
+		std::string _prefix;
+		std::size_t _prefix_length = 0;
+		std::size_t _payload_pos = 0;
+		std::string _current;
+		bool _is_first_line = true;
+		bool _done = true;
+	};
+
+	iterator begin() const;
+	iterator end() const;
+
+private:
+	static std::string computePrefix(const ReplayLogEntry &entry);
+
+	const ReplayLogEntry &_entry;
+	std::string _prefix;
+};
 
 struct ReplayTile {
 	std::uint8_t terrain = 0;

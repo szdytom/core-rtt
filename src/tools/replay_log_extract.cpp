@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
 		for (const auto &tick : replay_data.ticks) {
 			for (const auto &entry : tick.logs) {
 				if (format == "text") {
-					const auto lines = cr::formatReplayLogEntryLines(entry);
+					const auto lines = cr::FormatReplayLogEntryLines(entry);
 					for (const auto &line : lines) {
 						*output_stream << line << '\n';
 					}

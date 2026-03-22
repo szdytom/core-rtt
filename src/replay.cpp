@@ -151,7 +151,7 @@ ReplayTilemap decodeTilemap(ByteReader &reader) {
 	tilemap.base_size = reader.readU16();
 	reader.readU16();
 
-	constexpr std::uint32_t max_tile_dimension = 4096;
+	constexpr std::uint32_t max_tile_dimension = 256;
 	constexpr std::uint32_t max_tile_count = max_tile_dimension * max_tile_dimension;
 	if (tilemap.width > max_tile_dimension || tilemap.height > max_tile_dimension) {
 		throw std::runtime_error("Replay decode failed: tilemap dimensions exceed maximum");

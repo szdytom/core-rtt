@@ -21,27 +21,27 @@ std::string payloadToHex(std::span<const std::byte> payload) {
 	return hex;
 }
 
-std::string_view logSourceToString(cr::ReplayLogSource source) {
+std::string_view logSourceToString(cr::ReplayLogEntry::Source source) {
 	switch (source) {
-	case cr::ReplayLogSource::System:
+	case cr::ReplayLogEntry::Source::System:
 		return "SYS";
-	case cr::ReplayLogSource::Player:
+	case cr::ReplayLogEntry::Source::Player:
 		return "USR";
 	}
 	throw std::runtime_error("Invalid replay log source");
 }
 
-std::string_view logTypeToString(cr::ReplayLogType type) {
+std::string_view logTypeToString(cr::ReplayLogEntry::Type type) {
 	switch (type) {
-	case cr::ReplayLogType::Custom:
+	case cr::ReplayLogEntry::Type::Custom:
 		return "custom";
-	case cr::ReplayLogType::UnitCreation:
+	case cr::ReplayLogEntry::Type::UnitCreation:
 		return "unit_creation";
-	case cr::ReplayLogType::UnitDestruction:
+	case cr::ReplayLogEntry::Type::UnitDestruction:
 		return "unit_destruction";
-	case cr::ReplayLogType::ExecutionException:
+	case cr::ReplayLogEntry::Type::ExecutionException:
 		return "execution_exception";
-	case cr::ReplayLogType::BaseCaptured:
+	case cr::ReplayLogEntry::Type::BaseCaptured:
 		return "base_captured";
 	}
 	throw std::runtime_error("Invalid replay log type");
@@ -52,15 +52,15 @@ std::string_view logTypeToString(cr::ReplayLogType type) {
 namespace nlohmann {
 
 template<>
-struct adl_serializer<cr::ReplayLogSource> {
-	static void to_json(json &j, const cr::ReplayLogSource &source) {
+struct adl_serializer<cr::ReplayLogEntry::Source> {
+	static void to_json(json &j, const cr::ReplayLogEntry::Source &source) {
 		j = logSourceToString(source);
 	}
 };
 
 template<>
-struct adl_serializer<cr::ReplayLogType> {
-	static void to_json(json &j, const cr::ReplayLogType &type) {
+struct adl_serializer<cr::ReplayLogEntry::Type> {
+	static void to_json(json &j, const cr::ReplayLogEntry::Type &type) {
 		j = logTypeToString(type);
 	}
 };

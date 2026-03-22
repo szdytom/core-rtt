@@ -185,8 +185,8 @@ ReplayLogEntry decodeLogEntry(ByteReader &reader) {
 	entry.tick = reader.readU32();
 	entry.player_id = reader.readU8();
 	entry.unit_id = reader.readU8();
-	entry.source = static_cast<ReplayLogSource>(reader.readU8());
-	entry.type = static_cast<ReplayLogType>(reader.readU8());
+	entry.source = static_cast<ReplayLogEntry::Source>(reader.readU8());
+	entry.type = static_cast<ReplayLogEntry::Type>(reader.readU8());
 	const auto payload_size = reader.readU16();
 	if (payload_size > 0) {
 		const auto bytes = reader.readBytes(payload_size);
@@ -338,8 +338,8 @@ ReplayLogEntry ReplayLogEntry::customLog(
 		.tick = tick,
 		.player_id = player_id,
 		.unit_id = unit_id,
-		.source = ReplayLogSource::Player,
-		.type = ReplayLogType::Custom,
+		.source = ReplayLogEntry::Source::Player,
+		.type = ReplayLogEntry::Type::Custom,
 		.payload = std::vector<std::byte>(length, std::byte{0}),
 	};
 }
@@ -351,8 +351,8 @@ ReplayLogEntry ReplayLogEntry::unitCreationLog(
 		.tick = tick,
 		.player_id = player_id,
 		.unit_id = unit_id,
-		.source = ReplayLogSource::System,
-		.type = ReplayLogType::UnitCreation,
+		.source = ReplayLogEntry::Source::System,
+		.type = ReplayLogEntry::Type::UnitCreation,
 		.payload = toBytes("Unit created"),
 	};
 }
@@ -364,8 +364,8 @@ ReplayLogEntry ReplayLogEntry::unitDestructionLog(
 		.tick = tick,
 		.player_id = player_id,
 		.unit_id = unit_id,
-		.source = ReplayLogSource::System,
-		.type = ReplayLogType::UnitDestruction,
+		.source = ReplayLogEntry::Source::System,
+		.type = ReplayLogEntry::Type::UnitDestruction,
 		.payload = toBytes("Unit destroyed"),
 	};
 }
@@ -390,8 +390,8 @@ ReplayLogEntry ReplayLogEntry::executionExceptionLog(
 		.tick = tick,
 		.player_id = player_id,
 		.unit_id = unit_id,
-		.source = ReplayLogSource::System,
-		.type = ReplayLogType::ExecutionException,
+		.source = ReplayLogEntry::Source::System,
+		.type = ReplayLogEntry::Type::ExecutionException,
 		.payload = toBytes(reason_strings[reason_index]),
 	};
 }
@@ -413,8 +413,8 @@ ReplayLogEntry ReplayLogEntry::baseCapturedLog(
 		.tick = tick,
 		.player_id = captured_player_id,
 		.unit_id = 0, // base
-		.source = ReplayLogSource::System,
-		.type = ReplayLogType::BaseCaptured,
+		.source = ReplayLogEntry::Source::System,
+		.type = ReplayLogEntry::Type::BaseCaptured,
 		.payload = toBytes(messages[winner_player_id - 1]),
 	};
 }
@@ -428,7 +428,7 @@ std::vector<std::string> formatReplayLogEntryLines(
 
 	const std::string prefix = std::format(
 		"[{:04} P{}-{} {}] ", entry.tick, entry.player_id, dev_name,
-		entry.source == ReplayLogSource::System ? "SYS" : "USR"
+		entry.source == ReplayLogEntry::Source::System ? "SYS" : "USR"
 	);
 
 	std::vector<std::string> lines;

@@ -22,7 +22,7 @@ namespace {
 constexpr std::array<std::byte, 4> replay_magic = {
 	std::byte{'C'}, std::byte{'R'}, std::byte{'P'}, std::byte{'L'}
 };
-constexpr std::uint16_t replay_version = 1;
+constexpr std::uint16_t replay_version = 2;
 
 class NeedMoreDataError : public std::runtime_error {
 public:
@@ -152,13 +152,19 @@ ReplayTilemap decodeTilemap(ByteReader &reader) {
 	reader.readU16();
 
 	constexpr std::uint32_t max_tile_dimension = 256;
-	constexpr std::uint32_t max_tile_count = max_tile_dimension * max_tile_dimension;
-	if (tilemap.width > max_tile_dimension || tilemap.height > max_tile_dimension) {
-		throw std::runtime_error("Replay decode failed: tilemap dimensions exceed maximum");
+	constexpr std::uint32_t max_tile_count = max_tile_dimension
+		* max_tile_dimension;
+	if (tilemap.width > max_tile_dimension
+	    || tilemap.height > max_tile_dimension) {
+		throw std::runtime_error(
+			"Replay decode failed: tilemap dimensions exceed maximum"
+		);
 	}
 	const auto count = tileCount(tilemap);
 	if (count > max_tile_count) {
-		throw std::runtime_error("Replay decode failed: tilemap tile count exceeds maximum");
+		throw std::runtime_error(
+			"Replay decode failed: tilemap tile count exceeds maximum"
+		);
 	}
 	if (count > reader.remaining()) {
 		throw NeedMoreDataError("Replay decode failed: tilemap data truncated");
@@ -199,21 +205,29 @@ ReplayLogEntry decodeLogEntry(ByteReader &reader) {
 	entry.unit_id = reader.readU8();
 
 	const auto raw_source = reader.readU8();
-	if (raw_source > static_cast<std::uint8_t>(ReplayLogEntry::Source::Player)) {
-		throw std::runtime_error("Replay decode failed: invalid log source value");
+	if (raw_source
+	    > static_cast<std::uint8_t>(ReplayLogEntry::Source::Player)) {
+		throw std::runtime_error(
+			"Replay decode failed: invalid log source value"
+		);
 	}
 	entry.source = static_cast<ReplayLogEntry::Source>(raw_source);
 
 	const auto raw_type = reader.readU8();
-	if (raw_type > static_cast<std::uint8_t>(ReplayLogEntry::Type::BaseCaptured)) {
-		throw std::runtime_error("Replay decode failed: invalid log type value");
+	if (raw_type
+	    > static_cast<std::uint8_t>(ReplayLogEntry::Type::BaseCaptured)) {
+		throw std::runtime_error(
+			"Replay decode failed: invalid log type value"
+		);
 	}
 	entry.type = static_cast<ReplayLogEntry::Type>(raw_type);
 
 	const auto payload_size = reader.readU16();
 	if (payload_size > 0) {
 		if (static_cast<std::size_t>(payload_size) > reader.remaining()) {
-			throw NeedMoreDataError("Replay decode failed: log payload truncated");
+			throw NeedMoreDataError(
+				"Replay decode failed: log payload truncated"
+			);
 		}
 		const auto bytes = reader.readBytes(payload_size);
 		entry.payload.resize(payload_size);
@@ -284,7 +298,9 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 	constexpr std::uint16_t max_unit_count = 30;
 	const auto unit_count = reader.readU16();
 	if (unit_count > max_unit_count) {
-		throw std::runtime_error("Replay decode failed: unit_count exceeds maximum allowed value");
+		throw std::runtime_error(
+			"Replay decode failed: unit_count exceeds maximum allowed value"
+		);
 	}
 	tick.units.reserve(unit_count);
 	for (std::uint16_t i = 0; i < unit_count; ++i) {
@@ -303,7 +319,9 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 	constexpr std::uint16_t max_bullet_count = 4096;
 	const auto bullet_count = reader.readU16();
 	if (bullet_count > max_bullet_count) {
-		throw std::runtime_error("Replay decode failed: bullet_count exceeds maximum allowed value");
+		throw std::runtime_error(
+			"Replay decode failed: bullet_count exceeds maximum allowed value"
+		);
 	}
 	tick.bullets.reserve(bullet_count);
 	for (std::uint16_t i = 0; i < bullet_count; ++i) {
@@ -319,7 +337,9 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 	constexpr std::uint16_t max_log_count = 64;
 	const auto log_count = reader.readU16();
 	if (log_count > max_log_count) {
-		throw std::runtime_error("Replay decode failed: log_count exceeds maximum allowed value");
+		throw std::runtime_error(
+			"Replay decode failed: log_count exceeds maximum allowed value"
+		);
 	}
 	tick.logs.reserve(log_count);
 	for (std::uint16_t i = 0; i < log_count; ++i) {
@@ -334,6 +354,73 @@ void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
 	writer.writeU16(header.version);
 	writer.writeU16(0);
 	encodeTilemap(writer, header.tilemap);
+}
+
+void validateReplayEndMarker(const ReplayEndMarker &end_marker) {
+	if (end_marker.termination == ReplayTermination::Completed) {
+		if (end_marker.winner_player_id == 0
+		    || end_marker.winner_player_id > 2) {
+			throw std::runtime_error(
+				"Replay encode failed: invalid winner player id"
+			);
+		}
+		if (end_marker.captured_player_id == 0
+		    || end_marker.captured_player_id > 2) {
+			throw std::runtime_error(
+				"Replay encode failed: invalid captured player id"
+			);
+		}
+		if (end_marker.winner_player_id + end_marker.captured_player_id != 3) {
+			throw std::runtime_error(
+				"Replay encode failed: winner/captured player mismatch"
+			);
+		}
+		return;
+	}
+
+	if (end_marker.termination == ReplayTermination::Aborted) {
+		if (end_marker.winner_player_id != 0
+		    || end_marker.captured_player_id != 0) {
+			throw std::runtime_error(
+				"Replay encode failed: aborted replay cannot contain winner "
+				"data"
+			);
+		}
+		return;
+	}
+
+	throw std::runtime_error(
+		"Replay encode failed: invalid replay termination"
+	);
+}
+
+void encodeReplayEndMarker(
+	ByteWriter &writer, const ReplayEndMarker &end_marker
+) {
+	validateReplayEndMarker(end_marker);
+	writer.writeU8(static_cast<std::uint8_t>(end_marker.termination));
+	writer.writeU8(end_marker.winner_player_id);
+	writer.writeU8(end_marker.captured_player_id);
+	writer.writeU8(0);
+}
+
+ReplayEndMarker decodeReplayEndMarker(ByteReader &reader) {
+	ReplayEndMarker end_marker;
+	const auto raw_termination = reader.readU8();
+	if (raw_termination
+	    > static_cast<std::uint8_t>(ReplayTermination::Aborted)) {
+		throw std::runtime_error(
+			"Replay decode failed: invalid replay termination"
+		);
+	}
+
+	end_marker.termination = static_cast<ReplayTermination>(raw_termination);
+	end_marker.winner_player_id = reader.readU8();
+	end_marker.captured_player_id = reader.readU8();
+	reader.readU8();
+
+	validateReplayEndMarker(end_marker);
+	return end_marker;
 }
 
 ReplayHeader decodeReplayHeader(ByteReader &reader) {
@@ -698,7 +785,9 @@ std::vector<std::byte> ReplayStreamEncoder::encodeTick(
 	return writer.take();
 }
 
-std::vector<std::byte> ReplayStreamEncoder::encodeEnd() {
+std::vector<std::byte> ReplayStreamEncoder::encodeEnd(
+	const ReplayEndMarker &end_marker
+) {
 	if (!_header_written) {
 		throw std::runtime_error("Replay encode failed: header required first");
 	}
@@ -707,6 +796,7 @@ std::vector<std::byte> ReplayStreamEncoder::encodeEnd() {
 	}
 	ByteWriter writer;
 	writer.writeU8(std::to_underlying(ReplayRecordType::End));
+	encodeReplayEndMarker(writer, end_marker);
 	_end_written = true;
 	return writer.take();
 }
@@ -720,6 +810,15 @@ const ReplayHeader &ReplayStreamDecoder::header() const {
 		throw std::runtime_error("Replay decode failed: header not available");
 	}
 	return _header;
+}
+
+const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
+	if (!_end_marker.has_value()) {
+		throw std::runtime_error(
+			"Replay decode failed: end marker not available"
+		);
+	}
+	return *_end_marker;
 }
 
 std::optional<ReplayTickFrame> ReplayStreamDecoder::tryReadNextTick() {
@@ -753,6 +852,7 @@ std::optional<ReplayTickFrame> ReplayStreamDecoder::tryReadNextTick() {
 	try {
 		const auto type = static_cast<ReplayRecordType>(reader.readU8());
 		if (type == ReplayRecordType::End) {
+			_end_marker = decodeReplayEndMarker(reader);
 			_ended = true;
 			_cursor += reader.cursor();
 			return std::nullopt;
@@ -795,7 +895,7 @@ void writeReplay(std::ostream &os, const ReplayData &replay) {
 		);
 	}
 
-	const auto end = encoder.encodeEnd();
+	const auto end = encoder.encodeEnd(replay.end_marker);
 	os.write(
 		reinterpret_cast<const char *>(end.data()),
 		static_cast<std::streamsize>(end.size())
@@ -836,6 +936,7 @@ ReplayData readReplay(std::istream &is) {
 	if (!decoder.isEnded()) {
 		throw std::runtime_error("Replay decode failed: missing end marker");
 	}
+	replay.end_marker = decoder.endMarker();
 
 	return replay;
 }

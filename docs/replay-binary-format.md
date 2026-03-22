@@ -35,7 +35,7 @@ A replay stream is:
 | Field | Type | Size | Notes |
 |---|---|---:|---|
 | magic | bytes | 4 | ASCII `CRPL` |
-| version | u16 | 2 | Current value: `1` |
+| version | u16 | 2 | Current value: `2` |
 | reserved | u16 | 2 | Reserved for future use, currently `0` |
 
 ### Tilemap
@@ -143,7 +143,19 @@ Log item:
 
 ## End marker
 
-A single byte with value `255` (`ReplayRecordType::End`).
+After the `type=255` byte, payload fields are serialized in this order.
+
+| Field | Type | Notes |
+|---|---|---|
+| termination | u8 | `0 = Completed`, `1 = Aborted` |
+| winner_player_id | u8 | Winner player id (`1` or `2`) when `termination=Completed`, otherwise `0` |
+| captured_player_id | u8 | Captured base owner (`1` or `2`) when `termination=Completed`, otherwise `0` |
+| reserved | u8 | Reserved, currently `0` |
+
+Semantics:
+
+- `Completed`: The game ended by rules (base capture). `winner_player_id` and `captured_player_id` must be valid and complementary (`winner + captured = 3`).
+- `Aborted`: Replay stream ended before the game reached a rule-defined winner (for example, user stopped live mode early). Winner and captured ids must both be `0`.
 
 ## Validation notes
 
@@ -151,6 +163,6 @@ A valid complete replay must have:
 
 1. Correct magic and supported version.
 2. A decodable header.
-3. A terminating end marker.
+3. A terminating end marker with a valid payload.
 
 The offline reader (`readReplay`) rejects streams without end marker.

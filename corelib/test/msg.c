@@ -1,31 +1,5 @@
 // msg.c -- player1 unit: tests dev_info(), send_msg() and recv_msg().
 #include "corelib.h"
-
-static char *append_str(char *p, const char *s) {
-	while (*s) {
-		*p++ = *s++;
-	}
-	return p;
-}
-
-static char *append_uint(char *p, unsigned int v) {
-	char tmp[12];
-	int i = 0;
-	if (v == 0) {
-		*p++ = '0';
-		return p;
-	}
-	while (v > 0) {
-		tmp[i++] = '0' + (v % 10);
-		v /= 10;
-	}
-	while (i > 0) {
-		*p++ = tmp[--i];
-	}
-	return p;
-}
-
-static char line[128];
 static uint8_t msg_buf[64];
 
 int main() {
@@ -43,26 +17,14 @@ int main() {
 		last_turn = t;
 
 		// Log this unit's status (id, health, energy) every tick.
-		{
-			char *p = line;
-			p = append_str(p, "[msg] unit=");
-			p = append_uint(p, my_id);
-			p = append_str(p, " tick=");
-			p = append_uint(p, t);
-			p = append_str(p, " hp=");
-			p = append_uint(p, info.health);
-			p = append_str(p, " energy=");
-			p = append_uint(p, info.energy);
-			*p++ = '\n';
-			log(line, p - line);
-		}
+		logf("[msg] unit=%d tick=%d hp=%d energy=%d\n", my_id, t,
+			info.health, info.energy);
 
 		// Unit 1 sends a broadcast message each tick.
 		if (my_id == 1) {
-			char *p = (char *)msg_buf;
-			p = append_str(p, "hello from unit 1, tick=");
-			p = append_uint(p, t);
-			send_msg(msg_buf, p - (char *)msg_buf);
+			int msg_len = fmt_str((char *)msg_buf, sizeof(msg_buf),
+				"hello from unit 1, tick=%d", t);
+			send_msg(msg_buf, msg_len);
 		}
 
 		// All units drain their incoming message queue and log what they get.
@@ -72,13 +34,7 @@ int main() {
 				break;
 			}
 			msg_buf[n] = '\0';
-			char *p = line;
-			p = append_str(p, "[msg] unit=");
-			p = append_uint(p, my_id);
-			p = append_str(p, " recv: ");
-			p = append_str(p, (const char *)msg_buf);
-			*p++ = '\n';
-			log(line, p - line);
+			logf("[msg] unit=%d recv: %s\n", my_id, (const char *)msg_buf);
 		}
 
 		// Re-read dev_info each tick to get updated energy.

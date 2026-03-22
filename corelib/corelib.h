@@ -14,6 +14,8 @@ typedef signed int int32_t;
 
 typedef uint32_t size_t;
 typedef int32_t isize_t;
+typedef uint32_t uintptr_t;
+typedef int32_t intptr_t;
 
 #define NULL ((void *)0)
 #define bool _Bool
@@ -556,5 +558,34 @@ enum {
 	EC_OUT_OF_RANGE = -7,
 	EC_UNSUPPORTED_RUNTIME = -8,
 };
+
+/**
+ * @brief Format a string into a buffer, similar to snprintf but with only basic %d, %u, %x, %p %c, %s specifiers and no width/precision modifiers.
+ * @param buffer Pointer to the destination buffer
+ * @param buffer_size Size of the destination buffer in bytes
+ * @param fmt Format string containing text and format specifiers
+ * @param ... Additional arguments corresponding to the format specifiers
+ * @return The number of bytes that would have been written, not including the null terminator.
+ */
+int fmt_str(char *buffer, size_t buffer_size, const char *fmt, ...);
+
+/**
+ * @brief Format a string with a va_list of arguments, similar to vsnprintf but with only basic %d, %u, %x, %p %c, %s specifiers and no width/precision modifiers (va_list version of fmt_str).
+ * @param buffer Pointer to the destination buffer
+ * @param buffer_size Size of the destination buffer in bytes
+ * @param fmt Format string containing text and format specifiers
+ * @param args va_list of additional arguments corresponding to the format specifiers
+ * @return The number of bytes that would have been written, not including the null terminator.
+ */
+int vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args);
+
+/**
+ * @brief A printf-like function that formats a string and logs it using the runtime's logging system.
+ * @param fmt Format string containing text and format specifiers
+ * @param ... Additional arguments corresponding to the format specifiers
+ * @return The number of bytes that would have been logged, not including the null terminator
+ * @note This function internally uses fmt_str to format the string, and then logs it using log_str. The maximum length of the formatted string is 512 bytes (same as a single ecall log message).
+ */
+int logf(const char *fmt, ...);
 
 #endif // CORELIB_H

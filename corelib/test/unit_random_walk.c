@@ -2,36 +2,7 @@
 // direction selection.
 #include "corelib.h"
 
-static char line[128];
 static struct SensorData sensor[25];
-
-static char *appendStr(char *p, const char *s) {
-	while (*s) {
-		*p++ = *s++;
-	}
-	return p;
-}
-
-static char *appendInt(char *p, int v) {
-	if (v < 0) {
-		*p++ = '-';
-		v = -v;
-	}
-	char tmp[12];
-	int i = 0;
-	if (v == 0) {
-		*p++ = '0';
-		return p;
-	}
-	while (v > 0) {
-		tmp[i++] = '0' + (v % 10);
-		v /= 10;
-	}
-	while (i > 0) {
-		*p++ = tmp[--i];
-	}
-	return p;
-}
 
 static bool isWalkable(const struct SensorData *d) {
 	if (!d->visible) {
@@ -68,19 +39,12 @@ static int pickDirection(void) {
 
 static void logStep(int pos_x, int pos_y, int dir, int ret) {
 	const char *dir_str = "UDLR";
-
-	char *p = line;
-	p = appendStr(p, "[rw] pos=(");
-	p = appendInt(p, pos_x);
-	p = appendStr(p, ",");
-	p = appendInt(p, pos_y);
-	p = appendStr(p, ") dir=");
-	*p++ = dir_str[dir];
 	if (ret != 0) {
-		p = appendStr(p, " FAILED");
+		logf("[rw] pos=(%d,%d) dir=%c FAILED\n", pos_x, pos_y,
+			dir_str[dir]);
+		return;
 	}
-	*p++ = '\n';
-	log(line, p - line);
+	logf("[rw] pos=(%d,%d) dir=%c\n", pos_x, pos_y, dir_str[dir]);
 }
 
 int main() {

@@ -14,59 +14,13 @@
 
 #include "corelib.h"
 
-static char line[96];
-
-static char *append_str(char *p, const char *s) {
-	while (*s) {
-		*p++ = *s++;
-	}
-	return p;
-}
-
-static char *append_int(char *p, int v) {
-	if (v < 0) {
-		*p++ = '-';
-		v = -v;
-	}
-	char tmp[12];
-	int i = 0;
-	if (v == 0) {
-		*p++ = '0';
-		return p;
-	}
-	while (v > 0) {
-		tmp[i++] = '0' + (v % 10);
-		v /= 10;
-	}
-	while (i > 0) {
-		*p++ = tmp[--i];
-	}
-	return p;
-}
-
 // Log a single call result: "[dw] tick=T op(arg)=ret\n"
 static void log_call(int t, const char *op, int arg, int ret) {
-	char *p = line;
-	p = append_str(p, "[dw] tick=");
-	p = append_int(p, t);
-	p = append_str(p, " ");
-	p = append_str(p, op);
-	p = append_str(p, "(");
-	p = append_int(p, arg);
-	p = append_str(p, ")=");
-	p = append_int(p, ret);
-	*p++ = '\n';
-	log(line, p - line);
+	logf("[dw] tick=%d %s(%d)=%d\n", t, op, arg, ret);
 }
 
 static void log_energy(int t, int energy) {
-	char *p = line;
-	p = append_str(p, "[dw] tick=");
-	p = append_int(p, t);
-	p = append_str(p, " unit_energy=");
-	p = append_int(p, energy);
-	*p++ = '\n';
-	log(line, p - line);
+	logf("[dw] tick=%d unit_energy=%d\n", t, energy);
 }
 
 int main() {

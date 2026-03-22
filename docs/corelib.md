@@ -251,7 +251,12 @@ Futhermore, the corelib provides the following convinience functions:
 
 ```c
 log_str(const char *str); // Logs a null-terminated string. Automatically calculates the length of the string and calls log().
+fmt_str(char *buffer, size_t buffer_size, const char *fmt, ...); // Writes formatted text into buffer. Supports %d, %u, %x, %p, %c, %s and %%.
+vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args); // va_list version of fmt_str.
+logf(const char *fmt, ...); // Formats then logs in one call. Output is capped to one log ecall message (512 bytes).
 ```
+
+`fmt_str` and `vfmt_str` always null-terminate the destination buffer (as long as `buffer_size` is non-zero), and truncate output when needed to fit the provided buffer size. `logf` is useful for test and debug output because it removes the need for manual string concatenation and explicit length tracking before calling `log()`.
 
 ## Entry Point
 

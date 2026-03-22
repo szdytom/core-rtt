@@ -12,6 +12,159 @@ int log_str(const char *str) {
 	return log(str, strlen(str));
 }
 
+static char* write_unsigned_decimal(char *p, char *end, unsigned int val) {
+	if (val == 0) {
+		if (p < end) {
+			*p++ = '0';
+		}
+		return p;
+	}
+
+	int len = 0, tmp = val;
+	while (tmp > 0) {
+		len++;
+		tmp /= 10;
+	}
+
+	for (int i = len - 1; i >= 0; i--) {
+		if (p + i < end) {
+			p[i] = '0' + (val % 10);
+		}
+		val /= 10;
+	}
+	return p + len;
+}
+
+int fmt_str(char *buffer, size_t buffer_size, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int len = vfmt_str(buffer, buffer_size, fmt, args);
+	va_end(args);
+	return len;
+}
+
+int vfmt_str(char *buffer, size_t buffer_size, const char *fmt, va_list args) {
+	char *p = buffer;
+	char *end = buffer + buffer_size - 1; // reserve space for null terminator
+	for (const char *f = fmt; *f && p < end; f++) {
+		if (*f != '%') {
+			*p++ = *f;
+			continue;
+		}
+
+		f++;
+		if (*f == '\0') {
+			// Format string ends with a single '%', treat it as literal '%'
+			*p++ = '%';
+			break;
+		}
+
+		if (*f == '%') {
+			*p++ = '%';
+			continue;
+		}
+
+		if (*f == 's') {
+			const char *val = va_arg(args, const char *);
+			while (*val && p < end) {
+				*p++ = *val++;
+			}
+			continue;
+		}
+
+		if (*f == 'c') {
+			int val = va_arg(args, int);
+			*p++ = (char)val;
+			continue;
+		}
+
+		if (*f == 'd') {
+			int val = va_arg(args, int);
+			if (val < 0) {
+				*p++ = '-';
+				val = -val;
+			}
+			p = write_unsigned_decimal(p, end, (unsigned int)val);
+		} else if (*f == 'u') {
+			unsigned int val = va_arg(args, unsigned int);
+			p = write_unsigned_decimal(p, end, val);
+		} else if (*f == 'x') {
+			unsigned int val = va_arg(args, unsigned int);
+			if (val == 0) {
+				if (p < end) {
+					*p++ = '0';
+				}
+				continue;
+			}
+
+			int len = 0, tmp = val;
+			while (tmp > 0) {
+				len++;
+				tmp /= 16;
+			}
+
+			for (int i = len - 1; i >= 0; i--) {
+				if (p + i < end) {
+					int digit = val % 16;
+					p[i] = digit < 10 ? '0' + digit : 'a' + (digit - 10);
+				}
+				val /= 16;
+			}
+			p += len;
+		} else if (*f == 'p') {
+			uintptr_t val = (uintptr_t)va_arg(args, void *);
+			// %p has 0x prefix and is zero-padded to pointer width (8 hex digits for 32-bit)
+			if (p < end) {
+				*p++ = '0';
+			}
+			if (p < end) {
+				*p++ = 'x';
+			}
+
+			for (int i = 7; i >= 0; i--) {
+				if (p + i < end) {
+					int digit = (val >> (i * 4)) & 0xF;
+					p[i] = digit < 10 ? '0' + digit : 'a' + (digit - 10);
+				}
+			}
+			p += 8;
+		} else {
+			// Unsupported format specifier, treat it as literal
+			if (p < end) {
+				*p++ = '%';
+			}
+			if (p < end) {
+				*p++ = *f;
+			}
+		}
+
+		if (p >= end) {
+			p = end;
+			break;
+		}
+	}
+
+	*p = '\0'; // null terminate the string
+	return p - buffer; // return the number of bytes written
+}
+
+int logf(const char *fmt, ...) {
+	// The ecall log message size limit is 512 bytes, but it don't require a null terminator.
+	// The fmt_str function will ensure that the formatted string is null-terminated and does not exceed the buffer size, so need to reserve 1 byte for null terminator.
+	char buffer[513];
+	va_list args;
+	va_start(args, fmt);
+	int len = vfmt_str(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+	if (len > 512) {
+		len = 512; // truncate to maximum log message size
+	}
+	if (len > 0) {
+		return log(buffer, len);
+	}
+	return 0;
+}
+
 int strlen(const char *str) {
 	int len = 0;
 	while (str[len] != '\0') {

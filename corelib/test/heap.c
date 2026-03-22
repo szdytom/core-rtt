@@ -1,84 +1,19 @@
 #include "corelib.h"
 
-static char *u32_to_hex(char *buf, unsigned long val) {
-	static const char hex[] = "0123456789ABCDEF";
-	int i;
-	char tmp[9];
-	for (i = 0; i < 8; i++) {
-		tmp[7 - i] = hex[val & 0xF];
-		val >>= 4;
-	}
-	tmp[8] = '\0';
-	char *p = tmp;
-	while (*p == '0' && *(p + 1)) {
-		p++;
-	}
-	while (*p) {
-		*buf++ = *p++;
-	}
-	return buf;
-}
-
-static char *int_to_dec(char *buf, int val) {
-	unsigned u;
-	char tmp[12];
-	int i = 0;
-	if (val < 0) {
-		*buf++ = '-';
-		u = -val;
-	} else {
-		u = val;
-	}
-	do {
-		tmp[i++] = '0' + (u % 10);
-		u /= 10;
-	} while (u > 0);
-	while (i > 0) {
-		*buf++ = tmp[--i];
-	}
-	return buf;
-}
-
-static char *ptr_to_hex(char *buf, const void *ptr) {
-	unsigned long addr = (unsigned long)ptr;
-	*buf++ = '0';
-	*buf++ = 'x';
-	return u32_to_hex(buf, addr);
-}
-
-char line[64];
-
 int main() {
 	{
 		extern char _start;
-		char *ptr = line;
-		strcpy(ptr, "ELF entry point at: ");
-		ptr += strlen(ptr);
-		ptr = ptr_to_hex(ptr, &_start);
-		*ptr++ = '\n';
-		log(line, ptr - line);
+		logf("ELF entry point at: %p\n", &_start);
 	}
 
 	{
 		extern char __bss_start;
 		extern char __BSS_END__;
-		char *ptr = line;
-		strcpy(ptr, "BSS segment: ");
-		ptr += strlen(ptr);
-		ptr = ptr_to_hex(ptr, &__bss_start);
-		*ptr++ = '-';
-		ptr = ptr_to_hex(ptr, &__BSS_END__);
-		*ptr++ = '\n';
-		log(line, ptr - line);
+		logf("BSS segment: %p-%p\n", &__bss_start, &__BSS_END__);
 	}
 
 	{
-		char *ptr = line;
-		strcpy(ptr, "Some rodata: ");
-		ptr += strlen(ptr);
-		ptr = ptr_to_hex(ptr, "Hello, World!");
-		*ptr++ = '\n';
-		log(line, ptr - line);
+		logf("Some rodata: %p\n", "Hello, World!");
 	}
 
 	log_str("========== Memory Allocator Test ==========\n");
@@ -96,12 +31,7 @@ int main() {
 		log_str("Test 1: malloc & free\n");
 		int *p = (int *)malloc(10 * sizeof(int));
 		if (p) {
-			char *ptr = line;
-			strcpy(ptr, "  malloc(10 ints): ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  malloc(10 ints): %p\n", p);
 
 			for (int i = 0; i < 10; i++) {
 				p[i] = i;
@@ -125,12 +55,7 @@ int main() {
 		log_str("Test 2: calloc\n");
 		int *p = (int *)calloc(10, sizeof(int));
 		if (p) {
-			char *ptr = line;
-			strcpy(ptr, "  calloc(10 ints): ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  calloc(10 ints): %p\n", p);
 
 			int ok = 1;
 			for (int i = 0; i < 10; i++) {
@@ -153,21 +78,11 @@ int main() {
 			for (int i = 0; i < 5; i++) {
 				p[i] = i;
 			}
-			char *ptr = line;
-			strcpy(ptr, "  original: ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  original: %p\n", p);
 
 			int *p_new = (int *)realloc(p, 10 * sizeof(int));
 			if (p_new) {
-				ptr = line;
-				strcpy(ptr, "  realloc to 10: ");
-				ptr += strlen(ptr);
-				ptr = ptr_to_hex(ptr, p_new);
-				*ptr++ = '\n';
-				log(line, ptr - line);
+				logf("  realloc to 10: %p\n", p_new);
 
 				int ok = 1;
 				for (int i = 0; i < 5; i++) {
@@ -197,21 +112,11 @@ int main() {
 			for (int i = 0; i < 10; i++) {
 				p[i] = i;
 			}
-			char *ptr = line;
-			strcpy(ptr, "  original: ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  original: %p\n", p);
 
 			int *p_new = (int *)realloc(p, 5 * sizeof(int));
 			if (p_new) {
-				ptr = line;
-				strcpy(ptr, "  realloc to 5: ");
-				ptr += strlen(ptr);
-				ptr = ptr_to_hex(ptr, p_new);
-				*ptr++ = '\n';
-				log(line, ptr - line);
+				logf("  realloc to 5: %p\n", p_new);
 
 				int ok = 1;
 				for (int i = 0; i < 5; i++) {
@@ -235,12 +140,7 @@ int main() {
 		log_str("Test 5: realloc(NULL, size)\n");
 		int *p = (int *)realloc(NULL, 10 * sizeof(int));
 		if (p) {
-			char *ptr = line;
-			strcpy(ptr, "  realloc(NULL) -> ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  realloc(NULL) -> %p\n", p);
 			free(p);
 		} else {
 			log_str("  realloc(NULL) failed\n");
@@ -251,26 +151,16 @@ int main() {
 		log_str("Test 6: realloc(ptr, 0)\n");
 		int *p = (int *)malloc(10 * sizeof(int));
 		if (p) {
-			char *ptr = line;
-			strcpy(ptr, "  allocated: ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  allocated: %p\n", p);
 
 			int *p_new = (int *)realloc(p, 0);
-			ptr = line;
-			strcpy(ptr, "  realloc(...,0) -> ");
-			ptr += strlen(ptr);
-			ptr = ptr_to_hex(ptr, p_new);
-			*ptr++ = '\n';
-			log(line, ptr - line);
+			logf("  realloc(...,0) -> %p\n", p_new);
 
 			if (p_new == NULL) {
 				log_str("  returned NULL (original freed)\n");
 			} else {
 				log_str("  returned non-NULL, freeing it...\n");
-				free(p_new); // 确保释放
+				free(p_new);
 			}
 		} else {
 			log_str("  malloc failed\n");
@@ -292,26 +182,12 @@ int main() {
 		for (int i = 0; i < 20; i++) {
 			void *ptr = malloc(4096);
 			if (ptr) {
-				memcpy(ptr, &test_data, sizeof(test_data)); // 写入测试数据
+				memcpy(ptr, &test_data, sizeof(test_data));
 				assert(*(int *)ptr == test_data);
 				blocks[count++] = ptr;
-				char *p = line;
-				strcpy(p, "  block ");
-				p += strlen(p);
-				p = int_to_dec(p, i + 1);
-				strcpy(p, ": ");
-				p += 2;
-				p = ptr_to_hex(p, ptr);
-				*p++ = '\n';
-				*p = '\0';
-				log(line, p - line);
+				logf("  block %d: %p\n", i + 1, ptr);
 			} else {
-				char *p = line;
-				strcpy(p, "  block ");
-				p += strlen(p);
-				p = int_to_dec(p, i + 1);
-				strcpy(p, " failed, heap full\n");
-				log(line, p - line);
+				logf("  block %d failed, heap full\n", i + 1);
 				break;
 			}
 		}
@@ -326,21 +202,11 @@ int main() {
 	{
 		log_str("Test 9: reuse after free\n");
 		void *p1 = malloc(100);
-		char *ptr = line;
-		strcpy(ptr, "  first alloc: ");
-		ptr += strlen(ptr);
-		ptr = ptr_to_hex(ptr, p1);
-		*ptr++ = '\n';
-		log(line, ptr - line);
+		logf("  first alloc: %p\n", p1);
 		free(p1);
 
 		void *p2 = malloc(100);
-		ptr = line;
-		strcpy(ptr, "  second alloc: ");
-		ptr += strlen(ptr);
-		ptr = ptr_to_hex(ptr, p2);
-		*ptr++ = '\n';
-		log(line, ptr - line);
+		logf("  second alloc: %p\n", p2);
 		if (p1 == p2) {
 			log_str("  same address, good reuse\n");
 		} else {

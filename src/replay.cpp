@@ -281,7 +281,7 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 		tick.players[i] = player;
 	}
 
-	constexpr std::uint16_t max_unit_count = 4096;
+	constexpr std::uint16_t max_unit_count = 30;
 	const auto unit_count = reader.readU16();
 	if (unit_count > max_unit_count) {
 		throw std::runtime_error("Replay decode failed: unit_count exceeds maximum allowed value");

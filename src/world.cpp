@@ -558,6 +558,7 @@ ActionResult World::manufactureUnit(
 
 	// All checks passed, create the unit at a random empty tile in the base
 	player.base_energy -= manufacture_cost;
+	_spawnUnitAtBase(player_id, new_unit_id);
 
 	return ActionResult::OK;
 }

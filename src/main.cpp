@@ -152,15 +152,15 @@ int runPlaybackMode(
 				replay_encoder.encodeHeader(replay_data.header)
 			);
 
-			auto next_tick_time = std::chrono::steady_clock::now();
+			auto next_tick_time = std::chrono::steady_clock::now() + step_interval;
 			for (const auto &tick : replay_data.ticks) {
 				if (stop_token.stop_requested()) {
 					break;
 				}
 
-				next_tick_time += step_interval;
-				replay_stream.pushBytes(replay_encoder.encodeTick(tick));
 				std::this_thread::sleep_until(next_tick_time);
+				replay_stream.pushBytes(replay_encoder.encodeTick(tick));
+				next_tick_time += step_interval;
 			}
 
 			auto end_bytes = replay_encoder.encodeEnd();

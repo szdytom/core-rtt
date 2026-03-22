@@ -151,7 +151,18 @@ ReplayTilemap decodeTilemap(ByteReader &reader) {
 	tilemap.base_size = reader.readU16();
 	reader.readU16();
 
+	constexpr std::uint32_t max_tile_dimension = 256;
+	constexpr std::uint32_t max_tile_count = max_tile_dimension * max_tile_dimension;
+	if (tilemap.width > max_tile_dimension || tilemap.height > max_tile_dimension) {
+		throw std::runtime_error("Replay decode failed: tilemap dimensions exceed maximum");
+	}
 	const auto count = tileCount(tilemap);
+	if (count > max_tile_count) {
+		throw std::runtime_error("Replay decode failed: tilemap tile count exceeds maximum");
+	}
+	if (count > reader.remaining()) {
+		throw NeedMoreDataError("Replay decode failed: tilemap data truncated");
+	}
 	tilemap.tiles.reserve(count);
 	for (std::size_t i = 0; i < count; ++i) {
 		const auto packed = reader.readU8();
@@ -186,10 +197,24 @@ ReplayLogEntry decodeLogEntry(ByteReader &reader) {
 	entry.tick = reader.readU32();
 	entry.player_id = reader.readU8();
 	entry.unit_id = reader.readU8();
-	entry.source = static_cast<ReplayLogEntry::Source>(reader.readU8());
-	entry.type = static_cast<ReplayLogEntry::Type>(reader.readU8());
+
+	const auto raw_source = reader.readU8();
+	if (raw_source > static_cast<std::uint8_t>(ReplayLogEntry::Source::Player)) {
+		throw std::runtime_error("Replay decode failed: invalid log source value");
+	}
+	entry.source = static_cast<ReplayLogEntry::Source>(raw_source);
+
+	const auto raw_type = reader.readU8();
+	if (raw_type > static_cast<std::uint8_t>(ReplayLogEntry::Type::BaseCaptured)) {
+		throw std::runtime_error("Replay decode failed: invalid log type value");
+	}
+	entry.type = static_cast<ReplayLogEntry::Type>(raw_type);
+
 	const auto payload_size = reader.readU16();
 	if (payload_size > 0) {
+		if (static_cast<std::size_t>(payload_size) > reader.remaining()) {
+			throw NeedMoreDataError("Replay decode failed: log payload truncated");
+		}
 		const auto bytes = reader.readBytes(payload_size);
 		entry.payload.resize(payload_size);
 		std::memcpy(entry.payload.data(), bytes.data(), payload_size);
@@ -256,7 +281,11 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 		tick.players[i] = player;
 	}
 
+	constexpr std::uint16_t max_unit_count = 30;
 	const auto unit_count = reader.readU16();
+	if (unit_count > max_unit_count) {
+		throw std::runtime_error("Replay decode failed: unit_count exceeds maximum allowed value");
+	}
 	tick.units.reserve(unit_count);
 	for (std::uint16_t i = 0; i < unit_count; ++i) {
 		ReplayUnit unit;
@@ -271,7 +300,11 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 		tick.units.push_back(unit);
 	}
 
+	constexpr std::uint16_t max_bullet_count = 4096;
 	const auto bullet_count = reader.readU16();
+	if (bullet_count > max_bullet_count) {
+		throw std::runtime_error("Replay decode failed: bullet_count exceeds maximum allowed value");
+	}
 	tick.bullets.reserve(bullet_count);
 	for (std::uint16_t i = 0; i < bullet_count; ++i) {
 		ReplayBullet bullet;
@@ -283,7 +316,11 @@ ReplayTickFrame decodeReplayTick(ByteReader &reader) {
 		tick.bullets.push_back(bullet);
 	}
 
+	constexpr std::uint16_t max_log_count = 64;
 	const auto log_count = reader.readU16();
+	if (log_count > max_log_count) {
+		throw std::runtime_error("Replay decode failed: log_count exceeds maximum allowed value");
+	}
 	tick.logs.reserve(log_count);
 	for (std::uint16_t i = 0; i < log_count; ++i) {
 		tick.logs.push_back(decodeLogEntry(reader));
@@ -379,7 +416,7 @@ ReplayLogEntry ReplayLogEntry::executionExceptionLog(
 		"NOT_STOPPED",           "ABORTED",
 		"PAGE_PROTECTION_FAULT", "ALIGNMENT_FAULT",
 		"ILLEGAL_INSTRUCTION",   "OUT_OF_MEMORY",
-		"UNKOWN_EXCEPTION"
+		"UNKNOWN_EXCEPTION"
 	};
 
 	const auto reason_index = std::to_underlying(reason);

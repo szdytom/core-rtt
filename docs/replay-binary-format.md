@@ -35,8 +35,10 @@ A replay stream is:
 | Field | Type | Size | Notes |
 |---|---|---:|---|
 | magic | bytes | 4 | ASCII `CRPL` |
-| version | u16 | 2 | Current value: `2` |
-| reserved | u16 | 2 | Reserved for future use, currently `0` |
+| version | u16 | 2 | Current value: `3` |
+| header size | u16 | 2 | The size of the tilemap in bytes |
+
+The header size field is the size of the entire header after the header size field itself, i.e. the size of the tilemap for now.
 
 ### Tilemap
 
@@ -56,6 +58,10 @@ Packed tile bits (lowest bits first):
 - bit `5`: `is_base`
 - bits `[6..7]`: reserved
 
+### End of header
+
+After the tilemap, the header ends. If the header size field says there are extra bytes after the tilemap, those bytes should be ignored and not treated as a format error.
+
 ## Record framing
 
 Each record starts with a one-byte record type.
@@ -74,6 +80,9 @@ After the `type=1` byte, payload fields are serialized in this exact order.
 | Field | Type |
 |---|---|
 | tick | u32 |
+| size | u32 | The size of the tick payload in bytes |
+
+The size of the tick payload is the size of the entire tick record after the `size` field itself, i.e. the sum of the sizes of the Players, Units, Bullets, and Logs sections described below.
 
 ### Players (fixed count = 2)
 
@@ -140,6 +149,10 @@ Log item:
 | type | u8 |
 | payload_size | u16 |
 | payload | bytes[payload_size] |
+
+### End of tick record
+
+After the units, bullets, and logs sections, the tick record ends. If the tick record size field says there are extra bytes after the logs section, those bytes should be ignored and not treated as a format error.
 
 ## End marker
 

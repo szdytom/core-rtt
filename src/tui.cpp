@@ -11,7 +11,6 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/terminal.hpp>
-#include <mutex>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -82,10 +81,12 @@ struct PlaybackState {
 	bool has_tick = false;
 	bool stream_ended = false;
 	bool has_end_marker = false;
+	bool has_error = false;
 	ReplayHeader header;
 	ReplayEndMarker end_marker;
 	ReplayTickFrame current_tick;
 	std::vector<ReplayLogEntry> log_history;
+	std::string last_error;
 };
 
 struct MapCellVisual {
@@ -101,7 +102,9 @@ struct InfoPanelState {
 	int step_interval_ms = 0;
 	bool stream_ended = false;
 	bool has_end_marker = false;
+	bool has_error = false;
 	ReplayEndMarker end_marker;
+	std::string last_error;
 };
 
 bool isInBounds(const ReplayTilemap &tilemap, int x, int y) noexcept {
@@ -338,6 +341,8 @@ InfoPanelState buildInfoPanelState(
 	info_state.step_interval_ms = static_cast<int>(step_interval.count());
 	info_state.stream_ended = playback_state.stream_ended;
 	info_state.has_end_marker = playback_state.has_end_marker;
+	info_state.has_error = playback_state.has_error;
+	info_state.last_error = playback_state.last_error;
 	if (playback_state.has_end_marker) {
 		info_state.end_marker = playback_state.end_marker;
 	}
@@ -352,6 +357,11 @@ InfoPanelState buildInfoPanelState(
 
 ftxui::Element renderGameStatusLine(const InfoPanelState &info_state) {
 	using namespace ftxui;
+
+	if (info_state.has_error) {
+		return text(std::format("Decode error: {}", info_state.last_error))
+			| color(UiConst::color_loss) | bold;
+	}
 
 	if (info_state.has_end_marker) {
 		if (info_state.end_marker.termination == ReplayTermination::Completed) {
@@ -499,104 +509,36 @@ ftxui::Element renderMapPanel(
 
 } // namespace
 
-int runTui(
-	ReplayByteStream &replay_stream, std::chrono::milliseconds step_interval
-) {
+TuiRunner::TuiRunner(
+	ReplayByteStream &replay_stream, std::chrono::milliseconds step_interval,
+	bool playback_mode
+) noexcept
+	: _replay_stream(replay_stream)
+	, _step_interval(step_interval)
+	, _playback_mode(playback_mode)
+	, _screen(ftxui::ScreenInteractive::Fullscreen()) {}
+
+void TuiRunner::notifyUpdate() noexcept {
+	_screen.PostEvent(ftxui::Event::Custom);
+}
+
+int TuiRunner::run() {
 	using namespace ftxui;
 
 	CameraState camera;
 	LogPanelLayoutState log_layout_state;
 	PlaybackState playback_state;
-	std::mutex playback_mutex;
-	auto screen = ScreenInteractive::Fullscreen();
-
-	std::jthread decode_thread([&](std::stop_token stop_token) {
-		ReplayStreamDecoder decoder;
-		while (!stop_token.stop_requested()) {
-			std::vector<std::byte> chunk;
-			const bool has_chunk = replay_stream.waitPopNext(
-				chunk, std::chrono::milliseconds(50)
-			);
-			if (has_chunk) {
-				decoder.pushBytes(chunk);
-			}
-
-			bool changed = false;
-
-			std::optional<ReplayHeader> maybe_header;
-			std::optional<ReplayEndMarker> maybe_end_marker;
-			std::vector<ReplayTickFrame> new_ticks;
-			while (true) {
-				auto tick = decoder.tryReadNextTick();
-				if (!tick.has_value()) {
-					break;
-				}
-				new_ticks.push_back(std::move(*tick));
-			}
-
-			if (decoder.hasHeader()) {
-				maybe_header = decoder.header();
-			}
-			if (decoder.isEnded()) {
-				maybe_end_marker = decoder.endMarker();
-			}
-
-			{
-				std::scoped_lock lock(playback_mutex);
-				if (maybe_header.has_value() && !playback_state.has_header) {
-					playback_state.header = std::move(*maybe_header);
-					playback_state.has_header = true;
-					changed = true;
-				}
-
-				for (auto &tick : new_ticks) {
-					for (auto &log_entry : tick.logs) {
-						playback_state.log_history.push_back(
-							std::move(log_entry)
-						);
-					}
-					playback_state.current_tick = std::move(tick);
-					playback_state.has_tick = true;
-					changed = true;
-				}
-
-				if (decoder.isEnded() && !playback_state.stream_ended) {
-					playback_state.stream_ended = true;
-					changed = true;
-				}
-
-				if (maybe_end_marker.has_value()
-				    && !playback_state.has_end_marker) {
-					playback_state.end_marker = *maybe_end_marker;
-					playback_state.has_end_marker = true;
-					changed = true;
-				}
-			}
-
-			if (changed) {
-				screen.PostEvent(Event::Custom);
-			}
-
-			if (decoder.isEnded() && replay_stream.isDrained()) {
-				break;
-			}
-
-			if (!has_chunk && replay_stream.isDrained()) {
-				break;
-			}
-		}
-
-		screen.PostEvent(Event::Custom);
-	});
+	ReplayStreamDecoder decoder;
+	auto next_tick_due = std::chrono::steady_clock::now();
+	std::jthread playback_wake_thread;
 
 	auto root = Renderer([&] {
-		std::scoped_lock lock(playback_mutex);
 		camera.viewport_size = computeViewportSize(playback_state);
 		clampCamera(playback_state, camera);
 
 		Element map_panel = renderMapPanel(playback_state, camera);
 		Element info_panel = renderInfoPanel(
-			playback_state, camera, step_interval, log_layout_state
+			playback_state, camera, _step_interval, log_layout_state
 		);
 		return hbox({map_panel, info_panel | flex});
 	});
@@ -604,38 +546,108 @@ int runTui(
 	root |= CatchEvent([&](Event event) {
 		bool moved = false;
 		if (event == Event::Custom) {
+			auto apply_read_result =
+				[&](const ReplayStreamDecoder::ReadResult &read_result) {
+				if (read_result.status == ReplayStreamDecoder::ReadStatus::Error
+				    && read_result.error.has_value()) {
+					playback_state.has_error = true;
+					playback_state.last_error = std::format(
+						"{}", *read_result.error
+					);
+					playback_state.stream_ended = true;
+					return;
+				}
+
+				if (decoder.hasHeader() && !playback_state.has_header) {
+					playback_state.header = decoder.header();
+					playback_state.has_header = true;
+				}
+
+				if (read_result.status == ReplayStreamDecoder::ReadStatus::Tick
+				    && read_result.tick.has_value()) {
+					for (auto &log_entry : read_result.tick->logs) {
+						playback_state.log_history.push_back(
+							std::move(log_entry)
+						);
+					}
+					playback_state.current_tick = std::move(*read_result.tick);
+					playback_state.has_tick = true;
+					if (_playback_mode) {
+						next_tick_due = std::chrono::steady_clock::now()
+							+ _step_interval;
+					}
+				}
+
+				if (read_result.status
+				    == ReplayStreamDecoder::ReadStatus::End) {
+					playback_state.stream_ended = true;
+					if (decoder.isEnded() && !playback_state.has_end_marker) {
+						playback_state.end_marker = decoder.endMarker();
+						playback_state.has_end_marker = true;
+					}
+				}
+			};
+
+			std::vector<std::byte> chunk;
+			bool has_chunk = _replay_stream.waitPopNext(
+				chunk, std::chrono::milliseconds(1)
+			);
+			while (has_chunk) {
+				decoder.pushBytes(chunk);
+				has_chunk = _replay_stream.waitPopNext(
+					chunk, std::chrono::milliseconds(0)
+				);
+			}
+
+			if (!decoder.hasHeader() && decoder.canReadHeader()) {
+				auto read_result = decoder.tryReadNextTick();
+				assert(decoder.hasHeader());
+				apply_read_result(read_result);
+			}
+
+			const bool decode_allowed = !_playback_mode
+				|| std::chrono::steady_clock::now() >= next_tick_due;
+			if (decode_allowed && decoder.canReadNextRecord()
+			    && !decoder.isEnded()) {
+				auto read_result = decoder.tryReadNextTick();
+				apply_read_result(read_result);
+			}
+
+			if (decoder.isEnded() && !playback_state.stream_ended) {
+				playback_state.stream_ended = true;
+				if (!playback_state.has_end_marker) {
+					playback_state.end_marker = decoder.endMarker();
+					playback_state.has_end_marker = true;
+				}
+			}
+
 			return true;
 		}
 
 		if (event == Event::q || event == Event::Q || event == Event::Escape) {
-			decode_thread.request_stop();
-			screen.ExitLoopClosure()();
+			_screen.ExitLoopClosure()();
 			return true;
 		}
 
 		if (event == Event::w || event == Event::W || event == Event::ArrowUp) {
-			std::scoped_lock lock(playback_mutex);
 			camera.y -= 1;
 			clampCamera(playback_state, camera);
 			moved = true;
 		}
 		if (event == Event::s || event == Event::S
 		    || event == Event::ArrowDown) {
-			std::scoped_lock lock(playback_mutex);
 			camera.y += 1;
 			clampCamera(playback_state, camera);
 			moved = true;
 		}
 		if (event == Event::a || event == Event::A
 		    || event == Event::ArrowLeft) {
-			std::scoped_lock lock(playback_mutex);
 			camera.x -= 1;
 			clampCamera(playback_state, camera);
 			moved = true;
 		}
 		if (event == Event::d || event == Event::D
 		    || event == Event::ArrowRight) {
-			std::scoped_lock lock(playback_mutex);
 			camera.x += 1;
 			clampCamera(playback_state, camera);
 			moved = true;
@@ -643,9 +655,17 @@ int runTui(
 		return moved;
 	});
 
-	screen.Loop(root);
-	decode_thread.request_stop();
+	notifyUpdate();
+	_screen.Loop(root);
 	return 0;
+}
+
+int runTui(
+	ReplayByteStream &replay_stream, std::chrono::milliseconds step_interval,
+	bool playback_mode
+) {
+	TuiRunner tui_runner(replay_stream, step_interval, playback_mode);
+	return tui_runner.run();
 }
 
 } // namespace cr

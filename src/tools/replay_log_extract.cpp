@@ -5,14 +5,16 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace {
 
-std::string payloadToHex(std::span<const std::uint8_t> payload) {
+std::string payloadToHex(std::span<const std::byte> payload) {
 	static constexpr std::string_view digits = "0123456789ABCDEF";
 	std::string hex;
 	hex.reserve(payload.size() * 2);
-	for (const auto byte : payload) {
+	for (const auto raw_byte : payload) {
+		auto byte = std::to_underlying(raw_byte);
 		hex.push_back(digits[(byte >> 4) & 0x0F]);
 		hex.push_back(digits[byte & 0x0F]);
 	}
@@ -22,9 +24,9 @@ std::string payloadToHex(std::span<const std::uint8_t> payload) {
 std::string_view logSourceToString(cr::ReplayLogSource source) {
 	switch (source) {
 	case cr::ReplayLogSource::System:
-		return "system";
+		return "SYS";
 	case cr::ReplayLogSource::Player:
-		return "player";
+		return "USR";
 	}
 	throw std::runtime_error("Invalid replay log source");
 }
@@ -72,7 +74,11 @@ struct adl_serializer<cr::ReplayLogEntry> {
 			{"unit_id", entry.unit_id},
 			{"source", entry.source},
 			{"type", entry.type},
-			{"payload_text", entry.payloadAsString()},
+			{"payload_text",
+		     std::string_view(
+				 reinterpret_cast<const char *>(entry.payload.data()),
+				 entry.payload.size()
+			 )},
 			{"payload_hex", payloadToHex(entry.payload)},
 		};
 	}

@@ -513,9 +513,7 @@ void World::_checkBaseCaptureCondition() noexcept {
 
 		_winner_player_id = 3 - pid;
 		appendLog(
-			ReplayLogEntry::baseCapturedLog(
-				currentTick(), pid, _winner_player_id
-			)
+			ReplayLogEntry::baseCapturedLog(currentTick(), _winner_player_id)
 		);
 		return;
 	}

@@ -778,7 +778,15 @@ void World::setPlayerProgram(
 	player.unit_elf = std::move(unit_elf);
 }
 
+void World::setRuntimeLogSink(RuntimeLogSink sink) {
+	_runtime_log_sink = std::move(sink);
+}
+
 void World::appendLog(LogEntry entry) {
+	if (_runtime_log_sink) {
+		_runtime_log_sink(entry);
+	}
+
 	_runtime_logs.push_back(std::move(entry));
 
 	while (_runtime_logs.size() > max_runtime_logs) {

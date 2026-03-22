@@ -1,10 +1,13 @@
 #include "corertt/log.h"
 #include <array>
+#include <cctype>
 #include <cpptrace/cpptrace.hpp>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace cr {
 
@@ -119,6 +122,46 @@ LogEntry LogEntry::baseCapturedLog(
 		.type = LogType::BASE_CAPTURED,
 		.payload = messages[captured_player_id],
 	};
+}
+
+std::vector<std::string> formatLogEntryLines(const LogEntry &entry) {
+	const std::string dev_name = entry.unit_id == 0
+		? "base"
+		: std::format("{:02}", entry.unit_id);
+
+	const std::string prefix = std::format(
+		"[{:04} P{}-{} {}] ", entry.tick, entry.player_id, dev_name,
+		entry.source == LogSource::SYSTEM ? "SYS" : "USR"
+	);
+
+	std::vector<std::string> lines;
+	const auto prefix_length = prefix.size();
+	lines.emplace_back(prefix);
+
+	bool pop_last = false;
+	for (std::size_t i = 0; i < entry.payload.size(); ++i) {
+		const auto ch = static_cast<unsigned char>(entry.payload[i]);
+
+		if (ch == '\n') {
+			pop_last = true;
+			lines.emplace_back(prefix_length, ' ');
+			continue;
+		}
+
+		pop_last = false;
+		if (ch == '\t' || ch == '\r' || std::isprint(ch)) {
+			lines.back().push_back(static_cast<char>(ch));
+			continue;
+		}
+
+		lines.back() += std::format("\\x{:02X}", static_cast<int>(ch));
+	}
+
+	if (pop_last) {
+		lines.pop_back();
+	}
+
+	return lines;
 }
 
 } // namespace cr

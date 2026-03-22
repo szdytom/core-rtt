@@ -7,6 +7,7 @@
 #include "corertt/tilemap.h"
 #include <array>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -55,6 +56,7 @@ private:
 class World {
 public:
 	using RuntimeLogConstIterator = std::deque<LogEntry>::const_iterator;
+	using RuntimeLogSink = std::function<void(const LogEntry &)>;
 
 	World(Tilemap tilemap) noexcept;
 
@@ -112,6 +114,7 @@ public:
 		int player_id, std::vector<std::uint8_t> base_elf,
 		std::vector<std::uint8_t> unit_elf
 	) noexcept;
+	void setRuntimeLogSink(RuntimeLogSink sink);
 	void appendLog(LogEntry entry);
 	RuntimeLogConstIterator runtimeLogsBegin() const noexcept;
 	RuntimeLogConstIterator runtimeLogsEnd() const noexcept;
@@ -128,6 +131,7 @@ private:
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;
 	std::deque<LogEntry> _runtime_logs;
+	RuntimeLogSink _runtime_log_sink;
 	std::uint8_t _winner_player_id = 0;
 	std::uint8_t _captured_player_id = 0;
 

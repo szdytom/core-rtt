@@ -5,7 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace cr {
 
@@ -56,6 +58,8 @@ struct LogEntry {
 		std::uint8_t winner_player_id
 	);
 };
+
+std::vector<std::string> formatLogEntryLines(const LogEntry &entry);
 
 } // namespace cr
 

@@ -1,6 +1,6 @@
 #include "corertt/runtime.h"
 #include "corertt/entity.h"
-#include "corertt/log.h"
+#include "corertt/replay.h"
 #include "corertt/world.h"
 #include "corertt/xoroshiro.h"
 #include <bit>
@@ -87,11 +87,11 @@ void ecall_log(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
 
 	try {
-		auto entry = LogEntry::customLog(
+		auto entry = ReplayLogEntry::customLog(
 			ctx->world->currentTick(), ctx->player->id,
 			(ctx->unit ? ctx->unit->id : 0), static_cast<std::size_t>(len)
 		);
-		machine.copy_from_guest(entry.owner.get(), ptr, len);
+		machine.copy_from_guest(entry.payload.data(), ptr, len);
 		ctx->world->appendLog(std::move(entry));
 		machine.penalize(len);
 		machine.set_result(ActionResult::OK);

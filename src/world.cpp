@@ -1,6 +1,5 @@
 #include "corertt/world.h"
 #include "corertt/entity.h"
-#include "corertt/log.h"
 #include "corertt/runtime.h"
 #include "corertt/xoroshiro.h"
 #include <algorithm>
@@ -60,7 +59,7 @@ void Player::step(World &world) noexcept {
 	_base_ecall_ctx.simulate(world, *this, nullptr, *_base_machine);
 	if (_base_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
 		world.appendLog(
-			LogEntry::executionExceptionLog(
+			ReplayLogEntry::executionExceptionLog(
 				world.currentTick(), static_cast<std::uint8_t>(id), 0,
 				_base_ecall_ctx.stop_reason
 			)
@@ -115,6 +114,8 @@ void World::step() noexcept {
 	if (gameOver()) {
 		return;
 	}
+
+	_runtime_logs.clear();
 
 	tick += 1;
 	_processBulletMovement();
@@ -246,7 +247,7 @@ void World::_processUnitMovement() noexcept {
 		}
 
 		appendLog(
-			LogEntry::unitDestructionLog(
+			ReplayLogEntry::unitDestructionLog(
 				currentTick(), unit->player_id, unit->id
 			)
 		);
@@ -512,7 +513,9 @@ void World::_checkBaseCaptureCondition() noexcept {
 
 		_winner_player_id = 3 - pid;
 		appendLog(
-			LogEntry::baseCapturedLog(currentTick(), pid, _winner_player_id)
+			ReplayLogEntry::baseCapturedLog(
+				currentTick(), pid, _winner_player_id
+			)
 		);
 		return;
 	}
@@ -605,7 +608,9 @@ void World::_spawnUnit(
 	tile.occupied_state = Tile::OCCUPIED_BY_UNIT;
 
 	_players[player_id - 1].units[unit_id - 1] = new_unit.get();
-	appendLog(LogEntry::unitCreationLog(currentTick(), player_id, unit_id));
+	appendLog(
+		ReplayLogEntry::unitCreationLog(currentTick(), player_id, unit_id)
+	);
 	_units.push_back(std::move(new_unit));
 }
 
@@ -781,24 +786,12 @@ void World::setPlayerProgram(
 	player.unit_elf = std::move(unit_elf);
 }
 
-void World::setRuntimeLogSink(RuntimeLogSink sink) {
-	_runtime_log_sink = std::move(sink);
+void World::appendLog(ReplayLogEntry entry) {
+	_runtime_logs.push_back(std::move(entry));
 }
 
-void World::appendLog(LogEntry entry) {
-	if (_runtime_log_sink) {
-		_runtime_log_sink(entry);
-	}
-
-	_runtime_logs.push_back(std::move(entry));
-
-	if (_runtime_logs.size() >= 2 * max_runtime_logs) {
-		// If logs exceed 2x capacity, trim to most recent max_runtime_logs
-		// entries
-		_runtime_logs.erase(
-			_runtime_logs.begin(), _runtime_logs.end() - max_runtime_logs
-		);
-	}
+std::vector<ReplayLogEntry> World::takeTickLogs() noexcept {
+	return std::move(_runtime_logs);
 }
 
 } // namespace cr

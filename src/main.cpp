@@ -1,5 +1,5 @@
 #include "corertt/build_config.h"
-#include "corertt/log.h"
+#include "corertt/replay.h"
 #include "corertt/tilemap.h"
 #include "corertt/tui.h"
 #include "corertt/world.h"
@@ -11,52 +11,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace {
-
-class RuntimeLogFileMirror {
-public:
-	explicit RuntimeLogFileMirror(const std::string &path): _path(path) {
-		_stream.open(path, std::ios::out | std::ios::trunc);
-		if (!_stream.is_open()) {
-			throw std::runtime_error(
-				std::format("Failed to open log file: {}", path)
-			);
-		}
-	}
-
-	void append(const cr::LogEntry &entry) noexcept {
-		if (_write_failed) {
-			return;
-		}
-
-		try {
-			const auto lines = cr::formatLogEntryLines(entry);
-			for (const auto &line : lines) {
-				_stream << line << '\n';
-			}
-			_stream.flush();
-			if (!_stream.good()) {
-				throw std::runtime_error(
-					std::format("Failed to write runtime logs to {}", _path)
-				);
-			}
-		} catch (const std::exception &e) {
-			std::cerr << e.what() << '\n';
-			_write_failed = true;
-		} catch (...) {
-			std::cerr << "Unknown error while writing runtime logs\n";
-			_write_failed = true;
-		}
-	}
-
-private:
-	std::ofstream _stream;
-	std::string _path;
-	bool _write_failed = false;
-};
-
-} // namespace
 
 std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	std::ifstream file(path.data(), std::ios::binary);
@@ -109,9 +63,9 @@ int main(int argc, char *argv[]) {
 		.help("path to player 2 unit ELF");
 	program.add_argument("-s", "--seed")
 		.help("seed for map generation (omitted means device-random)");
-	program.add_argument("--log-file")
+	program.add_argument("--replay-file")
 		.default_value(std::string(""))
-		.help("optional path to mirror runtime logs to file");
+		.help("optional path to write binary replay");
 
 	try {
 		program.parse_args(argc, argv);
@@ -140,15 +94,6 @@ int main(int argc, char *argv[]) {
 	try {
 		auto world = std::make_unique<cr::World>(cr::Tilemap::generate(config));
 
-		std::shared_ptr<RuntimeLogFileMirror> log_mirror;
-		const auto log_file_path = program.get<std::string>("--log-file");
-		if (!log_file_path.empty()) {
-			log_mirror = std::make_shared<RuntimeLogFileMirror>(log_file_path);
-			world->setRuntimeLogSink([log_mirror](const cr::LogEntry &entry) {
-				log_mirror->append(entry);
-			});
-		}
-
 		world->setPlayerProgram(
 			1, loadBinary(program.get<std::string>("--p1-base")),
 			loadBinary(program.get<std::string>("--p1-unit"))
@@ -158,7 +103,61 @@ int main(int argc, char *argv[]) {
 			loadBinary(program.get<std::string>("--p2-unit"))
 		);
 
-		return cr::runTui(*world, std::chrono::milliseconds(step_interval_ms));
+		std::unique_ptr<cr::ReplayRecorder> replay_recorder;
+		std::unique_ptr<cr::ReplayStreamEncoder> replay_encoder;
+		std::unique_ptr<std::ofstream> replay_stream;
+
+		const auto replay_file_path = program.get<std::string>("--replay-file");
+		if (!replay_file_path.empty()) {
+			replay_recorder = std::make_unique<cr::ReplayRecorder>(*world);
+			replay_encoder = std::make_unique<cr::ReplayStreamEncoder>();
+			replay_stream = std::make_unique<std::ofstream>(
+				replay_file_path, std::ios::binary | std::ios::trunc
+			);
+			if (!replay_stream->is_open()) {
+				throw std::runtime_error(
+					std::format(
+						"Failed to open replay file: {}", replay_file_path
+					)
+				);
+			}
+
+			const auto header_bytes = replay_encoder->encodeHeader(
+				replay_recorder->header()
+			);
+			replay_stream->write(
+				reinterpret_cast<const char *>(header_bytes.data()),
+				static_cast<std::streamsize>(header_bytes.size())
+			);
+			replay_stream->flush();
+		}
+
+		return cr::runTui(
+			*world, std::chrono::milliseconds(step_interval_ms),
+			[&](cr::World &tick_world) {
+			if (!replay_recorder || !replay_encoder || !replay_stream) {
+				return;
+			}
+
+			replay_recorder->addTick(tick_world);
+			const auto &tick = replay_recorder->ticks().back();
+			const auto tick_bytes = replay_encoder->encodeTick(tick);
+			replay_stream->write(
+				reinterpret_cast<const char *>(tick_bytes.data()),
+				static_cast<std::streamsize>(tick_bytes.size())
+			);
+			replay_stream->flush();
+
+			if (tick_world.gameOver()) {
+				const auto end_bytes = replay_encoder->encodeEnd();
+				replay_stream->write(
+					reinterpret_cast<const char *>(end_bytes.data()),
+					static_cast<std::streamsize>(end_bytes.size())
+				);
+				replay_stream->flush();
+			}
+		}
+		);
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << '\n';
 		return 1;

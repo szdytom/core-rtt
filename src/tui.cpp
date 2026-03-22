@@ -1,5 +1,5 @@
 #include "corertt/tui.h"
-#include "corertt/log.h"
+#include "corertt/replay.h"
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
 #include <algorithm>
@@ -214,9 +214,9 @@ int computeViewportSize(const World &world) noexcept {
 }
 
 void appendRenderedLogLines(
-	const LogEntry &entry, std::vector<RenderedLogLine> &out_lines
+	const ReplayLogEntry &entry, std::vector<RenderedLogLine> &out_lines
 ) {
-	auto payload_lines = formatLogEntryLines(entry);
+	auto payload_lines = formatReplayLogEntryLines(entry);
 
 	// Reverse the lines
 	for (auto it = payload_lines.rbegin(); it != payload_lines.rend(); ++it) {
@@ -364,7 +364,10 @@ ftxui::Element renderMapPanel(const World &world, const CameraState &camera) {
 
 } // namespace
 
-int runTui(World &world, std::chrono::milliseconds step_interval) {
+int runTui(
+	World &world, std::chrono::milliseconds step_interval,
+	TickCallback tick_callback
+) {
 	using namespace ftxui;
 
 	CameraState camera;
@@ -387,6 +390,9 @@ int runTui(World &world, std::chrono::milliseconds step_interval) {
 			{
 				std::scoped_lock lock(world_mutex);
 				world.step();
+				if (tick_callback) {
+					tick_callback(world);
+				}
 				game_over = world.gameOver();
 			}
 			screen.PostEvent(Event::Custom);

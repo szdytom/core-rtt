@@ -790,17 +790,13 @@ void World::appendLog(LogEntry entry) {
 
 	_runtime_logs.push_back(std::move(entry));
 
-	while (_runtime_logs.size() > max_runtime_logs) {
-		_runtime_logs.pop_front();
+	if (_runtime_logs.size() >= 2 * max_runtime_logs) {
+		// If logs exceed 2x capacity, trim to most recent max_runtime_logs
+		// entries
+		_runtime_logs.erase(
+			_runtime_logs.begin(), _runtime_logs.end() - max_runtime_logs
+		);
 	}
-}
-
-World::RuntimeLogConstIterator World::runtimeLogsBegin() const noexcept {
-	return _runtime_logs.cbegin();
-}
-
-World::RuntimeLogConstIterator World::runtimeLogsEnd() const noexcept {
-	return _runtime_logs.cend();
 }
 
 } // namespace cr

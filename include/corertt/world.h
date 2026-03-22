@@ -2,11 +2,10 @@
 #define CORERTT_WORLD_H
 
 #include "corertt/entity.h"
-#include "corertt/log.h"
+#include "corertt/replay.h"
 #include "corertt/runtime.h"
 #include "corertt/tilemap.h"
 #include <array>
-#include <functional>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -54,8 +53,7 @@ private:
 
 class World {
 public:
-	using RuntimeLogConstIterator = std::vector<LogEntry>::const_iterator;
-	using RuntimeLogSink = std::function<void(const LogEntry &)>;
+	using RuntimeLogConstIterator = std::vector<ReplayLogEntry>::const_iterator;
 
 	World(Tilemap tilemap) noexcept;
 
@@ -113,8 +111,8 @@ public:
 		int player_id, std::vector<std::uint8_t> base_elf,
 		std::vector<std::uint8_t> unit_elf
 	) noexcept;
-	void setRuntimeLogSink(RuntimeLogSink sink);
-	void appendLog(LogEntry entry);
+	void appendLog(ReplayLogEntry entry);
+	std::vector<ReplayLogEntry> takeTickLogs() noexcept;
 
 	auto runtimeLogsBegin() const noexcept {
 		return _runtime_logs.cbegin();
@@ -129,15 +127,14 @@ public:
 	}
 
 private:
-	static constexpr std::size_t max_runtime_logs = 512;
+	friend class ReplayRecorder;
 
 	std::uint32_t tick;
 	Tilemap _tilemap;
 	Player _players[2];
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;
-	std::vector<LogEntry> _runtime_logs;
-	RuntimeLogSink _runtime_log_sink;
+	std::vector<ReplayLogEntry> _runtime_logs;
 	std::uint8_t _winner_player_id;
 
 	// Helper methods

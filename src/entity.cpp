@@ -1,5 +1,5 @@
 #include "corertt/entity.h"
-#include "corertt/log.h"
+#include "corertt/replay.h"
 #include "corertt/runtime.h"
 #include "corertt/world.h"
 #include <queue>
@@ -112,7 +112,7 @@ void Unit::step(World &world, Player &player) noexcept {
 	_ecall_ctx.simulate(world, player, this, *_machine);
 	if (_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
 		world.appendLog(
-			LogEntry::executionExceptionLog(
+			ReplayLogEntry::executionExceptionLog(
 				world.currentTick(), player_id, id, _ecall_ctx.stop_reason
 			)
 		);

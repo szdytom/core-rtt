@@ -13,7 +13,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace cr {
@@ -39,7 +38,7 @@ struct ReplayLogEntry {
 	std::uint8_t unit_id = 0;
 	ReplayLogSource source = ReplayLogSource::System;
 	ReplayLogType type = ReplayLogType::Custom;
-	std::vector<std::uint8_t> payload;
+	std::vector<std::byte> payload;
 
 	static ReplayLogEntry customLog(
 		std::uint32_t tick, std::uint8_t player_id, std::uint8_t unit_id,
@@ -60,11 +59,8 @@ struct ReplayLogEntry {
 	);
 
 	static ReplayLogEntry baseCapturedLog(
-		std::uint32_t tick, std::uint8_t captured_player_id,
-		std::uint8_t winner_player_id
+		std::uint32_t tick, std::uint8_t winner_player_id
 	);
-
-	std::string payloadAsString() const;
 };
 
 std::vector<std::string> formatReplayLogEntryLines(const ReplayLogEntry &entry);

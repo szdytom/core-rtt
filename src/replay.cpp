@@ -515,6 +515,10 @@ void ReplayRecorder::addTick(World &world) {
 
 	tick.units.reserve(world._units.size());
 	for (const auto &unit_ptr : world._units) {
+		if (!unit_ptr || unit_ptr->health <= 0) {
+			continue;
+		}
+
 		const auto &unit = *unit_ptr;
 		tick.units.push_back({
 			.id = unit.id,
@@ -530,6 +534,10 @@ void ReplayRecorder::addTick(World &world) {
 
 	tick.bullets.reserve(world._bullets.size());
 	for (const auto &bullet_ptr : world._bullets) {
+		if (!bullet_ptr || bullet_ptr->damage <= 0) {
+			continue;
+		}
+
 		const auto &bullet = *bullet_ptr;
 		tick.bullets.push_back({
 			.x = bullet.x,
@@ -592,7 +600,7 @@ std::vector<std::byte> ReplayStreamEncoder::encodeEnd() {
 		return {};
 	}
 	ByteWriter writer;
-	writer.writeU8(static_cast<std::uint8_t>(ReplayRecordType::End));
+	writer.writeU8(std::to_underlying(ReplayRecordType::End));
 	_end_written = true;
 	return writer.take();
 }
@@ -630,11 +638,10 @@ std::optional<ReplayTickFrame> ReplayStreamDecoder::tryReadNextTick() {
 		return std::nullopt;
 	}
 
-	const auto available = std::span<const std::byte>(
-							   _buffer.data(), _buffer.size()
-	)
-							   .subspan(_cursor);
-	ByteReader reader(available);
+	ByteReader reader(
+		std::span<const std::byte>(_buffer.data(), _buffer.size())
+			.subspan(_cursor)
+	);
 
 	ReplayTickFrame tick;
 	try {
@@ -725,6 +732,57 @@ ReplayData readReplay(std::istream &is) {
 	}
 
 	return replay;
+}
+
+void ReplayByteStream::pushBytes(std::vector<std::byte> bytes) {
+	if (bytes.empty()) {
+		return;
+	}
+
+	{
+		std::scoped_lock lock(_mutex);
+		if (_closed) {
+			throw std::runtime_error(
+				"Replay byte stream failed: cannot push to closed stream"
+			);
+		}
+		_chunks.push_back(std::move(bytes));
+	}
+	_cond.notify_one();
+}
+
+void ReplayByteStream::close() noexcept {
+	{
+		std::scoped_lock lock(_mutex);
+		_closed = true;
+	}
+	_cond.notify_all();
+}
+
+bool ReplayByteStream::waitPopNext(
+	std::vector<std::byte> &out_chunk, std::chrono::milliseconds wait_timeout
+) {
+	out_chunk.clear();
+
+	std::unique_lock lock(_mutex);
+	if (_chunks.empty() && !_closed) {
+		_cond.wait_for(lock, wait_timeout, [&] {
+			return !_chunks.empty() || _closed;
+		});
+	}
+
+	if (_chunks.empty()) {
+		return false;
+	}
+
+	out_chunk = std::move(_chunks.front());
+	_chunks.pop_front();
+	return true;
+}
+
+bool ReplayByteStream::isDrained() const noexcept {
+	std::scoped_lock lock(_mutex);
+	return _closed && _chunks.empty();
 }
 
 } // namespace cr

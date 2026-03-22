@@ -289,10 +289,13 @@ int computeViewportSize(const PlaybackState &playback_state) noexcept {
 void appendRenderedLogLines(
 	const ReplayLogEntry &entry, std::vector<RenderedLogLine> &out_lines
 ) {
-	auto payload_lines = formatReplayLogEntryLines(entry);
-	for (auto it = payload_lines.rbegin(); it != payload_lines.rend(); ++it) {
-		out_lines.push_back({*it, true});
+	const auto group_begin = out_lines.size();
+	for (auto &line : FormatReplayLogEntryLines(entry)) {
+		out_lines.push_back({std::move(line), true});
 	}
+
+	const auto group_begin_it = out_lines.begin() + group_begin;
+	std::reverse(group_begin_it, out_lines.end());
 	out_lines.back().is_continuation = false;
 }
 

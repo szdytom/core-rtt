@@ -30,6 +30,7 @@ Please refer to
 - [Core RTT Rules](docs/rules.md) for information about the game rules.
 - [API Specification](docs/api-spec.md) for details on the programming environment and available machine level APIs.
 - [Corelib Documentation](docs/corelib.md) for the C library that provides a wrapper around the machine level APIs, making it easier to write user programs, and more utility functions.
+- [Corelib Example Programs](corelib/example) for some example programs written using the corelib.
 - [Corelib Test Programs](corelib/test) for some example programs written using the corelib.
 
 ## License

@@ -25,7 +25,8 @@ LIB_OBJ = $(LIB_SRC:.c=.o)
 TEST_SRCS = test/base.c test/dummy.c test/heap.c \
             test/misc.c test/msg.c \
 			test/unit_fight.c test/deposit_withdraw.c \
-			test/unit_random_walk.c
+			test/unit_random_walk.c test/manufact.c \
+			example/harvester.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_ELFS = $(TEST_SRCS:.c=.elf)
 

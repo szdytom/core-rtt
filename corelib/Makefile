@@ -1,18 +1,30 @@
 # Makefile for building the corelib and test executables
+# Supports both GNU and LLVM toolchains. Use CLANG=1 to select LLVM.
 
+# ISA specification (can be overridden from command line)
+MARCH = rv32g_zba_zbb_zbc_zbs
+
+# Toolchain selection: if CLANG=1, use clang and llvm-ar; otherwise use GNU toolchain for RISC-V
 # We are working in the RISCV 32-bit environment, however, most distros like Arch Linux only provide a single riscv64-elf-gcc which can target both 32-bit and 64-bit. So we use riscv64-elf-gcc with -mabi=ilp32 to generate 32-bit code.
-CC = riscv64-elf-gcc
-# The binary utilities (ar, objcopy, etc.) are separate and we need the 32-bit version of ar to create the library archive.
-AR = riscv32-elf-ar
+ifdef CLANG
+    CC = clang
+    AR = llvm-ar
+    # Add target triple for clang cross-compilation
+    CFLAGS += -target riscv32-none-elf
+    LDFLAGS += -fuse-ld=lld -Wl,--no-rosegment
+else
+    CC = riscv64-elf-gcc
+    AR = riscv32-elf-ar
+endif
 
 # Compiler flags for both library and tests
-CFLAGS = -O2 -ffreestanding -nostdlib -nostdinc \
-         -march=rv32g_zba_zbb_zbc_zbs -mabi=ilp32d \
-         -Wall -ffunction-sections -fdata-sections \
-         -I. # include current dir for corelib.h
+CFLAGS += -O2 -ffreestanding -nostdlib -nostdinc \
+          -march=$(MARCH) -mabi=ilp32d \
+          -Wall -ffunction-sections -fdata-sections \
+          -I. # include current dir for corelib.h
 
 # Linker flags (used only when linking executables)
-LDFLAGS = -static -Wl,--gc-sections
+LDFLAGS += -static -Wl,--gc-sections -T link.ld
 
 # Libraries to link against for tests
 TEST_LIBS = -L. -lcorelib
@@ -24,9 +36,9 @@ LIB_OBJ = $(LIB_SRC:.c=.o)
 # List of test source files and corresponding ELF targets
 TEST_SRCS = test/base.c test/dummy.c test/heap.c \
             test/misc.c test/msg.c \
-			test/unit_fight.c test/deposit_withdraw.c \
-			test/unit_random_walk.c test/manufact.c \
-			example/harvester.c
+            test/unit_fight.c test/deposit_withdraw.c \
+            test/unit_random_walk.c test/manufact.c \
+            example/harvester.c
 TEST_OBJS = $(TEST_SRCS:.c=.o)
 TEST_ELFS = $(TEST_SRCS:.c=.elf)
 
@@ -45,7 +57,7 @@ libcorelib.a: $(LIB_OBJ)
 $(TEST_OBJS): %.o: %.c
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(TEST_ELFS): %.elf: %.o libcorelib.a
+$(TEST_ELFS): %.elf: %.o libcorelib.a link.ld
 	$(CC) $(CFLAGS) $(LDFLAGS) $< $(TEST_LIBS) -o $@
 
 # Include automatically generated dependency files (if they exist)

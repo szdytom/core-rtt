@@ -10,6 +10,19 @@ The `libcorelib.a` is built with `-ffunction-sections` and `-fdata-sections` fla
 
 The corelib is built for the RISC-V architecture with the `-march=rv32g_zba_zbb_zbc_zbs` and `-mabi=ilp32d` flags, which means it uses the RV32GCB instruction set and the ILP32D ABI. Make sure to compile your guest program with compatible flags to ensure proper integration with the corelib, or if you are using a different architecture or ABI, you need to build the corelib from source yourself with the appropriate flags.
 
+### Linker Script and Entry Runtime
+
+You should consider linking your guest program with the corelib's linker script (`corelib/link.ld`) to ensure that the entry point and memory layout are correctly set up. The corelib's `_start` function serves as the entry point for the guest program, and it will handle the necessary initialization before calling your `main` function.
+
+The script intentionally keeps the symbols and sections required by `_start` in `corelib/corelib.c`, especially:
+
+- `ENTRY(_start)`
+- `__bss_start` and `__BSS_END__` (used to clear `.bss`)
+- `__global_pointer$` (used to initialize `gp`)
+- `__init_array_start` and `__init_array_end` (used to call global constructors)
+
+The default GNU ld linker script may work out-of-the-box as well.
+
 ## Functionality
 
 The corelib provides a range of functionalities.

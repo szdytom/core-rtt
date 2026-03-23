@@ -18,10 +18,19 @@ The corelib, the support library to provide basic utilities and functions for us
 
 ```sh
 cd corelib
-CC=<path-to-riscv32-compiler> AR=<path-to-riscv32-archiver> make libcorelib.a
+make CC=<path-to-riscv32-compiler> AR=<path-to-riscv32-archiver>
 ```
 
 For example, on Arch Linux, you can install the `riscv32-elf-binutils` and `riscv64-elf-gcc` packages, and then use `riscv64-elf-gcc` as the compiler and `riscv64-elf-ar` as the archiver. For reasons why the 64-bit compiler can be used to build 32-bit binaries, please refer to the comments in the Makefile.
+
+Alternatively, you can also use LLVM toolchain to build the corelib, which can be easier to set up on some platforms, since `clang` cross-compilation support is often included in the default installation out-of-the-box. To use LLVM toolchain, you need to install `clang`, `llvm-ar`, and `lld` (the LLVM linker). Then you can build the corelib with the following command:
+
+```sh
+cd corelib
+make CLANG=1
+```
+
+Specify `-j<num-threads>` to speed up the build with parallel compilation, for example, `make CLANG=1 -j$(nproc)` on Linux will use all available CPU cores.
 
 ## Game Rules and Programming
 

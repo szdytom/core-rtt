@@ -58,6 +58,18 @@ public:
 		_buffer.insert(_buffer.end(), bytes.begin(), bytes.end());
 	}
 
+	std::size_t size() const noexcept {
+		return _buffer.size();
+	}
+
+	void patchU32(std::size_t offset, std::uint32_t value) noexcept {
+		assert(offset + sizeof(std::uint32_t) <= _buffer.size());
+		_buffer[offset] = static_cast<std::byte>(value & 0xFF);
+		_buffer[offset + 1] = static_cast<std::byte>((value >> 8) & 0xFF);
+		_buffer[offset + 2] = static_cast<std::byte>((value >> 16) & 0xFF);
+		_buffer[offset + 3] = static_cast<std::byte>((value >> 24) & 0xFF);
+	}
+
 	std::vector<std::byte> take() noexcept {
 		return std::move(_buffer);
 	}
@@ -326,49 +338,45 @@ void encodeReplayTick(ByteWriter &writer, const ReplayTickFrame &tick) {
 		throw std::runtime_error("Replay encode failed: too many logs");
 	}
 
-	ByteWriter payload;
+	writer.write(std::to_underlying(ReplayRecordType::Tick), tick.tick);
+	const auto payload_size_offset = writer.size();
+	writer.writeU32(0);
+	const auto payload_begin = writer.size();
 
 	for (const auto &player : tick.players) {
-		payload.write(
+		writer.write(
 			player.id, player.base_energy, player.base_capture_counter
 		);
 	}
 
-	payload.write(static_cast<std::uint16_t>(tick.units.size()));
+	writer.write(static_cast<std::uint16_t>(tick.units.size()));
 	for (const auto &unit : tick.units) {
-		payload.write(
+		writer.write(
 			unit.id, unit.player_id, unit.x, unit.y, unit.health, unit.energy,
 			unit.attack_cooldown, unit.upgrades
 		);
 	}
 
-	payload.write(static_cast<std::uint16_t>(tick.bullets.size()));
+	writer.write(static_cast<std::uint16_t>(tick.bullets.size()));
 	for (const auto &bullet : tick.bullets) {
-		payload.write(
+		writer.write(
 			bullet.x, bullet.y, bullet.direction, bullet.player_id,
 			bullet.damage
 		);
 	}
 
-	payload.write(static_cast<std::uint16_t>(tick.logs.size()));
+	writer.write(static_cast<std::uint16_t>(tick.logs.size()));
 	for (const auto &log : tick.logs) {
-		encodeLogEntry(payload, log);
+		encodeLogEntry(writer, log);
 	}
 
-	auto payload_bytes = payload.take();
-	if (payload_bytes.size() > std::numeric_limits<std::uint32_t>::max()) {
+	const auto payload_size = writer.size() - payload_begin;
+	if (payload_size > std::numeric_limits<std::uint32_t>::max()) {
 		throw std::runtime_error(
 			"Replay encode failed: tick payload too large"
 		);
 	}
-
-	writer.write(
-		std::to_underlying(ReplayRecordType::Tick), tick.tick,
-		static_cast<std::uint32_t>(payload_bytes.size())
-	);
-	if (!payload_bytes.empty()) {
-		writer.writeBytes(payload_bytes);
-	}
+	writer.patchU32(payload_size_offset, static_cast<std::uint32_t>(payload_size));
 }
 
 DecodeResult<ReplayTickFrame> decodeReplayTickPayload(

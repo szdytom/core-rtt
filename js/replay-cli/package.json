@@ -1,0 +1,22 @@
+{
+	"name": "@corertt/replay-cli",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "CLI utility for extracting logs from core-rtt replay files",
+	"bin": {
+		"corertt-replay-log": "./dist/main.js"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@corertt/corereplay": "file:../corereplay"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.0",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.1"
+	}
+}

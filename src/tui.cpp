@@ -458,6 +458,7 @@ int TuiRunner::run() {
 		bool moved = false;
 		if (event == Event::Custom) {
 			std::lock_guard lock(_replay.mutex);
+			auto prev_tick = playback_state.currentTick();
 			if (_replay.progress.phase != playback_state.progress.phase) {
 				playback_state.progress = _replay.progress;
 			} else if (_replay.progress.phase != ReplayParsePhase::Header) {
@@ -470,7 +471,8 @@ int TuiRunner::run() {
 			}
 
 			// concat new log entries to history
-			if (playback_state.progress.phase != ReplayParsePhase::Header) {
+			if (playback_state.progress.phase != ReplayParsePhase::Header
+			    && playback_state.progress.current_tick.tick != prev_tick) {
 				const auto &new_tick = playback_state.progress.current_tick;
 				playback_state.log_history.insert(
 					playback_state.log_history.end(), new_tick.logs.begin(),

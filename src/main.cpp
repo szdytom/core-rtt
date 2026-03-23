@@ -13,6 +13,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -250,8 +251,6 @@ int runLiveMode(const ProgramOptions &options) {
 		2, loadBinary(options.p2_base), loadBinary(options.p2_unit)
 	);
 
-	auto replay_recorder = std::make_unique<cr::ReplayRecorder>(*world);
-	auto replay_encoder = std::make_unique<cr::ReplayStreamEncoder>();
 	cr::SynchronizedReplayProgress replay_sync;
 	cr::TuiRunner tui_runner(replay_sync);
 
@@ -269,11 +268,13 @@ int runLiveMode(const ProgramOptions &options) {
 		}
 	}
 
-	auto header_bytes = replay_encoder->encodeHeader(replay_recorder->header());
+	auto header = cr::ReplayHeader::fromWorld(*world);
+	auto header_bytes = cr::ReplayHeader::encode(header);
+
 	{
 		std::lock_guard lock(replay_sync.mutex);
 		replay_sync.progress.phase = cr::ReplayParsePhase::Tick;
-		replay_sync.progress.header = replay_recorder->header();
+		replay_sync.progress.header = std::move(header);
 	}
 	tui_runner.notifyUpdate();
 	writeChunk(replay_file_stream.get(), header_bytes);
@@ -284,10 +285,9 @@ int runLiveMode(const ProgramOptions &options) {
 				auto next_tick_time = std::chrono::steady_clock::now()
 					+ step_interval;
 				world->step();
-				replay_recorder->addTick(*world);
-				const auto &tick = replay_recorder->ticks().back();
+				auto tick = cr::ReplayTickFrame::fromWorldState(*world);
+				auto tick_bytes = cr::ReplayTickFrame::encode(tick);
 
-				auto tick_bytes = replay_encoder->encodeTick(tick);
 				{
 					std::lock_guard lock(replay_sync.mutex);
 					replay_sync.progress.current_tick = tick;
@@ -302,14 +302,9 @@ int runLiveMode(const ProgramOptions &options) {
 				std::this_thread::sleep_until(next_tick_time);
 			}
 
-			cr::ReplayEndMarker end_marker;
-			if (world->gameOver()) {
-				end_marker.termination = cr::ReplayTermination::Completed;
-				end_marker.winner_player_id = world->winnerPlayerId();
-				end_marker.captured_player_id = world->capturedPlayerId();
-			}
+			auto end_marker = cr::ReplayEndMarker::fromWorld(*world);
+			auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
 
-			auto end_bytes = replay_encoder->encodeEnd(end_marker);
 			{
 				std::lock_guard lock(replay_sync.mutex);
 				replay_sync.progress.phase = cr::ReplayParsePhase::End;

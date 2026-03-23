@@ -62,6 +62,7 @@ struct ReplayLogEntry {
 		std::uint32_t tick, std::uint8_t winner_player_id
 	);
 };
+
 class FormatReplayLogEntryLines {
 public:
 	explicit FormatReplayLogEntryLines(const ReplayLogEntry &entry);
@@ -154,11 +155,17 @@ struct ReplayTickFrame {
 	std::vector<ReplayUnit> units;
 	std::vector<ReplayBullet> bullets;
 	std::vector<ReplayLogEntry> logs;
+
+	static ReplayTickFrame fromWorldState(World &world);
+	static std::vector<std::byte> encode(const ReplayTickFrame &tick);
 };
 
 struct ReplayHeader {
-	std::uint16_t version = 3;
+	std::uint16_t version = 4;
 	ReplayTilemap tilemap;
+
+	static ReplayHeader fromWorld(const World &world);
+	static std::vector<std::byte> encode(const ReplayHeader &header);
 };
 
 enum class ReplayTermination : std::uint8_t {
@@ -169,33 +176,17 @@ enum class ReplayTermination : std::uint8_t {
 struct ReplayEndMarker {
 	ReplayTermination termination = ReplayTermination::Aborted;
 	std::uint8_t winner_player_id = 0;
-	std::uint8_t captured_player_id = 0;
+
+	static ReplayEndMarker aborted();
+	static ReplayEndMarker completed(std::uint8_t winner_player_id);
+	static ReplayEndMarker fromWorld(const World &world);
+	static std::vector<std::byte> encode(const ReplayEndMarker &end_marker);
 };
 
 struct ReplayData {
 	ReplayHeader header;
 	std::vector<ReplayTickFrame> ticks;
 	ReplayEndMarker end_marker;
-};
-
-class ReplayRecorder {
-public:
-	explicit ReplayRecorder(const World &world);
-
-	const ReplayHeader &header() const noexcept {
-		return _header;
-	}
-
-	const std::vector<ReplayTickFrame> &ticks() const noexcept {
-		return _ticks;
-	}
-
-	void addTick(World &world);
-	ReplayData build() const;
-
-private:
-	ReplayHeader _header;
-	std::vector<ReplayTickFrame> _ticks;
 };
 
 enum class ReplayRecordType : std::uint8_t {
@@ -343,19 +334,6 @@ struct DecodeError {
 
 template<typename T>
 using DecodeResult = std::expected<T, DecodeError>;
-
-class ReplayStreamEncoder {
-public:
-	ReplayStreamEncoder() noexcept = default;
-
-	std::vector<std::byte> encodeHeader(const ReplayHeader &header);
-	std::vector<std::byte> encodeTick(const ReplayTickFrame &tick);
-	std::vector<std::byte> encodeEnd(const ReplayEndMarker &end_marker);
-
-private:
-	bool _header_written = false;
-	bool _end_written = false;
-};
 
 enum class ReplayParsePhase {
 	Header, // no header parsed yet

@@ -127,7 +127,7 @@ public:
 	}
 
 private:
-	friend class ReplayRecorder;
+	friend class ReplayTickFrame;
 
 	std::uint32_t tick;
 	Tilemap _tilemap;

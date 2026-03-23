@@ -23,7 +23,7 @@ namespace {
 constexpr std::array<std::byte, 4> replay_magic = {
 	std::byte{'C'}, std::byte{'R'}, std::byte{'P'}, std::byte{'L'}
 };
-constexpr std::uint16_t replay_version = 3;
+constexpr std::uint16_t replay_version = 4;
 
 class ByteWriter {
 public:
@@ -241,8 +241,7 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(
 	entry.unit_id = reader.readU8();
 
 	const auto raw_source = reader.readU8();
-	if (raw_source
-	    > static_cast<std::uint8_t>(ReplayLogEntry::Source::Player)) {
+	if (raw_source > std::to_underlying(ReplayLogEntry::Source::Player)) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::InvalidLogSourceValue)
 		);
@@ -250,8 +249,7 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(
 	entry.source = static_cast<ReplayLogEntry::Source>(raw_source);
 
 	const auto raw_type = reader.readU8();
-	if (raw_type
-	    > static_cast<std::uint8_t>(ReplayLogEntry::Type::BaseCaptured)) {
+	if (raw_type > std::to_underlying(ReplayLogEntry::Type::BaseCaptured)) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::InvalidLogTypeValue)
 		);
@@ -444,86 +442,52 @@ void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
 	encodeTilemap(writer, header.tilemap);
 }
 
-void validateReplayEndMarker(const ReplayEndMarker &end_marker) {
-	if (end_marker.termination == ReplayTermination::Completed) {
-		if (end_marker.winner_player_id == 0
-		    || end_marker.winner_player_id > 2) {
-			throw std::runtime_error(
-				"Replay encode failed: invalid winner player id"
-			);
-		}
-		if (end_marker.captured_player_id == 0
-		    || end_marker.captured_player_id > 2) {
-			throw std::runtime_error(
-				"Replay encode failed: invalid captured player id"
-			);
-		}
-		if (end_marker.winner_player_id + end_marker.captured_player_id != 3) {
-			throw std::runtime_error(
-				"Replay encode failed: winner/captured player mismatch"
-			);
-		}
-		return;
-	}
-
-	if (end_marker.termination == ReplayTermination::Aborted) {
-		if (end_marker.winner_player_id != 0
-		    || end_marker.captured_player_id != 0) {
-			throw std::runtime_error(
-				"Replay encode failed: aborted replay cannot contain winner "
-				"data"
-			);
-		}
-		return;
-	}
-
-	throw std::runtime_error(
-		"Replay encode failed: invalid replay termination"
-	);
-}
-
 void encodeReplayEndMarker(
 	ByteWriter &writer, const ReplayEndMarker &end_marker
 ) {
-	validateReplayEndMarker(end_marker);
-	writer.writeU8(static_cast<std::uint8_t>(end_marker.termination));
+	writer.writeU8(std::to_underlying(end_marker.termination));
 	writer.writeU8(end_marker.winner_player_id);
-	writer.writeU8(end_marker.captured_player_id);
-	writer.writeU8(0);
 }
 
 DecodeResult<ReplayEndMarker> decodeReplayEndMarker(
 	ByteReader &reader
 ) noexcept {
 	ReplayEndMarker end_marker;
-	if (!reader.has(4)) {
+	if (!reader.has(2)) {
 		return std::unexpected(
 			needMoreData(DecodeErrorCode::TruncatedEndMarker)
 		);
 	}
 	const auto raw_termination = reader.readU8();
-	if (raw_termination
-	    > static_cast<std::uint8_t>(ReplayTermination::Aborted)) {
+	if (raw_termination > std::to_underlying(ReplayTermination::Aborted)) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::InvalidReplayTermination)
 		);
 	}
 
 	const auto winner_player_id = reader.readU8();
-	const auto captured_player_id = reader.readU8();
-	reader.skip(1);
 
 	end_marker.termination = static_cast<ReplayTermination>(raw_termination);
 	end_marker.winner_player_id = winner_player_id;
-	end_marker.captured_player_id = captured_player_id;
 
-	try {
-		validateReplayEndMarker(end_marker);
-	} catch (const std::runtime_error &) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::InvalidEndMarkerPayload)
-		);
+	switch (end_marker.termination) {
+	case ReplayTermination::Completed:
+		if (winner_player_id == 0 || winner_player_id > 2) {
+			return std::unexpected(
+				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
+			);
+		}
+		break;
+
+	case ReplayTermination::Aborted:
+		if (winner_player_id != 0) {
+			return std::unexpected(
+				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
+			);
+		}
+		break;
 	}
+
 	return end_marker;
 }
 
@@ -785,20 +749,19 @@ std::string FormatReplayLogEntryLines::computePrefix(
 	);
 }
 
-ReplayRecorder::ReplayRecorder(const World &world) {
-	_header.version = replay_version;
+ReplayHeader ReplayHeader::fromWorld(const World &world) {
+	ReplayHeader header;
+	header.version = replay_version;
 	const auto &tilemap = world.tilemap();
-	_header.tilemap.width = static_cast<std::uint16_t>(tilemap.width());
-	_header.tilemap.height = static_cast<std::uint16_t>(tilemap.height());
-	_header.tilemap.base_size = static_cast<std::uint16_t>(tilemap.baseSize());
-	_header.tilemap.tiles.reserve(
-		static_cast<std::size_t>(tilemap.width()) * tilemap.height()
-	);
+	header.tilemap.width = tilemap.width();
+	header.tilemap.height = tilemap.height();
+	header.tilemap.base_size = tilemap.baseSize();
+	header.tilemap.tiles.reserve(tilemap.width() * tilemap.height());
 
 	for (int y = 0; y < tilemap.height(); ++y) {
 		for (int x = 0; x < tilemap.width(); ++x) {
 			const auto tile = tilemap.tileOf(x, y);
-			_header.tilemap.tiles.push_back({
+			header.tilemap.tiles.push_back({
 				.terrain = tile.terrain,
 				.side = tile.side,
 				.is_resource = tile.is_resource,
@@ -806,17 +769,24 @@ ReplayRecorder::ReplayRecorder(const World &world) {
 			});
 		}
 	}
+	return header;
 }
 
-void ReplayRecorder::addTick(World &world) {
+std::vector<std::byte> ReplayHeader::encode(const ReplayHeader &header) {
+	ByteWriter writer;
+	encodeReplayHeader(writer, header);
+	return writer.take();
+}
+
+ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
 	ReplayTickFrame tick;
 	tick.tick = world.currentTick();
 
-	for (std::size_t i = 0; i < tick.players.size(); ++i) {
-		const auto player_id = static_cast<int>(i + 1);
-		const auto &player = world.player(player_id);
+	for (int i : {0, 1}) {
+		std::uint8_t pid = i + 1;
+		const auto &player = world.player(pid);
 		tick.players[i] = {
-			.id = static_cast<std::uint8_t>(player_id),
+			.id = pid,
 			.base_energy = player.base_energy,
 			.base_capture_counter = static_cast<std::uint8_t>(
 				std::clamp(player.base_capture_counter, 0, 255)
@@ -860,62 +830,42 @@ void ReplayRecorder::addTick(World &world) {
 	}
 
 	tick.logs = world.takeTickLogs();
-	_ticks.push_back(std::move(tick));
+	return tick;
 }
 
-ReplayData ReplayRecorder::build() const {
-	ReplayData data;
-	data.header = _header;
-	data.ticks = _ticks;
-	return data;
-}
-
-std::vector<std::byte> ReplayStreamEncoder::encodeHeader(
-	const ReplayHeader &header
-) {
-	if (_header_written) {
-		throw std::runtime_error(
-			"Replay encode failed: header already written"
-		);
-	}
-	if (_end_written) {
-		throw std::runtime_error("Replay encode failed: stream already ended");
-	}
-
+std::vector<std::byte> ReplayTickFrame::encode(const ReplayTickFrame &tick) {
 	ByteWriter writer;
-	encodeReplayHeader(writer, header);
-	_header_written = true;
-	return writer.take();
-}
-
-std::vector<std::byte> ReplayStreamEncoder::encodeTick(
-	const ReplayTickFrame &tick
-) {
-	if (!_header_written) {
-		throw std::runtime_error("Replay encode failed: header required first");
-	}
-	if (_end_written) {
-		throw std::runtime_error("Replay encode failed: stream already ended");
-	}
-
-	ByteWriter writer;
+	writer.writeU8(std::to_underlying(ReplayRecordType::Tick));
 	encodeReplayTick(writer, tick);
 	return writer.take();
 }
 
-std::vector<std::byte> ReplayStreamEncoder::encodeEnd(
+ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) {
+	if (world.gameOver()) {
+		return ReplayEndMarker::completed(world.winnerPlayerId());
+	}
+	return ReplayEndMarker::aborted();
+}
+
+ReplayEndMarker ReplayEndMarker::completed(std::uint8_t winner_player_id) {
+	assert(winner_player_id == 1 || winner_player_id == 2);
+
+	return {
+		.termination = ReplayTermination::Completed,
+		.winner_player_id = winner_player_id
+	};
+}
+
+ReplayEndMarker ReplayEndMarker::aborted() {
+	return {.termination = ReplayTermination::Aborted, .winner_player_id = 0};
+}
+
+std::vector<std::byte> ReplayEndMarker::encode(
 	const ReplayEndMarker &end_marker
 ) {
-	if (!_header_written) {
-		throw std::runtime_error("Replay encode failed: header required first");
-	}
-	if (_end_written) {
-		return {};
-	}
 	ByteWriter writer;
 	writer.writeU8(std::to_underlying(ReplayRecordType::End));
 	encodeReplayEndMarker(writer, end_marker);
-	_end_written = true;
 	return writer.take();
 }
 
@@ -933,6 +883,7 @@ bool ReplayStreamDecoder::canReadHeader() const noexcept {
 	if (hasHeader()) {
 		return true;
 	}
+
 	constexpr std::size_t header_prefix_size = 8;
 	if (_buffer.size() < header_prefix_size) {
 		return false;
@@ -969,7 +920,7 @@ bool ReplayStreamDecoder::canReadNextRecord() const noexcept {
 		record_reader.readU8()
 	);
 	if (record_type == ReplayRecordType::End) {
-		return record_reader.remaining() >= 4;
+		return record_reader.remaining() >= 2;
 	}
 	if (record_type != ReplayRecordType::Tick) {
 		return false;
@@ -1123,32 +1074,6 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() noexcept {
 	result.status = ReadStatus::Tick;
 	result.tick = std::move(*tick);
 	return result;
-}
-
-void writeReplay(std::ostream &os, const ReplayData &replay) {
-	ReplayStreamEncoder encoder;
-	const auto header = encoder.encodeHeader(replay.header);
-	os.write(
-		reinterpret_cast<const char *>(header.data()),
-		static_cast<std::streamsize>(header.size())
-	);
-
-	for (const auto &tick : replay.ticks) {
-		const auto bytes = encoder.encodeTick(tick);
-		os.write(
-			reinterpret_cast<const char *>(bytes.data()),
-			static_cast<std::streamsize>(bytes.size())
-		);
-	}
-
-	const auto end = encoder.encodeEnd(replay.end_marker);
-	os.write(
-		reinterpret_cast<const char *>(end.data()),
-		static_cast<std::streamsize>(end.size())
-	);
-	if (!os.good()) {
-		throw std::runtime_error("Failed to write replay stream");
-	}
 }
 
 ReplayData readReplay(std::istream &is) {

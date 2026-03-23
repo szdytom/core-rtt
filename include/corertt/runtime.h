@@ -3,8 +3,11 @@
 
 #include "corertt/xoroshiro.h"
 #include <cstddef>
+#include <expected>
+#include <format>
 #include <libriscv/common.hpp>
 #include <libriscv/machine.hpp>
+#include <memory>
 #include <vector>
 
 namespace cr {
@@ -32,8 +35,74 @@ enum class StoppedReason : std::int32_t {
 	ALIGNMENT_FAULT,
 	ILLEGAL_INSTRUCTION,
 	OUT_OF_MEMORY,
-	UNKOWN_EXECEPTION
+	INVALID_PROGRAM,
+	UNKNOWN_EXCEPTION
 };
+
+constexpr std::string_view to_string(StoppedReason reason) noexcept {
+	switch (reason) {
+	case StoppedReason::NOT_STOPPED:
+		return "NOT_STOPPED";
+	case StoppedReason::ABORTED:
+		return "ABORTED";
+	case StoppedReason::PAGE_PROTECTION_FAULT:
+		return "PAGE_PROTECTION_FAULT";
+	case StoppedReason::ALIGNMENT_FAULT:
+		return "ALIGNMENT_FAULT";
+	case StoppedReason::ILLEGAL_INSTRUCTION:
+		return "ILLEGAL_INSTRUCTION";
+	case StoppedReason::OUT_OF_MEMORY:
+		return "OUT_OF_MEMORY";
+	case StoppedReason::INVALID_PROGRAM:
+		return "INVALID_PROGRAM";
+	case StoppedReason::UNKNOWN_EXCEPTION:
+	default:
+		return "UNKNOWN_EXCEPTION";
+	}
+}
+
+} // namespace cr
+
+template<>
+struct std::formatter<cr::StoppedReason> {
+	bool show_numeric = false;
+
+	template<typename ParseContext>
+	constexpr auto parse(ParseContext &ctx) {
+		auto it = ctx.begin();
+		if (it == ctx.end()) {
+			return it;
+		}
+
+		if (*it == 'n') {
+			show_numeric = true;
+			++it;
+		}
+
+		if (it != ctx.end() && *it != '}') {
+			throw std::format_error(
+				"Invalid format for StoppedReason: expected 'n' or '}'"
+			);
+		}
+
+		return it;
+	}
+
+	template<typename FormatContext>
+	constexpr auto format(cr::StoppedReason reason, FormatContext &ctx) const
+		-> decltype(ctx.out()) {
+		if (show_numeric) {
+			return std::format_to(
+				ctx.out(), "{}({})", cr::to_string(reason),
+				std::to_underlying(reason)
+			);
+		}
+		std::formatter<std::string_view> string_formatter;
+		return string_formatter.format(cr::to_string(reason), ctx);
+	}
+};
+
+namespace cr {
 
 struct ECallNumber {
 	// Debugging calls
@@ -72,10 +141,9 @@ struct ECallNumber {
 
 using RVMachine = riscv::Machine<riscv::RISCV32>;
 
-inline const riscv::MachineOptions<riscv::RISCV32> RUNTIME_OPTION = {
-	.memory_max = 128 * 1024, // 128KB memory
-	.stack_size = 4 * 1024,   // 4KB stack
-};
+std::expected<std::unique_ptr<RVMachine>, StoppedReason> createMachineFromELF(
+	std::span<const std::uint8_t> elf_binary
+) noexcept;
 
 struct ECallInvokedFlags {
 	bool send_msg : 1 = false;

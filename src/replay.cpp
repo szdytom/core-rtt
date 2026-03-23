@@ -204,7 +204,7 @@ void encodeTilemap(ByteWriter &writer, const ReplayTilemap &tilemap) {
 		throw std::runtime_error(
 			std::format(
 				"Replay encode failed: tile count mismatch (expected {}, got "
-		        "{})",
+				"{})",
 				tileCount(tilemap), tilemap.tiles.size()
 			)
 		);
@@ -643,15 +643,8 @@ ReplayLogEntry ReplayLogEntry::executionExceptionLog(
 	std::uint32_t tick, std::uint8_t player_id, std::uint8_t unit_id,
 	StoppedReason reason
 ) {
-	static constexpr std::array<std::string_view, 7> reason_strings = {
-		"NOT_STOPPED",           "ABORTED",
-		"PAGE_PROTECTION_FAULT", "ALIGNMENT_FAULT",
-		"ILLEGAL_INSTRUCTION",   "OUT_OF_MEMORY",
-		"UNKNOWN_EXCEPTION"
-	};
-
-	const auto reason_index = std::to_underlying(reason);
-	if (reason_index < 0 || reason_index >= reason_strings.size()) {
+	const auto reason_string = std::format("{}", reason);
+	if (reason_string.empty()) {
 		throw std::runtime_error("Replay log failed: invalid stop reason");
 	}
 
@@ -661,7 +654,7 @@ ReplayLogEntry ReplayLogEntry::executionExceptionLog(
 		.unit_id = unit_id,
 		.source = ReplayLogEntry::Source::System,
 		.type = ReplayLogEntry::Type::ExecutionException,
-		.payload = toBytes(reason_strings[reason_index]),
+		.payload = toBytes(reason_string),
 	};
 }
 

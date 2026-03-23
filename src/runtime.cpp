@@ -39,35 +39,7 @@ RuntimeECallContext *check_userdata(RVMachine &machine) {
 }
 #endif
 
-#ifndef NDEBUG
-void ecall_ebreak(RVMachine &machine) {
-	std::println(
-		std::cerr,
-		"Flat arena: {}\n"
-		"  Arena size: {}\n"
-		"  Initial rodata end: {}\n"
-		"  Initial read boundary: {}\n"
-		"  Initial write boundary: {}",
-		machine.memory.uses_flat_memory_arena() ? "Enabled" : "Disabled",
-		machine.memory.memory_arena_size(), machine.memory.initial_rodata_end(),
-		machine.memory.memory_arena_read_boundary(),
-		machine.memory.memory_arena_write_boundary()
-	);
-
-	auto &pages = machine.memory.pages();
-	std::println(std::cerr, "Currently allocated {} pages:", pages.size());
-	for (auto &[addr, page] : pages) {
-		std::println(std::cerr, "  {:#x}", addr << 12);
-	}
-
-	std::println(
-		std::cerr, "Active pages: {}, Owned Active pages: {}",
-		machine.memory.pages_active(), machine.memory.owned_pages_active()
-	);
-}
-#else
 void ecall_ebreak(RVMachine &machine) {}
-#endif
 
 void ecall_abort(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
@@ -531,6 +503,56 @@ void ecall_rand(RVMachine &machine) {
 
 } // namespace
 
+namespace {
+
+StoppedReason machineExceptionToStoppedReason(
+	const riscv::MachineException &e
+) noexcept {
+	switch (e.type()) {
+	case riscv::INVALID_PROGRAM:
+		return StoppedReason::INVALID_PROGRAM;
+
+	case riscv::ILLEGAL_OPERATION:
+	case riscv::ILLEGAL_OPCODE:
+	case riscv::UNIMPLEMENTED_INSTRUCTION:
+	case riscv::UNIMPLEMENTED_INSTRUCTION_LENGTH:
+		return StoppedReason::ILLEGAL_INSTRUCTION;
+
+	case riscv::OUT_OF_MEMORY:
+		return StoppedReason::OUT_OF_MEMORY;
+
+	case riscv::PROTECTION_FAULT:
+	case riscv::EXECUTION_SPACE_PROTECTION_FAULT:
+		return StoppedReason::PAGE_PROTECTION_FAULT;
+
+	case riscv::MISALIGNED_INSTRUCTION:
+	case riscv::INVALID_ALIGNMENT:
+		return StoppedReason::ALIGNMENT_FAULT;
+
+	default:
+		return StoppedReason::UNKNOWN_EXCEPTION;
+	}
+}
+
+} // namespace
+
+std::expected<std::unique_ptr<RVMachine>, StoppedReason> createMachineFromELF(
+	std::span<const std::uint8_t> elf_binary
+) noexcept {
+	const riscv::MachineOptions<riscv::RISCV32> RUNTIME_OPTION = {
+		.memory_max = 128 * 1024, // 128KB memory
+		.stack_size = 4 * 1024,   // 4KB stack
+	};
+
+	try {
+		return std::make_unique<RVMachine>(elf_binary, RUNTIME_OPTION);
+	} catch (const riscv::MachineException &e) {
+		return std::unexpected(machineExceptionToStoppedReason(e));
+	} catch (...) {
+		return std::unexpected(StoppedReason::UNKNOWN_EXCEPTION);
+	}
+}
+
 void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 	rng = Xoroshiro128PP{Seed::device_random()};
 	stop_reason = StoppedReason::NOT_STOPPED;
@@ -586,34 +608,9 @@ void RuntimeECallContext::simulate(
 	try {
 		machine.simulate<false>(max_cycles);
 	} catch (const riscv::MachineException &e) {
-		switch (e.type()) {
-		case riscv::ILLEGAL_OPERATION:
-		case riscv::ILLEGAL_OPCODE:
-		case riscv::UNIMPLEMENTED_INSTRUCTION:
-		case riscv::UNIMPLEMENTED_INSTRUCTION_LENGTH:
-			stop_reason = StoppedReason::ILLEGAL_INSTRUCTION;
-			break;
-
-		case riscv::OUT_OF_MEMORY:
-			stop_reason = StoppedReason::OUT_OF_MEMORY;
-			break;
-
-		case riscv::PROTECTION_FAULT:
-		case riscv::EXECUTION_SPACE_PROTECTION_FAULT:
-			stop_reason = StoppedReason::PAGE_PROTECTION_FAULT;
-			break;
-
-		case riscv::MISALIGNED_INSTRUCTION:
-		case riscv::INVALID_ALIGNMENT:
-			stop_reason = StoppedReason::ALIGNMENT_FAULT;
-			break;
-
-		default:
-			stop_reason = StoppedReason::UNKOWN_EXECEPTION;
-			break;
-		}
+		stop_reason = machineExceptionToStoppedReason(e);
 	} catch (...) {
-		stop_reason = StoppedReason::UNKOWN_EXECEPTION;
+		stop_reason = StoppedReason::UNKNOWN_EXCEPTION;
 	}
 }
 

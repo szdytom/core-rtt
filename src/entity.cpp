@@ -50,11 +50,6 @@ void Unit::step(World &world, Player &player) noexcept {
 		return;
 	}
 
-	if (!_machine) {
-		_machine = std::make_unique<RVMachine>(player.unit_elf, RUNTIME_OPTION);
-		_ecall_ctx.bind(*_machine);
-	}
-
 	if (attack_cooldown > 0) {
 		attack_cooldown -= 1;
 	}
@@ -107,6 +102,20 @@ void Unit::step(World &world, Player &player) noexcept {
 			}
 			queue.emplace(nx, ny);
 		}
+	}
+
+	if (!_machine) {
+		auto machine_or_error = createMachineFromELF(player.unit_elf);
+		if (!machine_or_error) {
+			world.appendLog(
+				ReplayLogEntry::executionExceptionLog(
+					world.currentTick(), player_id, id, machine_or_error.error()
+				)
+			);
+			return; // Skip simulation if unit program failed to load
+		}
+		_machine = std::move(machine_or_error.value());
+		_ecall_ctx.bind(*_machine);
 	}
 
 	_ecall_ctx.simulate(world, player, this, *_machine);

@@ -52,7 +52,16 @@ void Player::step(World &world) noexcept {
 	outgoing_messages.clear();
 
 	if (!_base_machine) {
-		_base_machine = std::make_unique<RVMachine>(base_elf, RUNTIME_OPTION);
+		auto machine_or_error = createMachineFromELF(base_elf);
+		if (!machine_or_error) {
+			world.appendLog(
+				ReplayLogEntry::executionExceptionLog(
+					world.currentTick(), id, 0, machine_or_error.error()
+				)
+			);
+			return; // Skip simulation if base program failed to load
+		}
+		_base_machine = std::move(machine_or_error.value());
 		_base_ecall_ctx.bind(*_base_machine);
 	}
 
@@ -60,8 +69,7 @@ void Player::step(World &world) noexcept {
 	if (_base_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
 		world.appendLog(
 			ReplayLogEntry::executionExceptionLog(
-				world.currentTick(), static_cast<std::uint8_t>(id), 0,
-				_base_ecall_ctx.stop_reason
+				world.currentTick(), id, 0, _base_ecall_ctx.stop_reason
 			)
 		);
 		_base_machine.reset();

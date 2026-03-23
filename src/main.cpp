@@ -197,16 +197,16 @@ int runPlaybackMode(const ProgramOptions &options) {
 							"Tick decode error: {}", *read_result.error
 						);
 						goto end_production;
-					}
-
-					if (read_result.status
-					    == cr::ReplayStreamDecoder::ReadStatus::Tick) {
+					} else if (
+						read_result.status
+						== cr::ReplayStreamDecoder::ReadStatus::Tick
+					) {
 						std::lock_guard lock(replay_sync.mutex);
 						replay_sync.progress.current_tick = *read_result.tick;
-					}
-
-					if (read_result.status
-					    == cr::ReplayStreamDecoder::ReadStatus::End) {
+					} else if (
+						read_result.status
+						== cr::ReplayStreamDecoder::ReadStatus::End
+					) {
 						std::lock_guard lock(replay_sync.mutex);
 						replay_sync.progress.phase = cr::ReplayParsePhase::End;
 						replay_sync.progress.end_marker = decoder.endMarker();

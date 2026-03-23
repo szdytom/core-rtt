@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <concepts>
 #include <cstddef>
 #include <cstring>
 #include <expected>
@@ -14,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 namespace cr {
@@ -27,6 +29,11 @@ constexpr std::uint16_t replay_version = 4;
 
 class ByteWriter {
 public:
+	template<typename... Args>
+	void write(Args &&...args) noexcept {
+		(writeOne(std::forward<Args>(args)), ...);
+	}
+
 	void writeU8(std::uint8_t value) noexcept {
 		_buffer.push_back(static_cast<std::byte>(value));
 	}
@@ -56,6 +63,45 @@ public:
 	}
 
 private:
+	template<typename>
+	static constexpr bool always_false = false;
+
+	template<typename T>
+	void writeOne(T &&value) noexcept {
+		using value_type = std::remove_cvref_t<T>;
+
+		if constexpr (std::is_enum_v<value_type>) {
+			writeOne(std::to_underlying(value));
+		} else if constexpr (std::integral<value_type>) {
+			if constexpr (sizeof(value_type) == 1) {
+				writeU8(static_cast<std::uint8_t>(value));
+			} else if constexpr (sizeof(value_type) == 2) {
+				if constexpr (std::is_signed_v<value_type>) {
+					writeI16(static_cast<std::int16_t>(value));
+				} else {
+					writeU16(static_cast<std::uint16_t>(value));
+				}
+			} else if constexpr (sizeof(value_type) == 4) {
+				writeU32(static_cast<std::uint32_t>(value));
+			} else {
+				static_assert(
+					always_false<value_type>,
+					"ByteWriter::write does not support this integer size"
+				);
+			}
+		} else if constexpr (
+			std::same_as<value_type, std::span<const std::byte>>
+			|| std::same_as<value_type, std::span<std::byte>>
+		) {
+			writeBytes(std::span<const std::byte>(value));
+		} else {
+			static_assert(
+				always_false<value_type>,
+				"ByteWriter::write does not support this type"
+			);
+		}
+	}
+
 	std::vector<std::byte> _buffer;
 };
 
@@ -214,12 +260,11 @@ void encodeLogEntry(ByteWriter &writer, const ReplayLogEntry &entry) {
 		throw std::runtime_error("Replay encode failed: log payload too large");
 	}
 
-	writer.writeU32(entry.tick);
-	writer.writeU8(entry.player_id);
-	writer.writeU8(entry.unit_id);
-	writer.writeU8(static_cast<std::uint8_t>(entry.source));
-	writer.writeU8(static_cast<std::uint8_t>(entry.type));
-	writer.writeU16(static_cast<std::uint16_t>(entry.payload.size()));
+	writer.write(
+		entry.tick, entry.player_id, entry.unit_id,
+		std::to_underlying(entry.source), std::to_underlying(entry.type),
+		static_cast<std::uint16_t>(entry.payload.size())
+	);
 	if (!entry.payload.empty()) {
 		writer.writeBytes(std::as_bytes(std::span(entry.payload)));
 	}
@@ -284,33 +329,28 @@ void encodeReplayTick(ByteWriter &writer, const ReplayTickFrame &tick) {
 	ByteWriter payload;
 
 	for (const auto &player : tick.players) {
-		payload.writeU8(player.id);
-		payload.writeU16(player.base_energy);
-		payload.writeU8(player.base_capture_counter);
+		payload.write(
+			player.id, player.base_energy, player.base_capture_counter
+		);
 	}
 
-	payload.writeU16(static_cast<std::uint16_t>(tick.units.size()));
+	payload.write(static_cast<std::uint16_t>(tick.units.size()));
 	for (const auto &unit : tick.units) {
-		payload.writeU8(unit.id);
-		payload.writeU8(unit.player_id);
-		payload.writeI16(unit.x);
-		payload.writeI16(unit.y);
-		payload.writeU8(unit.health);
-		payload.writeU16(unit.energy);
-		payload.writeU8(unit.attack_cooldown);
-		payload.writeU8(unit.upgrades);
+		payload.write(
+			unit.id, unit.player_id, unit.x, unit.y, unit.health, unit.energy,
+			unit.attack_cooldown, unit.upgrades
+		);
 	}
 
-	payload.writeU16(static_cast<std::uint16_t>(tick.bullets.size()));
+	payload.write(static_cast<std::uint16_t>(tick.bullets.size()));
 	for (const auto &bullet : tick.bullets) {
-		payload.writeI16(bullet.x);
-		payload.writeI16(bullet.y);
-		payload.writeU8(bullet.direction);
-		payload.writeU8(bullet.player_id);
-		payload.writeU8(bullet.damage);
+		payload.write(
+			bullet.x, bullet.y, bullet.direction, bullet.player_id,
+			bullet.damage
+		);
 	}
 
-	payload.writeU16(static_cast<std::uint16_t>(tick.logs.size()));
+	payload.write(static_cast<std::uint16_t>(tick.logs.size()));
 	for (const auto &log : tick.logs) {
 		encodeLogEntry(payload, log);
 	}
@@ -322,9 +362,10 @@ void encodeReplayTick(ByteWriter &writer, const ReplayTickFrame &tick) {
 		);
 	}
 
-	writer.writeU8(static_cast<std::uint8_t>(ReplayRecordType::Tick));
-	writer.writeU32(tick.tick);
-	writer.writeU32(static_cast<std::uint32_t>(payload_bytes.size()));
+	writer.write(
+		std::to_underlying(ReplayRecordType::Tick), tick.tick,
+		static_cast<std::uint32_t>(payload_bytes.size())
+	);
 	if (!payload_bytes.empty()) {
 		writer.writeBytes(payload_bytes);
 	}
@@ -431,23 +472,23 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 
 void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
 	writer.writeBytes(replay_magic);
-	writer.writeU16(header.version);
 	const auto header_size = tilemapEncodedSize(header.tilemap);
 	if (header_size > std::numeric_limits<std::uint16_t>::max()) {
 		throw std::runtime_error(
 			"Replay encode failed: header payload too large"
 		);
 	}
-	writer.writeU16(static_cast<std::uint16_t>(header_size));
+	writer.write(header.version, static_cast<std::uint16_t>(header_size));
 	encodeTilemap(writer, header.tilemap);
 }
 
 void encodeReplayEndMarker(
 	ByteWriter &writer, const ReplayEndMarker &end_marker
 ) {
-	writer.writeU8(std::to_underlying(ReplayRecordType::End));
-	writer.writeU8(std::to_underlying(end_marker.termination));
-	writer.writeU8(end_marker.winner_player_id);
+	writer.write(
+		std::to_underlying(ReplayRecordType::End),
+		std::to_underlying(end_marker.termination), end_marker.winner_player_id
+	);
 }
 
 DecodeResult<ReplayEndMarker> decodeReplayEndMarker(

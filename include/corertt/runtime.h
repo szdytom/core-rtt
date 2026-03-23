@@ -32,7 +32,7 @@ enum class StoppedReason : std::int32_t {
 	ALIGNMENT_FAULT,
 	ILLEGAL_INSTRUCTION,
 	OUT_OF_MEMORY,
-	UNKOWN_EXCEPTION
+	UNKOWN_EXECEPTION
 };
 
 struct ECallNumber {

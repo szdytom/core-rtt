@@ -596,6 +596,7 @@ void RuntimeECallContext::simulate(
 
 		case riscv::OUT_OF_MEMORY:
 			stop_reason = StoppedReason::OUT_OF_MEMORY;
+			break;
 
 		case riscv::PROTECTION_FAULT:
 		case riscv::EXECUTION_SPACE_PROTECTION_FAULT:
@@ -608,11 +609,11 @@ void RuntimeECallContext::simulate(
 			break;
 
 		default:
-			stop_reason = StoppedReason::UNKOWN_EXCEPTION;
+			stop_reason = StoppedReason::UNKOWN_EXECEPTION;
 			break;
 		}
 	} catch (...) {
-		stop_reason = StoppedReason::UNKOWN_EXCEPTION;
+		stop_reason = StoppedReason::UNKOWN_EXECEPTION;
 	}
 }
 

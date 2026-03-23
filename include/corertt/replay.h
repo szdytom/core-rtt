@@ -216,6 +216,7 @@ enum class DecodeErrorCode : std::uint8_t {
 	UnitCountExceedsMaximum,
 	BulletCountExceedsMaximum,
 	LogCountExceedsMaximum,
+	LogPayloadSizeExceedsMaximum,
 	TruncatedEndMarker,
 	InvalidReplayTermination,
 	InvalidEndMarkerPayload,
@@ -258,6 +259,8 @@ constexpr std::string_view decodeErrorCodeName(DecodeErrorCode code) noexcept {
 		return "BulletCountExceedsMaximum";
 	case DecodeErrorCode::LogCountExceedsMaximum:
 		return "LogCountExceedsMaximum";
+	case DecodeErrorCode::LogPayloadSizeExceedsMaximum:
+		return "LogPayloadSizeExceedsMaximum";
 	case DecodeErrorCode::TruncatedEndMarker:
 		return "TruncatedEndMarker";
 	case DecodeErrorCode::InvalidReplayTermination:
@@ -315,6 +318,9 @@ struct DecodeError {
 		case DecodeErrorCode::LogCountExceedsMaximum:
 			return "Replay decode failed: log_count exceeds maximum allowed "
 				   "value";
+		case DecodeErrorCode::LogPayloadSizeExceedsMaximum:
+			return "Replay decode failed: log payload size exceeds maximum "
+				   "allowed value";
 		case DecodeErrorCode::TruncatedEndMarker:
 			return "Replay decode failed: truncated end marker";
 		case DecodeErrorCode::InvalidReplayTermination:

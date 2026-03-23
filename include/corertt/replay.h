@@ -3,16 +3,12 @@
 
 #include "corertt/runtime.h"
 #include <array>
-#include <chrono>
-#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <expected>
 #include <format>
 #include <iosfwd>
 #include <iterator>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -361,6 +357,12 @@ private:
 	bool _end_written = false;
 };
 
+enum class ReplayParsePhase {
+	Header, // no header parsed yet
+	Tick,   // header parsed, parsing tick frames
+	End,    // end marker parsed, no more data expected
+};
+
 class ReplayStreamDecoder {
 public:
 	ReplayStreamDecoder() noexcept = default;
@@ -379,44 +381,38 @@ public:
 	};
 
 	void pushBytes(std::span<const std::byte> bytes) noexcept;
-	bool hasHeader() const noexcept {
-		return _has_header;
-	}
+	void pushBytes(std::span<const char> bytes) noexcept;
+
 	bool canReadHeader() const noexcept;
 	bool canReadNextRecord() const noexcept;
-	bool isEnded() const noexcept {
-		return _ended;
+
+	bool hasHeader() const noexcept {
+		return _phase != ReplayParsePhase::Header;
+	}
+
+	bool ended() const noexcept {
+		return _phase == ReplayParsePhase::End;
 	}
 
 	const ReplayHeader &header() const;
 	const ReplayEndMarker &endMarker() const;
-	ReadResult tryReadNextTick() noexcept;
+
+	std::expected<void, DecodeError> readHeader() noexcept;
+	ReadResult nextTick() noexcept;
 
 private:
-	bool _has_header = false;
-	bool _ended = false;
+	ReplayParsePhase _phase = ReplayParsePhase::Header;
 	std::vector<std::byte> _buffer;
 	std::size_t _cursor = 0;
 	ReplayHeader _header;
-	std::optional<ReplayEndMarker> _end_marker;
+	ReplayEndMarker _end_marker;
 };
 
-class ReplayByteStream {
-public:
-	void pushBytes(std::vector<std::byte> bytes);
-	void close() noexcept;
-
-	bool waitPopNext(
-		std::vector<std::byte> &out_chunk,
-		std::chrono::milliseconds wait_timeout
-	);
-	bool isDrained() const noexcept;
-
-private:
-	mutable std::mutex _mutex;
-	std::condition_variable _cond;
-	std::deque<std::vector<std::byte>> _chunks;
-	bool _closed = false;
+struct ReplayProgress {
+	ReplayParsePhase phase = ReplayParsePhase::Header;
+	ReplayHeader header;
+	ReplayTickFrame current_tick;
+	ReplayEndMarker end_marker;
 };
 
 void writeReplay(std::ostream &os, const ReplayData &replay);

@@ -131,11 +131,11 @@ ProgramOptions parseOptions(int argc, char *argv[]) {
 	return options;
 }
 
-int runPlaybackMode(
-	const ProgramOptions &options, std::chrono::milliseconds step_interval
-) {
-	cr::ReplayByteStream replay_stream;
-	cr::TuiRunner tui_runner(replay_stream, step_interval, true);
+int runPlaybackMode(const ProgramOptions &options) {
+	std::chrono::milliseconds step_interval(options.step_interval_ms);
+	cr::SynchronizedReplayProgress replay_sync;
+	cr::ReplayStreamDecoder decoder;
+	cr::TuiRunner tui_runner(replay_sync);
 	std::jthread producer_thread([&](std::stop_token stop_token) {
 		try {
 			std::ifstream input(options.play_replay, std::ios::binary);
@@ -150,27 +150,77 @@ int runPlaybackMode(
 
 			std::array<char, 4096> raw_chunk{};
 			while (!stop_token.stop_requested() && input.good()) {
-				input.read(
-					raw_chunk.data(),
-					static_cast<std::streamsize>(raw_chunk.size())
-				);
-				const auto read_size = input.gcount();
-				if (read_size <= 0) {
+				auto next_tick_time = std::chrono::steady_clock::now()
+					+ step_interval;
+
+				while (!decoder.ended() && !decoder.canReadNextRecord()
+				       && input.good() && !stop_token.stop_requested()) {
+					// Read up to 4096 bytes at a time and feed to the decoder
+					input.read(raw_chunk.data(), raw_chunk.size());
+					std::size_t bytes_read = input.gcount();
+					decoder.pushBytes({raw_chunk.data(), bytes_read});
+
+					if (!decoder.hasHeader() && decoder.canReadHeader()) {
+						std::lock_guard lock(replay_sync.mutex);
+						auto res = decoder.readHeader();
+						if (!res) {
+							replay_sync.last_error = std::format(
+								"Header decode error: {}", res.error()
+							);
+							goto end_production;
+							break;
+						}
+
+						replay_sync.progress.phase = cr::ReplayParsePhase::Tick;
+						replay_sync.progress.header = decoder.header();
+					}
+				}
+
+				if (stop_token.stop_requested()) {
 					break;
 				}
 
-				auto bytes = std::vector<std::byte>(
-					reinterpret_cast<std::byte *>(raw_chunk.data()),
-					reinterpret_cast<std::byte *>(raw_chunk.data()) + read_size
-				);
-				replay_stream.pushBytes(std::move(bytes));
+				if (decoder.ended()) {
+					std::lock_guard lock(replay_sync.mutex);
+					replay_sync.progress.phase = cr::ReplayParsePhase::End;
+					replay_sync.progress.end_marker = decoder.endMarker();
+					break;
+				}
+
+				if (decoder.canReadNextRecord()) {
+					auto read_result = decoder.nextTick();
+					if (read_result.status
+					    == cr::ReplayStreamDecoder::ReadStatus::Error) {
+						std::lock_guard lock(replay_sync.mutex);
+						replay_sync.last_error = std::format(
+							"Tick decode error: {}", *read_result.error
+						);
+						goto end_production;
+					}
+
+					if (read_result.status
+					    == cr::ReplayStreamDecoder::ReadStatus::Tick) {
+						std::lock_guard lock(replay_sync.mutex);
+						replay_sync.progress.current_tick = *read_result.tick;
+					}
+
+					if (read_result.status
+					    == cr::ReplayStreamDecoder::ReadStatus::End) {
+						std::lock_guard lock(replay_sync.mutex);
+						replay_sync.progress.phase = cr::ReplayParsePhase::End;
+						replay_sync.progress.end_marker = decoder.endMarker();
+						break;
+					}
+				}
+
 				tui_runner.notifyUpdate();
+				std::this_thread::sleep_until(next_tick_time);
 			}
 		} catch (const std::exception &e) {
 			std::cerr << e.what() << '\n';
 		}
 
-		replay_stream.close();
+	end_production:
 		tui_runner.notifyUpdate();
 	});
 
@@ -179,9 +229,8 @@ int runPlaybackMode(
 	return tui_exit_code;
 }
 
-int runLiveMode(
-	const ProgramOptions &options, std::chrono::milliseconds step_interval
-) {
+int runLiveMode(const ProgramOptions &options) {
+	std::chrono::milliseconds step_interval{options.step_interval_ms};
 	cr::TilemapGenerationConfig config;
 	config.width = options.width;
 	config.height = options.height;
@@ -201,10 +250,10 @@ int runLiveMode(
 		2, loadBinary(options.p2_base), loadBinary(options.p2_unit)
 	);
 
-	auto replay_recorder = std::make_shared<cr::ReplayRecorder>(*world);
-	auto replay_encoder = std::make_shared<cr::ReplayStreamEncoder>();
-	auto replay_stream = std::make_shared<cr::ReplayByteStream>();
-	cr::TuiRunner tui_runner(*replay_stream, step_interval, false);
+	auto replay_recorder = std::make_unique<cr::ReplayRecorder>(*world);
+	auto replay_encoder = std::make_unique<cr::ReplayStreamEncoder>();
+	cr::SynchronizedReplayProgress replay_sync;
+	cr::TuiRunner tui_runner(replay_sync);
 
 	std::shared_ptr<std::ofstream> replay_file_stream;
 	if (!options.replay_file.empty()) {
@@ -221,26 +270,28 @@ int runLiveMode(
 	}
 
 	auto header_bytes = replay_encoder->encodeHeader(replay_recorder->header());
-	replay_stream->pushBytes(header_bytes);
+	{
+		std::lock_guard lock(replay_sync.mutex);
+		replay_sync.progress.phase = cr::ReplayParsePhase::Tick;
+		replay_sync.progress.header = replay_recorder->header();
+	}
 	tui_runner.notifyUpdate();
 	writeChunk(replay_file_stream.get(), header_bytes);
 
 	std::jthread producer_thread([&](std::stop_token stop_token) {
 		try {
-			auto next_tick_time = std::chrono::steady_clock::now()
-				+ step_interval;
 			while (!stop_token.stop_requested()) {
-				std::this_thread::sleep_until(next_tick_time);
-				if (stop_token.stop_requested()) {
-					break;
-				}
-
+				auto next_tick_time = std::chrono::steady_clock::now()
+					+ step_interval;
 				world->step();
 				replay_recorder->addTick(*world);
 				const auto &tick = replay_recorder->ticks().back();
 
 				auto tick_bytes = replay_encoder->encodeTick(tick);
-				replay_stream->pushBytes(tick_bytes);
+				{
+					std::lock_guard lock(replay_sync.mutex);
+					replay_sync.progress.current_tick = tick;
+				}
 				tui_runner.notifyUpdate();
 				writeChunk(replay_file_stream.get(), tick_bytes);
 
@@ -248,6 +299,7 @@ int runLiveMode(
 				if (world->gameOver()) {
 					break;
 				}
+				std::this_thread::sleep_until(next_tick_time);
 			}
 
 			cr::ReplayEndMarker end_marker;
@@ -258,16 +310,17 @@ int runLiveMode(
 			}
 
 			auto end_bytes = replay_encoder->encodeEnd(end_marker);
-			if (!end_bytes.empty()) {
-				replay_stream->pushBytes(end_bytes);
-				tui_runner.notifyUpdate();
-				writeChunk(replay_file_stream.get(), end_bytes);
+			{
+				std::lock_guard lock(replay_sync.mutex);
+				replay_sync.progress.phase = cr::ReplayParsePhase::End;
+				replay_sync.progress.end_marker = end_marker;
 			}
+			tui_runner.notifyUpdate();
+			writeChunk(replay_file_stream.get(), end_bytes);
 		} catch (const std::exception &e) {
 			std::cerr << e.what() << '\n';
 		}
 
-		replay_stream->close();
 		tui_runner.notifyUpdate();
 	});
 
@@ -290,15 +343,12 @@ int main(int argc, char *argv[]) {
 		std::cerr << "--step-interval-ms must be positive\n";
 		return 1;
 	}
-	const auto step_interval = std::chrono::milliseconds(
-		options.step_interval_ms
-	);
 
 	try {
 		if (!options.play_replay.empty()) {
-			return runPlaybackMode(options, step_interval);
+			return runPlaybackMode(options);
 		}
-		return runLiveMode(options, step_interval);
+		return runLiveMode(options);
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << '\n';
 		return 1;

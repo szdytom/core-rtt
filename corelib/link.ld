@@ -67,16 +67,6 @@ SECTIONS
 	.gnu_extab : ONLY_IF_RO { *(.gnu_extab*) } :text
 	.exception_ranges : ONLY_IF_RO { *(.exception_ranges*) } :text
 
-	/* Place note sections with read-only data to avoid orphan output. */
-	.note.build-id : { *(.note.build-id) } :text
-	.note.GNU-stack : { *(.note.GNU-stack) } :text
-	.note.gnu-property : { *(.note.gnu-property) } :text
-	.note.ABI-tag : { *(.note.ABI-tag) } :text
-	.note.package : { *(.note.package) } :text
-	.note.dlopen : { *(.note.dlopen) } :text
-	.note.netbsd.ident : { *(.note.netbsd.ident) } :text
-	.note.openbsd.ident : { *(.note.openbsd.ident) } :text
-
 	/* Read-write region starts on the next suitable page boundary. */
 	. = DATA_SEGMENT_ALIGN(CONSTANT(MAXPAGESIZE), CONSTANT(COMMONPAGESIZE));
 
@@ -104,38 +94,22 @@ SECTIONS
 	.init_array :
 	{
 		PROVIDE_HIDDEN(__init_array_start = .);
-		KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
-		KEEP(*(.init_array EXCLUDE_FILE(*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o) .ctors))
+		KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+		KEEP(*(.init_array))
+		KEEP(*(SORT(.ctors.*)))
+		KEEP(*(.ctors))
 		PROVIDE_HIDDEN(__init_array_end = .);
 	} :data
 
 	.fini_array :
 	{
 		PROVIDE_HIDDEN(__fini_array_start = .);
-		KEEP(*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
-		KEEP(*(.fini_array EXCLUDE_FILE(*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o) .dtors))
-		PROVIDE_HIDDEN(__fini_array_end = .);
-	} :data
-
-	.ctors :
-	{
-		KEEP(*crtbegin.o(.ctors))
-		KEEP(*crtbegin?.o(.ctors))
-		KEEP(*(EXCLUDE_FILE(*crtend.o *crtend?.o) .ctors))
-		KEEP(*(SORT(.ctors.*)))
-		KEEP(*(.ctors))
-	} :data
-
-	.dtors :
-	{
-		KEEP(*crtbegin.o(.dtors))
-		KEEP(*crtbegin?.o(.dtors))
-		KEEP(*(EXCLUDE_FILE(*crtend.o *crtend?.o) .dtors))
+		KEEP(*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
+		KEEP(*(.fini_array))
 		KEEP(*(SORT(.dtors.*)))
 		KEEP(*(.dtors))
+		PROVIDE_HIDDEN(__fini_array_end = .);
 	} :data
-
-	.jcr : { KEEP(*(.jcr)) } :data
 
 	.data.rel.ro :
 	{
@@ -186,7 +160,7 @@ SECTIONS
 
 	__BSS_END__ = .;
 	__global_pointer$ = MIN(__SDATA_BEGIN__ + 0x800,
-													MAX(__DATA_BEGIN__ + 0x800, __BSS_END__ - 0x800));
+		MAX(__DATA_BEGIN__ + 0x800, __BSS_END__ - 0x800));
 
 	_end = .;
 	PROVIDE(end = .);

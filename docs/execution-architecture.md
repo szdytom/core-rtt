@@ -12,8 +12,8 @@ This document describes runtime execution, replay production/consumption, and TU
 ## Main components
 
 - `World`: game simulation state and `step()` progression.
-- `ReplayRecorder`: snapshots world state after each tick.
-- `ReplayStreamEncoder`: converts replay header/ticks/end marker to binary chunks.
+- `ReplayTickFrame::fromWorldState`: snapshots world state after each tick.
+- Replay static encoders (`ReplayHeader::encode`, `ReplayTickFrame::encode`, `ReplayEndMarker::encode`): convert structures to binary chunks.
 - `ReplayByteStream`: thread-safe byte-chunk queue between producer and TUI consumer.
 - `ReplayStreamDecoder`: incremental decoder used directly by UI thread.
 - TUI `PlaybackState`: pure data snapshot used for rendering (header/current tick/log history).
@@ -23,8 +23,8 @@ This document describes runtime execution, replay production/consumption, and TU
 ```text
 producer thread:
   world.step()
-  replay_recorder.addTick(world)
-  replay_encoder.encodeTick(...)
+  tick = ReplayTickFrame::fromWorldState(world)
+  ReplayTickFrame::encode(tick)
   replay_byte_stream.pushBytes(...)
 
 UI thread:
@@ -56,7 +56,7 @@ This keeps live and playback on a single decode path while moving playback pacin
 ## Log lifecycle
 
 - `World` stores per-tick logs only.
-- At each tick capture, `ReplayRecorder::addTick` moves logs from world (`takeTickLogs()`) into replay tick frame.
+- At each tick capture, `ReplayTickFrame::fromWorldState` moves logs from world (`takeTickLogs()`) into replay tick frame.
 - TUI appends each decoded tick's logs into its own `log_history` for scrolling/history display.
 
 ## Threading model
@@ -73,7 +73,7 @@ The UI thread owns `PlaybackState`, so no additional playback-state mutex is nee
 ## Failure handling
 
 - Incremental decoder returns explicit read status (`NeedMoreData`, `Tick`, `End`) instead of using exceptions for incomplete input.
-- Binary format v3 is size-framed (`header size`, tick `size`):
+- Binary format v4 is size-framed (`header size`, tick `size`):
   - Declared size larger than known fields: decode known fields and ignore extension bytes.
   - Declared size smaller than known fields: treat as format error.
 - Offline reader (`readReplay`) requires an end marker and rejects truncated files.

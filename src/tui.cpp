@@ -212,12 +212,8 @@ void clampCamera(
 	}
 
 	const auto &tilemap = playback_state.progress.header.tilemap;
-	const int max_x = std::max(
-		0, static_cast<int>(tilemap.width) - camera.viewport_size
-	);
-	const int max_y = std::max(
-		0, static_cast<int>(tilemap.height) - camera.viewport_size
-	);
+	const int max_x = std::max(0, tilemap.width - camera.viewport_size);
+	const int max_y = std::max(0, tilemap.height - camera.viewport_size);
 	camera.x = std::clamp(camera.x, 0, max_x);
 	camera.y = std::clamp(camera.y, 0, max_y);
 }
@@ -312,14 +308,7 @@ ftxui::Element renderGameStatusLine(const PlaybackState &playback_state) {
 							  )
 						  )
 				| color(UiConst::color_win) | bold;
-			auto loser = text(
-							 std::format(
-								 "P{} base captured",
-								 end_marker.captured_player_id
-							 )
-						 )
-				| color(UiConst::color_loss) | bold;
-			return hbox({text("Game over: "), winner, text(" | "), loser});
+			return hbox({text("Game over: "), winner});
 		}
 
 		return text("Replay terminated early (unfinished)")

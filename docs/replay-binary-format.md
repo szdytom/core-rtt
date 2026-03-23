@@ -1,6 +1,6 @@
 # Replay Binary Format
 
-This document describes the on-disk and stream format produced by `ReplayStreamEncoder` and consumed by `ReplayStreamDecoder`.
+This document describes the on-disk and stream format produced by replay static encoders (`ReplayHeader::encode`, `ReplayTickFrame::encode`, `ReplayEndMarker::encode`) and consumed by `ReplayStreamDecoder`.
 
 ## Byte order
 
@@ -35,7 +35,7 @@ A replay stream is:
 | Field | Type | Size | Notes |
 |---|---|---:|---|
 | magic | bytes | 4 | ASCII `CRPL` |
-| version | u16 | 2 | Current value: `3` |
+| version | u16 | 2 | Current value: `4` |
 | header size | u16 | 2 | The size of the tilemap in bytes |
 
 The header size field is the size of the entire header after the header size field itself, i.e. the size of the tilemap for now.
@@ -162,13 +162,11 @@ After the `type=255` byte, payload fields are serialized in this order.
 |---|---|---|
 | termination | u8 | `0 = Completed`, `1 = Aborted` |
 | winner_player_id | u8 | Winner player id (`1` or `2`) when `termination=Completed`, otherwise `0` |
-| captured_player_id | u8 | Captured base owner (`1` or `2`) when `termination=Completed`, otherwise `0` |
-| reserved | u8 | Reserved, currently `0` |
 
 Semantics:
 
-- `Completed`: The game ended by rules (base capture). `winner_player_id` and `captured_player_id` must be valid and complementary (`winner + captured = 3`).
-- `Aborted`: Replay stream ended before the game reached a rule-defined winner (for example, user stopped live mode early). Winner and captured ids must both be `0`.
+- `Completed`: The game ended by rules (base capture).
+- `Aborted`: Replay stream ended before the game reached a rule-defined winner (for example, user stopped live mode early). Winner id should be `0` in this case.
 
 ## Validation notes
 

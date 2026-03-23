@@ -445,6 +445,7 @@ void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
 void encodeReplayEndMarker(
 	ByteWriter &writer, const ReplayEndMarker &end_marker
 ) {
+	writer.writeU8(std::to_underlying(ReplayRecordType::End));
 	writer.writeU8(std::to_underlying(end_marker.termination));
 	writer.writeU8(end_marker.winner_player_id);
 }
@@ -835,7 +836,6 @@ ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
 
 std::vector<std::byte> ReplayTickFrame::encode(const ReplayTickFrame &tick) {
 	ByteWriter writer;
-	writer.writeU8(std::to_underlying(ReplayRecordType::Tick));
 	encodeReplayTick(writer, tick);
 	return writer.take();
 }
@@ -864,7 +864,6 @@ std::vector<std::byte> ReplayEndMarker::encode(
 	const ReplayEndMarker &end_marker
 ) {
 	ByteWriter writer;
-	writer.writeU8(std::to_underlying(ReplayRecordType::End));
 	encodeReplayEndMarker(writer, end_marker);
 	return writer.take();
 }

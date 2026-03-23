@@ -295,7 +295,6 @@ int runLiveMode(const ProgramOptions &options) {
 				tui_runner.notifyUpdate();
 				writeChunk(replay_file_stream.get(), tick_bytes);
 
-				next_tick_time += step_interval;
 				if (world->gameOver()) {
 					break;
 				}

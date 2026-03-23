@@ -9,7 +9,6 @@
 #include <format>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <optional>
 #include <string>
 #include <thread>
@@ -46,17 +45,17 @@ std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	);
 }
 
-void writeChunk(std::ofstream *stream, std::span<const std::byte> chunk) {
-	if (stream == nullptr || chunk.empty()) {
+void writeChunk(std::ofstream &stream, std::span<const std::byte> chunk) {
+	if (chunk.empty()) {
 		return;
 	}
 
-	stream->write(
+	stream.write(
 		reinterpret_cast<const char *>(chunk.data()),
 		static_cast<std::streamsize>(chunk.size())
 	);
-	stream->flush();
-	if (!stream->good()) {
+	stream.flush();
+	if (!stream.good()) {
 		throw std::runtime_error("Failed to write replay file");
 	}
 }
@@ -243,20 +242,20 @@ int runLiveMode(const ProgramOptions &options) {
 		config.seed = cr::Seed::device_random();
 	}
 
-	auto world = std::make_shared<cr::World>(cr::Tilemap::generate(config));
-	world->setPlayerProgram(
+	cr::World world(cr::Tilemap::generate(config));
+	world.setPlayerProgram(
 		1, loadBinary(options.p1_base), loadBinary(options.p1_unit)
 	);
-	world->setPlayerProgram(
+	world.setPlayerProgram(
 		2, loadBinary(options.p2_base), loadBinary(options.p2_unit)
 	);
 
 	cr::SynchronizedReplayProgress replay_sync;
 	cr::TuiRunner tui_runner(replay_sync);
 
-	std::shared_ptr<std::ofstream> replay_file_stream;
+	std::optional<std::ofstream> replay_file_stream;
 	if (!options.replay_file.empty()) {
-		replay_file_stream = std::make_shared<std::ofstream>(
+		replay_file_stream.emplace(
 			options.replay_file, std::ios::binary | std::ios::trunc
 		);
 		if (!replay_file_stream->is_open()) {
@@ -268,8 +267,11 @@ int runLiveMode(const ProgramOptions &options) {
 		}
 	}
 
-	auto header = cr::ReplayHeader::fromWorld(*world);
-	auto header_bytes = cr::ReplayHeader::encode(header);
+	auto header = cr::ReplayHeader::fromWorld(world);
+	if (replay_file_stream.has_value()) {
+		auto header_bytes = cr::ReplayHeader::encode(header);
+		writeChunk(*replay_file_stream, header_bytes);
+	}
 
 	{
 		std::lock_guard lock(replay_sync.mutex);
@@ -277,32 +279,37 @@ int runLiveMode(const ProgramOptions &options) {
 		replay_sync.progress.header = std::move(header);
 	}
 	tui_runner.notifyUpdate();
-	writeChunk(replay_file_stream.get(), header_bytes);
 
 	std::jthread producer_thread([&](std::stop_token stop_token) {
 		try {
 			while (!stop_token.stop_requested()) {
 				auto next_tick_time = std::chrono::steady_clock::now()
 					+ step_interval;
-				world->step();
-				auto tick = cr::ReplayTickFrame::fromWorldState(*world);
-				auto tick_bytes = cr::ReplayTickFrame::encode(tick);
+				world.step();
+
+				auto tick = cr::ReplayTickFrame::fromWorldState(world);
+				if (replay_file_stream) {
+					auto tick_bytes = cr::ReplayTickFrame::encode(tick);
+					writeChunk(*replay_file_stream, tick_bytes);
+				}
 
 				{
 					std::lock_guard lock(replay_sync.mutex);
-					replay_sync.progress.current_tick = tick;
+					replay_sync.progress.current_tick = std::move(tick);
 				}
 				tui_runner.notifyUpdate();
-				writeChunk(replay_file_stream.get(), tick_bytes);
 
-				if (world->gameOver()) {
+				if (world.gameOver()) {
 					break;
 				}
 				std::this_thread::sleep_until(next_tick_time);
 			}
 
-			auto end_marker = cr::ReplayEndMarker::fromWorld(*world);
-			auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
+			auto end_marker = cr::ReplayEndMarker::fromWorld(world);
+			if (replay_file_stream) {
+				auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
+				writeChunk(*replay_file_stream, end_bytes);
+			}
 
 			{
 				std::lock_guard lock(replay_sync.mutex);
@@ -310,7 +317,6 @@ int runLiveMode(const ProgramOptions &options) {
 				replay_sync.progress.end_marker = end_marker;
 			}
 			tui_runner.notifyUpdate();
-			writeChunk(replay_file_stream.get(), end_bytes);
 		} catch (const std::exception &e) {
 			std::cerr << e.what() << '\n';
 		}

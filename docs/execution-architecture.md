@@ -1,86 +1,111 @@
 # Execution Architecture
 
-This document describes runtime execution, replay production/consumption, and TUI interaction.
+This document describes the current `corertt` executable flow in `src/main.cpp`,
+including thread interaction in live mode and replay playback mode.
 
-## Design goals
+## Entry flow
 
-- Keep core simulation (`World`) independent from replay/UI ownership.
-- Use replay stream as the single rendering data source.
-- Support both live simulation and offline playback through the same decode path.
-- Keep lock scope small by avoiding direct world reads from TUI.
+`main()` executes the following steps:
 
-## Main components
+1. Parse CLI options (`parseOptions`).
+2. Validate `--step-interval-ms > 0`.
+3. Select mode:
+   - `--play-replay <file>`: playback mode (`runPlaybackMode`).
+   - otherwise: live simulation mode (`runLiveMode`).
 
-- `World`: game simulation state and `step()` progression.
-- `ReplayTickFrame::fromWorldState`: snapshots world state after each tick.
-- Replay static encoders (`ReplayHeader::encode`, `ReplayTickFrame::encode`, `ReplayEndMarker::encode`): convert structures to binary chunks.
-- `ReplayByteStream`: thread-safe byte-chunk queue between producer and TUI consumer.
-- `ReplayStreamDecoder`: incremental decoder used directly by UI thread.
-- TUI `PlaybackState`: pure data snapshot used for rendering (header/current tick/log history).
+All top-level exceptions are converted into stderr messages and process exit code
+`1`.
 
-## Live mode flow
+## Shared runtime contract
 
-```text
-producer thread:
-  world.step()
-  tick = ReplayTickFrame::fromWorldState(world)
-  ReplayTickFrame::encode(tick)
-  replay_byte_stream.pushBytes(...)
+Both modes use the same UI synchronization object:
 
-UI thread:
-  replay_byte_stream.waitPopNext(...)
-  decoder.pushBytes(...)
-  on Event::Custom: parse at most one tick
-  update PlaybackState
-  render from PlaybackState only
-```
+- `SynchronizedReplayProgress replay_sync`
+  - shared between producer thread and TUI thread
+  - guarded by `replay_sync.mutex`
+  - carries `ReplayProgress` and optional `last_error`
 
-### Key properties
+`TuiRunner` reads only from `replay_sync`, never from simulation internals.
 
-- TUI does not dereference `World`.
-- Runtime logs shown in TUI are accumulated from replay tick logs.
-- On shutdown (including user pressing `q`), producer emits replay end marker before closing stream.
+## Live mode (`runLiveMode`)
 
-## Playback mode flow
+### Initialization
 
-```text
-producer thread:
-  stream raw replay bytes into ReplayByteStream
+1. Build `TilemapGenerationConfig` from CLI values.
+2. Build `World` from generated tilemap.
+3. Load player ELF binaries and install them into `World`.
+4. Optionally open replay output file (`--replay-file`).
+5. Build and publish replay header:
+   - `ReplayHeader::fromWorld(world)`
+   - write to `replay_sync.progress`
+   - optional binary write to replay file
 
-TUI decode/render:
-  identical to live mode, but tick pacing is controlled by UI thread
-```
+### Thread model
 
-This keeps live and playback on a single decode path while moving playback pacing to UI control.
+- Main thread:
+  - runs `tui_runner.run()`.
+- Producer thread (`std::jthread`):
+  - loops at `step_interval_ms`
+  - executes `world.step()`
+  - captures tick snapshot (`ReplayTickFrame::fromWorldState(world)`)
+  - publishes latest tick to `replay_sync`
+  - optionally writes encoded tick bytes to replay file
+  - exits on game over or stop request
+  - emits and publishes end marker (`ReplayEndMarker::fromWorld(world)`)
 
-## Log lifecycle
+`TuiRunner::notifyUpdate()` posts a custom FTXUI event to wake rendering when
+new data arrives.
 
-- `World` stores per-tick logs only.
-- At each tick capture, `ReplayTickFrame::fromWorldState` moves logs from world (`takeTickLogs()`) into replay tick frame.
-- TUI appends each decoded tick's logs into its own `log_history` for scrolling/history display.
+### Lifetime and ownership
 
-## Threading model
+- `World` is owned by `runLiveMode` stack frame and referenced by producer
+  thread.
+- Optional replay file stream is also owned by `runLiveMode` stack frame.
+- `std::jthread` is destroyed before these objects during function exit, so all
+  producer-thread references remain valid.
 
-- Producer thread: generates replay byte chunks.
-- UI event/render thread: consumes chunks, decodes records, and renders from playback state.
+## Playback mode (`runPlaybackMode`)
 
-Shared object with synchronization:
+### Initialization
 
-- `ReplayByteStream`: internal mutex + condition variable.
+1. Open replay file from `--play-replay`.
+2. Create `ReplayStreamDecoder`.
+3. Start producer thread.
 
-The UI thread owns `PlaybackState`, so no additional playback-state mutex is needed.
+### Producer behavior
 
-## Failure handling
+- Reads replay file in chunks (`4096` bytes).
+- Pushes chunks into `ReplayStreamDecoder`.
+- Decodes header and tick/end records incrementally.
+- Publishes decoded progress into `replay_sync`.
+- Sleeps according to `step_interval_ms` between updates.
 
-- Incremental decoder returns explicit read status (`NeedMoreData`, `Tick`, `End`) instead of using exceptions for incomplete input.
-- Binary format v4 is size-framed (`header size`, tick `size`):
-  - Declared size larger than known fields: decode known fields and ignore extension bytes.
-  - Declared size smaller than known fields: treat as format error.
-- Offline reader (`readReplay`) requires an end marker and rejects truncated files.
-- Producer catches exceptions, reports to stderr, and closes stream to unblock TUI.
+### UI behavior
+
+- `TuiRunner` consumes `replay_sync` snapshots on custom events.
+- Maintains local `PlaybackState` and log history for rendering.
+
+## Shutdown sequence
+
+For both modes:
+
+1. `tui_runner.run()` returns when user quits UI.
+2. Main thread calls `producer_thread.request_stop()`.
+3. Function returns.
+4. `std::jthread` destructor joins producer thread.
+
+This guarantees producer thread completion before mode-local objects are
+destroyed.
+
+## Error handling
+
+- CLI parse errors: printed together with help text.
+- Mode runtime errors: printed in `main` catch block and return `1`.
+- Producer-thread exceptions are caught and printed to stderr, then UI gets a
+  final update event.
 
 ## Build targets
 
-- `corertt_core`: reusable static library (simulation + replay logic).
-- `corertt`: main executable (live mode + playback mode).
+- `corertt_core`: simulation and replay library.
+- `corertt`: executable for live mode and playback mode.
 - `corertt_replay_log`: replay log extraction tool (`text` / `jsonl`).

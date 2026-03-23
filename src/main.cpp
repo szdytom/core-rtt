@@ -150,7 +150,7 @@ int runPlaybackMode(const ProgramOptions &options) {
 			}
 
 			std::array<char, 4096> raw_chunk{};
-			while (!stop_token.stop_requested() && input.good()) {
+			while (!stop_token.stop_requested()) {
 				auto next_tick_time = std::chrono::steady_clock::now()
 					+ step_interval;
 
@@ -159,6 +159,7 @@ int runPlaybackMode(const ProgramOptions &options) {
 					// Read up to 4096 bytes at a time and feed to the decoder
 					input.read(raw_chunk.data(), raw_chunk.size());
 					std::size_t bytes_read = input.gcount();
+
 					decoder.pushBytes({raw_chunk.data(), bytes_read});
 
 					if (!decoder.hasHeader() && decoder.canReadHeader()) {
@@ -169,7 +170,6 @@ int runPlaybackMode(const ProgramOptions &options) {
 								"Header decode error: {}", res.error()
 							);
 							goto end_production;
-							break;
 						}
 
 						replay_sync.progress.phase = cr::ReplayParsePhase::Tick;

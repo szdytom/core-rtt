@@ -189,7 +189,7 @@ DecodeError formatError(DecodeErrorCode code) noexcept {
 }
 
 std::size_t tileCount(const ReplayTilemap &tilemap) noexcept {
-	return static_cast<std::size_t>(tilemap.width) * tilemap.height;
+	return tilemap.width * tilemap.height;
 }
 
 std::size_t tilemapEncodedSize(const ReplayTilemap &tilemap) noexcept {
@@ -201,7 +201,13 @@ void encodeTilemap(ByteWriter &writer, const ReplayTilemap &tilemap) {
 	writer.writeU16(0);
 
 	if (tilemap.tiles.size() != tileCount(tilemap)) {
-		throw std::runtime_error("Replay encode failed: tile count mismatch");
+		throw std::runtime_error(
+			std::format(
+				"Replay encode failed: tile count mismatch (expected {}, got "
+		        "{})",
+				tileCount(tilemap), tilemap.tiles.size()
+			)
+		);
 	}
 
 	for (const auto &tile : tilemap.tiles) {

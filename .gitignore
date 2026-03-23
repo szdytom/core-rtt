@@ -10,3 +10,6 @@ report.svg
 *.d
 *.log
 *.dat
+
+node_modules
+dist

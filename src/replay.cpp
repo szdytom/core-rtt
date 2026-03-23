@@ -923,8 +923,14 @@ void ReplayStreamDecoder::pushBytes(std::span<const std::byte> bytes) noexcept {
 	_buffer.insert(_buffer.end(), bytes.begin(), bytes.end());
 }
 
+void ReplayStreamDecoder::pushBytes(std::span<const char> bytes) noexcept {
+	pushBytes(
+		{reinterpret_cast<const std::byte *>(bytes.data()), bytes.size()}
+	);
+}
+
 bool ReplayStreamDecoder::canReadHeader() const noexcept {
-	if (_has_header) {
+	if (hasHeader()) {
 		return true;
 	}
 	constexpr std::size_t header_prefix_size = 8;
@@ -941,10 +947,7 @@ bool ReplayStreamDecoder::canReadHeader() const noexcept {
 }
 
 bool ReplayStreamDecoder::canReadNextRecord() const noexcept {
-	if (_ended) {
-		return false;
-	}
-	if (!_has_header) {
+	if (!hasHeader() || ended()) {
 		return false;
 	}
 
@@ -982,25 +985,41 @@ bool ReplayStreamDecoder::canReadNextRecord() const noexcept {
 }
 
 const ReplayHeader &ReplayStreamDecoder::header() const {
-	if (!_has_header) {
+	if (!hasHeader()) {
 		throw std::runtime_error("Replay decode failed: header not available");
 	}
 	return _header;
 }
 
 const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
-	if (!_end_marker.has_value()) {
+	if (!ended()) {
 		throw std::runtime_error(
 			"Replay decode failed: end marker not available"
 		);
 	}
-	return *_end_marker;
+	return _end_marker;
 }
 
-ReplayStreamDecoder::ReadResult
-ReplayStreamDecoder::tryReadNextTick() noexcept {
+std::expected<void, DecodeError> ReplayStreamDecoder::readHeader() noexcept {
+	assert(!hasHeader());
+	assert(canReadHeader());
+
+	ByteReader reader(
+		std::span<const std::byte>(_buffer.data(), _buffer.size())
+	);
+	auto header_result = decodeReplayHeader(reader);
+	if (!header_result.has_value()) {
+		return std::unexpected(header_result.error());
+	}
+	_header = std::move(*header_result);
+	_phase = ReplayParsePhase::Tick;
+	_cursor = reader.cursor();
+	return {};
+}
+
+ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() noexcept {
 	ReadResult result;
-	if (_ended) {
+	if (ended()) {
 		result.status = ReadStatus::End;
 		return result;
 	}
@@ -1015,7 +1034,7 @@ ReplayStreamDecoder::tryReadNextTick() noexcept {
 		}
 	};
 
-	if (!_has_header) {
+	if (!hasHeader()) {
 		ByteReader header_reader(
 			std::span<const std::byte>(_buffer.data(), _buffer.size())
 		);
@@ -1031,7 +1050,7 @@ ReplayStreamDecoder::tryReadNextTick() noexcept {
 		}
 
 		_header = std::move(*header_result);
-		_has_header = true;
+		_phase = ReplayParsePhase::Tick;
 		_cursor = header_reader.cursor();
 		compact_buffer();
 	}
@@ -1065,7 +1084,7 @@ ReplayStreamDecoder::tryReadNextTick() noexcept {
 		}
 
 		_end_marker = std::move(*end_marker);
-		_ended = true;
+		_phase = ReplayParsePhase::End;
 		_cursor += reader.cursor();
 		compact_buffer();
 		result.status = ReadStatus::End;
@@ -1152,7 +1171,7 @@ ReplayData readReplay(std::istream &is) {
 	bool header_captured = false;
 
 	while (true) {
-		auto read_result = decoder.tryReadNextTick();
+		auto read_result = decoder.nextTick();
 		if (decoder.hasHeader() && !header_captured) {
 			replay.header = decoder.header();
 			header_captured = true;
@@ -1177,7 +1196,7 @@ ReplayData readReplay(std::istream &is) {
 		);
 	}
 
-	if (!decoder.isEnded()) {
+	if (!decoder.ended()) {
 		throw std::runtime_error(
 			std::format("{}", formatError(DecodeErrorCode::MissingEndMarker))
 		);
@@ -1185,57 +1204,6 @@ ReplayData readReplay(std::istream &is) {
 	replay.end_marker = decoder.endMarker();
 
 	return replay;
-}
-
-void ReplayByteStream::pushBytes(std::vector<std::byte> bytes) {
-	if (bytes.empty()) {
-		return;
-	}
-
-	{
-		std::scoped_lock lock(_mutex);
-		if (_closed) {
-			throw std::runtime_error(
-				"Replay byte stream failed: cannot push to closed stream"
-			);
-		}
-		_chunks.push_back(std::move(bytes));
-	}
-	_cond.notify_one();
-}
-
-void ReplayByteStream::close() noexcept {
-	{
-		std::scoped_lock lock(_mutex);
-		_closed = true;
-	}
-	_cond.notify_all();
-}
-
-bool ReplayByteStream::waitPopNext(
-	std::vector<std::byte> &out_chunk, std::chrono::milliseconds wait_timeout
-) {
-	out_chunk.clear();
-
-	std::unique_lock lock(_mutex);
-	if (_chunks.empty() && !_closed) {
-		_cond.wait_for(lock, wait_timeout, [&] {
-			return !_chunks.empty() || _closed;
-		});
-	}
-
-	if (_chunks.empty()) {
-		return false;
-	}
-
-	out_chunk = std::move(_chunks.front());
-	_chunks.pop_front();
-	return true;
-}
-
-bool ReplayByteStream::isDrained() const noexcept {
-	std::scoped_lock lock(_mutex);
-	return _closed && _chunks.empty();
 }
 
 } // namespace cr

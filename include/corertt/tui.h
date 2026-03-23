@@ -2,17 +2,20 @@
 #define CORERTT_TUI_H
 
 #include "corertt/replay.h"
-#include <chrono>
 #include <ftxui/component/screen_interactive.hpp>
+#include <string>
 
 namespace cr {
 
+struct SynchronizedReplayProgress {
+	std::mutex mutex;
+	ReplayProgress progress;
+	std::string last_error;
+};
+
 class TuiRunner {
 public:
-	TuiRunner(
-		ReplayByteStream &replay_stream,
-		std::chrono::milliseconds step_interval, bool playback_mode
-	) noexcept;
+	explicit TuiRunner(SynchronizedReplayProgress &replay) noexcept;
 
 	TuiRunner(const TuiRunner &) = delete;
 	TuiRunner &operator=(const TuiRunner &) = delete;
@@ -21,16 +24,9 @@ public:
 	int run();
 
 private:
-	ReplayByteStream &_replay_stream;
-	std::chrono::milliseconds _step_interval;
-	bool _playback_mode = false;
+	SynchronizedReplayProgress &_replay;
 	ftxui::ScreenInteractive _screen;
 };
-
-int runTui(
-	ReplayByteStream &replay_stream, std::chrono::milliseconds step_interval,
-	bool playback_mode
-);
 
 } // namespace cr
 

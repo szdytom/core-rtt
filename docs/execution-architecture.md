@@ -69,15 +69,18 @@ new data arrives.
 ### Initialization
 
 1. Open replay file from `--play-replay`.
-2. Create `ReplayStreamDecoder`.
+2. Create `ReplayStreamDecoder` with file stream adapter (`IstreamAdapter`).
+3. Decode header once via `canReadHeader()` + `readHeader()`.
 3. Start producer thread.
 
 ### Producer behavior
 
-- Reads replay file in chunks (`4096` bytes).
-- Pushes chunks into `ReplayStreamDecoder`.
-- Decodes header and tick/end records incrementally.
-- Publishes decoded progress into `replay_sync`.
+- Uses decoder readiness probes (`canReadNextRecord()`) before decode calls.
+- Calls `nextTick()` only when a full record is available; this is a fail-fast
+  contract and avoids partial-read branches.
+- Publishes decoded tick/end progress into `replay_sync`.
+- Reports missing end marker as decode error when stream reaches EOF before
+  terminal record.
 - Sleeps according to `step_interval_ms` between updates.
 
 ### UI behavior

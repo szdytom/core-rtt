@@ -441,7 +441,6 @@ int TuiRunner::run() {
 	CameraState camera;
 	LogPanelLayoutState log_layout_state;
 	PlaybackState playback_state;
-	ReplayStreamDecoder decoder;
 
 	auto root = Renderer([&] {
 		camera.viewport_size = computeViewportSize(playback_state);

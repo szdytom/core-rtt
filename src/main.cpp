@@ -134,7 +134,6 @@ ProgramOptions parseOptions(int argc, char *argv[]) {
 int runPlaybackMode(const ProgramOptions &options) {
 	std::chrono::milliseconds step_interval(options.step_interval_ms);
 	cr::SynchronizedReplayProgress replay_sync;
-	cr::ReplayStreamDecoder decoder;
 	cr::TuiRunner tui_runner(replay_sync);
 	std::jthread producer_thread([&](std::stop_token stop_token) {
 		try {
@@ -148,33 +147,35 @@ int runPlaybackMode(const ProgramOptions &options) {
 				);
 			}
 
-			std::array<char, 4096> raw_chunk{};
+			cr::ReplayStreamDecoder decoder(input);
+			if (!decoder.canReadHeader()) {
+				std::lock_guard lock(replay_sync.mutex);
+				replay_sync.last_error = std::format(
+					"Header decode error: {}",
+					cr::DecodeError{.code = cr::DecodeErrorCode::MissingHeader}
+				);
+				goto end_production;
+			}
+
+			auto header_result = decoder.readHeader();
+			if (!header_result.has_value()) {
+				std::lock_guard lock(replay_sync.mutex);
+				replay_sync.last_error = std::format(
+					"Header decode error: {}", header_result.error()
+				);
+				goto end_production;
+			}
+
+			{
+				std::lock_guard lock(replay_sync.mutex);
+				replay_sync.progress.phase = cr::ReplayParsePhase::Tick;
+				replay_sync.progress.header = decoder.header();
+			}
+			tui_runner.notifyUpdate();
+
 			while (!stop_token.stop_requested()) {
 				auto next_tick_time = std::chrono::steady_clock::now()
 					+ step_interval;
-
-				while (!decoder.ended() && !decoder.canReadNextRecord()
-				       && input.good() && !stop_token.stop_requested()) {
-					// Read up to 4096 bytes at a time and feed to the decoder
-					input.read(raw_chunk.data(), raw_chunk.size());
-					std::size_t bytes_read = input.gcount();
-
-					decoder.pushBytes({raw_chunk.data(), bytes_read});
-
-					if (!decoder.hasHeader() && decoder.canReadHeader()) {
-						std::lock_guard lock(replay_sync.mutex);
-						auto res = decoder.readHeader();
-						if (!res) {
-							replay_sync.last_error = std::format(
-								"Header decode error: {}", res.error()
-							);
-							goto end_production;
-						}
-
-						replay_sync.progress.phase = cr::ReplayParsePhase::Tick;
-						replay_sync.progress.header = decoder.header();
-					}
-				}
 
 				if (stop_token.stop_requested()) {
 					break;
@@ -211,6 +212,15 @@ int runPlaybackMode(const ProgramOptions &options) {
 						replay_sync.progress.end_marker = decoder.endMarker();
 						break;
 					}
+				} else if (input.eof()) {
+					std::lock_guard lock(replay_sync.mutex);
+					replay_sync.last_error = std::format(
+						"Tick decode error: {}",
+						cr::DecodeError{
+							.code = cr::DecodeErrorCode::MissingEndMarker
+						}
+					);
+					goto end_production;
 				}
 
 				tui_runner.notifyUpdate();

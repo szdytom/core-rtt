@@ -94,8 +94,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ftxui)
 
 add_library(corertt_core STATIC
+	src/buffer.cpp
+	src/stream_adapter.cpp
 	src/noise.cpp
 	src/xoroshiro.cpp
+	src/tile_codec.cpp
 	src/tilemap.cpp
 	src/world.cpp
 	src/entity.cpp

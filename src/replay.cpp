@@ -27,8 +27,8 @@ constexpr std::array<std::byte, 4> replay_magic = {
 };
 constexpr std::uint16_t replay_version = 4;
 
-DecodeError formatError(DecodeErrorCode code) noexcept {
-	return DecodeError{.code = code};
+DecodeErrorCode formatError(DecodeErrorCode code) noexcept {
+	return code;
 }
 
 std::size_t tileCount(const ReplayTilemap &tilemap) noexcept {
@@ -840,7 +840,8 @@ const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
 	return _end_marker;
 }
 
-std::expected<void, DecodeError> ReplayStreamDecoder::readHeader() {
+std::expected<const ReplayHeader &, DecodeErrorCode>
+ReplayStreamDecoder::readHeader() {
 	assert(!hasHeader());
 	assert(canReadHeader());
 	ReadBuffer reader(*_stream);
@@ -850,7 +851,7 @@ std::expected<void, DecodeError> ReplayStreamDecoder::readHeader() {
 	}
 	_header = std::move(*header_result);
 	_phase = ReplayParsePhase::Tick;
-	return {};
+	return (_header);
 }
 
 ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
@@ -910,12 +911,14 @@ ReplayData readReplay(std::istream &is) {
 	ReplayStreamDecoder decoder(is);
 	if (!decoder.canReadHeader()) {
 		throw std::runtime_error(
-			std::format("{}", formatError(DecodeErrorCode::MissingHeader))
+			std::format("{}", cr::to_string(DecodeErrorCode::MissingHeader))
 		);
 	}
 	auto header_result = decoder.readHeader();
 	if (!header_result.has_value()) {
-		throw std::runtime_error(std::format("{}", header_result.error()));
+		throw std::runtime_error(
+			std::format("{}", cr::to_string(header_result.error()))
+		);
 	}
 
 	ReplayData replay;
@@ -934,7 +937,7 @@ ReplayData readReplay(std::istream &is) {
 
 	if (!decoder.ended()) {
 		throw std::runtime_error(
-			std::format("{}", formatError(DecodeErrorCode::MissingEndMarker))
+			std::format("{}", cr::to_string(DecodeErrorCode::MissingEndMarker))
 		);
 	}
 	replay.end_marker = decoder.endMarker();

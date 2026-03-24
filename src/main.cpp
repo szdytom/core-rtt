@@ -152,7 +152,7 @@ int runPlaybackMode(const ProgramOptions &options) {
 				std::lock_guard lock(replay_sync.mutex);
 				replay_sync.last_error = std::format(
 					"Header decode error: {}",
-					cr::DecodeError{.code = cr::DecodeErrorCode::MissingHeader}
+					cr::to_string(cr::DecodeErrorCode::MissingHeader)
 				);
 				goto end_production;
 			}
@@ -194,7 +194,8 @@ int runPlaybackMode(const ProgramOptions &options) {
 					    == cr::ReplayStreamDecoder::ReadStatus::Error) {
 						std::lock_guard lock(replay_sync.mutex);
 						replay_sync.last_error = std::format(
-							"Tick decode error: {}", *read_result.error
+							"Tick decode error: {}",
+							cr::to_string(*read_result.error)
 						);
 						goto end_production;
 					} else if (
@@ -216,9 +217,7 @@ int runPlaybackMode(const ProgramOptions &options) {
 					std::lock_guard lock(replay_sync.mutex);
 					replay_sync.last_error = std::format(
 						"Tick decode error: {}",
-						cr::DecodeError{
-							.code = cr::DecodeErrorCode::MissingEndMarker
-						}
+						cr::to_string(cr::DecodeErrorCode::MissingEndMarker)
 					);
 					goto end_production;
 				}

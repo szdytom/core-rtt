@@ -21,7 +21,7 @@ namespace {
 constexpr std::array<std::uint8_t, 6> tilemap_binary_magic = {
 	'C', 'R', 'T', 'M', 'A', 'P'
 };
-constexpr std::uint8_t tilemap_binary_version = 2;
+constexpr std::uint8_t TILEMAP_BINARY_VERSION = 2;
 
 } // namespace
 
@@ -44,19 +44,18 @@ Tilemap::Tilemap(pos_t width, pos_t height)
 	, _tiles(std::make_unique<Tile[]>(width * height)) {}
 
 Tilemap Tilemap::load(std::istream &input_stream) {
-	const auto first_char_int = input_stream.peek();
-	if (first_char_int == std::char_traits<char>::eof()) {
-		throw std::runtime_error("Cannot load tilemap from empty data");
+	if (!input_stream || input_stream.eof()) {
+		throw std::runtime_error("Input stream is not valid for reading");
 	}
-	const auto first_char = static_cast<char>(first_char_int);
 
-	if (!std::isdigit(static_cast<unsigned char>(first_char))) {
+	int first_char = input_stream.peek();
+	if (!std::isdigit(first_char)) {
 		IstreamAdapter stream_adapter(input_stream);
 		ReadBuffer reader(stream_adapter);
+		constexpr std::size_t header_prefix_size = tilemap_binary_magic.size()
+			+ 1 + 4 * sizeof(std::uint16_t);
 
-		if (!reader.has(
-				tilemap_binary_magic.size() + 1 + 3 * sizeof(std::uint16_t)
-			)) {
+		if (!reader.has(header_prefix_size)) {
 			throw std::runtime_error("Binary tilemap data is too short");
 		}
 
@@ -67,30 +66,34 @@ Tilemap Tilemap::load(std::istream &input_stream) {
 		}
 
 		const auto version = reader.readU8();
-		if (version != tilemap_binary_version) {
+		if (version != TILEMAP_BINARY_VERSION) {
 			throw std::runtime_error(
 				std::format("Unsupported binary tilemap version {}", version)
 			);
 		}
 
-		const auto width = static_cast<pos_t>(reader.readU16());
-		const auto height = static_cast<pos_t>(reader.readU16());
-		const auto base_size = static_cast<pos_t>(reader.readU16());
+		// const auto width = static_cast<pos_t>(reader.readU16());
+		// const auto height = static_cast<pos_t>(reader.readU16());
+		// const auto base_size = static_cast<pos_t>(reader.readU16());
+		const pos_t width = reader.readU16();
+		const pos_t height = reader.readU16();
+		const pos_t base_size = reader.readU16();
 		reader.skip(2);
 
-		if (width <= 0 || height <= 0) {
+		constexpr pos_t MAX_DIMENSION = 512;
+		if (width <= 0 || height <= 0 || width > MAX_DIMENSION
+		    || height > MAX_DIMENSION) {
 			throw std::runtime_error(
 				std::format("Invalid tilemap size: {} x {}", width, height)
 			);
 		}
 
-		const std::size_t tile_count = static_cast<std::size_t>(width)
-			* static_cast<std::size_t>(height);
+		const std::size_t tile_count = width * height;
 		if (!reader.has(tile_count)) {
 			throw std::runtime_error(
 				std::format(
 					"Binary tilemap size mismatch: expected at least {} bytes",
-					tilemap_binary_magic.size() + 1 + 8 + tile_count
+					tile_count
 				)
 			);
 		}
@@ -106,7 +109,8 @@ Tilemap Tilemap::load(std::istream &input_stream) {
 				const auto is_resource = flags.is_resource;
 				const auto is_base = flags.is_base;
 
-				if (terrain == 0b0000'0010) {
+				if (terrain != Tile::EMPTY && terrain != Tile::WATER
+				    && terrain != Tile::OBSTACLE) {
 					throw std::runtime_error(
 						std::format(
 							"Invalid terrain code {} at ({}, {})", terrain, x, y
@@ -303,7 +307,7 @@ void Tilemap::saveAsBinary(std::ostream &os) const {
 		reinterpret_cast<const char *>(tilemap_binary_magic.data()),
 		tilemap_binary_magic.size()
 	);
-	os.put(static_cast<char>(tilemap_binary_version));
+	os.put(static_cast<char>(TILEMAP_BINARY_VERSION));
 
 	if (_width <= 0 || _height <= 0) {
 		throw std::runtime_error(

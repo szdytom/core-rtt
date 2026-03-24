@@ -337,7 +337,9 @@ ReplayData readReplay(std::istream &is);
 template<>
 struct std::formatter<cr::DecodeErrorCode> : std::formatter<std::string_view> {
 	auto format(const cr::DecodeErrorCode &value, auto &ctx) const {
-		return formatter<std::string_view>::format(cr::to_string(value), ctx);
+		return std::formatter<std::string_view>::format(
+			cr::to_string(value), ctx
+		);
 	}
 };
 

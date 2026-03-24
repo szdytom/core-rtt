@@ -8,7 +8,7 @@ import type {
 } from './types.js';
 
 export interface DecodeOptions {
-	strict?: true;
+	strict?: boolean;
 	maxUnitsPerTick?: number;
 	maxBulletsPerTick?: number;
 	maxLogsPerTick?: number;
@@ -57,6 +57,7 @@ export interface InternalDecoder {
 	read(): InternalReadResult;
 	state(): ReplayDecoderState;
 	finalize(): void;
+	position(): number;
 }
 
 export type ReplayDecodeFailure = {

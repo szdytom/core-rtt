@@ -227,7 +227,7 @@ enum class DecodeErrorCode : std::uint8_t {
 	MissingEndMarker,
 };
 
-constexpr std::string_view decodeErrorCodeName(DecodeErrorCode code) noexcept {
+constexpr std::string_view to_string(DecodeErrorCode code) noexcept {
 	switch (code) {
 	case DecodeErrorCode::TruncatedInput:
 		return "TruncatedInput";
@@ -279,68 +279,8 @@ constexpr std::string_view decodeErrorCodeName(DecodeErrorCode code) noexcept {
 	return "UnknownDecodeErrorCode";
 }
 
-struct DecodeError {
-	DecodeErrorCode code = DecodeErrorCode::TruncatedInput;
-
-	constexpr std::string_view message() const noexcept {
-		switch (code) {
-		case DecodeErrorCode::TruncatedInput:
-			return "Replay decode failed: truncated input";
-		case DecodeErrorCode::BadMagic:
-			return "Replay decode failed: bad magic";
-		case DecodeErrorCode::UnsupportedVersion:
-			return "Replay decode failed: unsupported version";
-		case DecodeErrorCode::TruncatedHeaderPayload:
-			return "Replay decode failed: truncated header payload";
-		case DecodeErrorCode::TruncatedTilemapHeader:
-			return "Replay decode failed: truncated tilemap header";
-		case DecodeErrorCode::TilemapDimensionsExceedMaximum:
-			return "Replay decode failed: tilemap dimensions exceed maximum";
-		case DecodeErrorCode::TilemapTileCountExceedsMaximum:
-			return "Replay decode failed: tilemap tile count exceeds maximum";
-		case DecodeErrorCode::TilemapDataTruncated:
-			return "Replay decode failed: tilemap data truncated";
-		case DecodeErrorCode::TruncatedLogEntry:
-			return "Replay decode failed: truncated log entry";
-		case DecodeErrorCode::InvalidLogSourceValue:
-			return "Replay decode failed: invalid log source value";
-		case DecodeErrorCode::InvalidLogTypeValue:
-			return "Replay decode failed: invalid log type value";
-		case DecodeErrorCode::LogPayloadTruncated:
-			return "Replay decode failed: log payload truncated";
-		case DecodeErrorCode::TickPayloadTooSmall:
-			return "Replay decode failed: tick payload too small";
-		case DecodeErrorCode::UnitCountExceedsMaximum:
-			return "Replay decode failed: unit_count exceeds maximum allowed "
-				   "value";
-		case DecodeErrorCode::BulletCountExceedsMaximum:
-			return "Replay decode failed: bullet_count exceeds maximum allowed "
-				   "value";
-		case DecodeErrorCode::LogCountExceedsMaximum:
-			return "Replay decode failed: log_count exceeds maximum allowed "
-				   "value";
-		case DecodeErrorCode::LogPayloadSizeExceedsMaximum:
-			return "Replay decode failed: log payload size exceeds maximum "
-				   "allowed value";
-		case DecodeErrorCode::TruncatedEndMarker:
-			return "Replay decode failed: truncated end marker";
-		case DecodeErrorCode::InvalidReplayTermination:
-			return "Replay decode failed: invalid replay termination";
-		case DecodeErrorCode::InvalidEndMarkerPayload:
-			return "Replay decode failed: invalid end marker payload";
-		case DecodeErrorCode::UnknownRecordType:
-			return "Replay decode failed: unknown record type";
-		case DecodeErrorCode::MissingHeader:
-			return "Replay decode failed: missing header";
-		case DecodeErrorCode::MissingEndMarker:
-			return "Replay decode failed: missing end marker";
-		}
-		return "Replay decode failed: unknown decode error";
-	}
-};
-
 template<typename T>
-using DecodeResult = std::expected<T, DecodeError>;
+using DecodeResult = std::expected<T, DecodeErrorCode>;
 
 enum class ReplayParsePhase {
 	Header, // no header parsed yet
@@ -362,7 +302,7 @@ public:
 	struct ReadResult {
 		ReadStatus status = ReadStatus::Error;
 		std::optional<ReplayTickFrame> tick;
-		std::optional<DecodeError> error;
+		std::optional<DecodeErrorCode> error;
 	};
 
 	bool canReadHeader();
@@ -379,7 +319,7 @@ public:
 	const ReplayHeader &header() const;
 	const ReplayEndMarker &endMarker() const;
 
-	std::expected<void, DecodeError> readHeader();
+	std::expected<const ReplayHeader &, DecodeErrorCode> readHeader();
 	ReadResult nextTick();
 
 private:
@@ -396,23 +336,15 @@ struct ReplayProgress {
 	ReplayEndMarker end_marker;
 };
 
-void writeReplay(std::ostream &os, const ReplayData &replay);
 ReplayData readReplay(std::istream &is);
 
 } // namespace cr
 
-namespace std {
 template<>
-struct formatter<cr::DecodeError> : formatter<std::string_view> {
-	auto format(const cr::DecodeError &value, auto &ctx) const {
-		return formatter<std::string_view>::format(
-			std::format(
-				"{} [{}]", value.message(), cr::decodeErrorCodeName(value.code)
-			),
-			ctx
-		);
+struct std::formatter<cr::DecodeErrorCode> : std::formatter<std::string_view> {
+	auto format(const cr::DecodeErrorCode &value, auto &ctx) const {
+		return formatter<std::string_view>::format(cr::to_string(value), ctx);
 	}
 };
-} // namespace std
 
 #endif

@@ -12,7 +12,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@corertt/corereplay": "file:../corereplay"
+		"@corertt/corereplay": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "^25.5.0",

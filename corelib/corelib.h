@@ -68,7 +68,7 @@ typedef __builtin_va_list va_list;
  * @brief Terminate the program abnormally.
  * @note This function does not return. It is a direct wrapper around ecall.
  */
-noreturn void abort();
+noreturn void abort(void);
 
 /**
  * @brief Log a string to the runtime's logging system.
@@ -347,7 +347,7 @@ struct SensorData {
  * @return Current turn number, starting from 1 and incrementing each tick.
  * @note This function is a direct wrapper around ecall.
  */
-int turn();
+int turn(void);
 
 /**
  * @brief Read sensor data for surrounding tiles into the provided buffer.
@@ -376,7 +376,7 @@ struct DeviceInfo {
  * the base energy pool. For units, id is 1-15. This function is a direct
  * wrapper around ecall.
  */
-struct DeviceInfo dev_info();
+struct DeviceInfo dev_info(void);
 
 /**
  * @brief Send a message to all allied devices.
@@ -411,7 +411,7 @@ int recv_msg(uint8_t *data, int max_len);
  * startup.
  * This function is a direct wrapper around ecall.
  */
-uint32_t rand();
+uint32_t rand(void);
 
 struct GameInfo {
 	uint8_t map_width;    // width of the map in tiles
@@ -440,7 +440,7 @@ struct PosInfo {
  * @note For the base, the returned coordinates are the top-left corner.
  * This function is a direct wrapper around ecall.
  */
-struct PosInfo pos();
+struct PosInfo pos(void);
 
 /**
  * @brief Manufacture a new unit with the specified id.

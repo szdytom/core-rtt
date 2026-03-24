@@ -3,7 +3,7 @@
 struct SensorData data[25];
 char output[80];
 
-int main() {
+int main(void) {
 	read_sensor(data);
 	// Log the sensor data into a map of characters
 	// . for not a unit, @ for unit

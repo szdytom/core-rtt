@@ -2,7 +2,7 @@
 #include "corelib.h"
 static uint8_t msg_buf[64];
 
-int main() {
+int main(void) {
 	// Snapshot device info once at startup: id is stable throughout unit life.
 	struct DeviceInfo info = dev_info();
 	int my_id = info.id;

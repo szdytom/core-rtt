@@ -1,5 +1,5 @@
 #include "corelib.h"
 
-int main() {
+int main(void) {
 	while (true) {}
 }

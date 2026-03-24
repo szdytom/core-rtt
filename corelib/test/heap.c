@@ -1,6 +1,6 @@
 #include "corelib.h"
 
-int main() {
+int main(void) {
 	{
 		extern char _start;
 		logf("ELF entry point at: %p\n", &_start);

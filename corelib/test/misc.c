@@ -1,7 +1,7 @@
 // misc.c -- player2 base: tests turn() and rand() each tick.
 #include "corelib.h"
 
-int main() {
+int main(void) {
 	int last_turn = 0;
 
 	while (true) {

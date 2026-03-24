@@ -23,7 +23,7 @@ static void log_energy(int t, int energy) {
 	logf("[dw] tick=%d unit_energy=%d\n", t, energy);
 }
 
-int main() {
+int main(void) {
 	struct DeviceInfo info = dev_info();
 	if (info.id != 1) {
 		// Other units stay idle.

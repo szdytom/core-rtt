@@ -328,7 +328,7 @@ long int labs(long int x) {
 	return x < 0 ? -x : x;
 }
 
-void _start() {
+void _start(void) {
 	// First, configure the global pointer
 	asm volatile(".option push 				\t\n\
 	 .option norelax 			\t\n\
@@ -350,14 +350,14 @@ void _start() {
 	// Call the global constructors
 	// Not actually useful for C
 	// But we might link C++ and others to this
-	extern void (*__init_array_start[])();
-	extern void (*__init_array_end[])();
+	extern void (*__init_array_start[])(void);
+	extern void (*__init_array_end[])(void);
 	int count = __init_array_end - __init_array_start;
 	for (int i = 0; i < count; i++) {
 		__init_array_start[i]();
 	}
 
-	extern int main();
+	extern int main(void);
 	main();
 
 	// Should never reach here
@@ -365,7 +365,7 @@ void _start() {
 	abort();
 }
 
-int turn() {
+int turn(void) {
 	register int call_id asm("a7") = 0x10;
 	register int arg0 asm("a0");
 	asm volatile("ecall" : "=r"(arg0) : "r"(call_id));
@@ -379,7 +379,7 @@ int read_sensor(struct SensorData data[]) {
 	return arg0;
 }
 
-struct DeviceInfo dev_info() {
+struct DeviceInfo dev_info(void) {
 	register int call_id asm("a7") = 0x11;
 	register uint32_t raw asm("a0");
 	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
@@ -408,7 +408,7 @@ int recv_msg(uint8_t *data, int max_len) {
 	return arg0;
 }
 
-uint32_t rand() {
+uint32_t rand(void) {
 	register int call_id asm("a7") = 0x4F;
 	register uint32_t arg0 asm("a0");
 	asm volatile("ecall" : "=r"(arg0) : "r"(call_id));
@@ -422,7 +422,7 @@ int meta(struct GameInfo *info) {
 	return arg0;
 }
 
-struct PosInfo pos() {
+struct PosInfo pos(void) {
 	register int call_id asm("a7") = 0x15;
 	register uint32_t raw asm("a0");
 	asm volatile("ecall" : "=r"(raw) : "r"(call_id));
@@ -492,7 +492,7 @@ int meminfo(struct MemoryInfo *info) {
 	return arg0;
 }
 
-noreturn void abort() {
+noreturn void abort(void) {
 	register int call_id asm("a7") = 0x00;
 	asm volatile("ecall" : : "r"(call_id));
 	__builtin_unreachable();

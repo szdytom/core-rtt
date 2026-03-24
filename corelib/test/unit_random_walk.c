@@ -46,7 +46,7 @@ static void logStep(int pos_x, int pos_y, int dir, int ret) {
 	logf("[rw] pos=(%d,%d) dir=%c\n", pos_x, pos_y, dir_str[dir]);
 }
 
-int main() {
+int main(void) {
 	struct DeviceInfo info = dev_info();
 	int unit_id = info.id;
 	int last_turn = 0;

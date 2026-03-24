@@ -569,7 +569,7 @@ static void updateMap(const struct PosInfo p, const struct DeviceInfo info) {
 	}
 }
 
-int main() {
+int main(void) {
 	if (meta(&game_info) != 0) {
 		while (true) {}
 	}

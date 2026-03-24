@@ -3,7 +3,7 @@
 #include "corelib.h"
 #define MANUFACTURE_COST 500
 
-int main() {
+int main(void) {
 	struct DeviceInfo info = dev_info();
 	if (info.id != 0) {
 		logf("Not running as base (id=%d)\n", info.id);

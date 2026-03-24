@@ -46,7 +46,7 @@ static void log_sensor_map(int my_id, int t) {
 // Directions to cycle through each tick: right, down, left, up.
 static const int move_cycle[4] = {DIR_RIGHT, DIR_DOWN, DIR_LEFT, DIR_UP};
 
-int main() {
+int main(void) {
 	struct DeviceInfo info = dev_info();
 	int my_id = info.id;
 

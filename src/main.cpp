@@ -27,6 +27,7 @@ struct ProgramOptions {
 	std::string p1_unit = "player1_unit.elf";
 	std::string p2_base = "player2_base.elf";
 	std::string p2_unit = "player2_unit.elf";
+	std::string map_file;
 	std::optional<std::string> seed;
 	std::string replay_file;
 	std::string play_replay;
@@ -43,6 +44,32 @@ std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	return std::vector<std::uint8_t>(
 		(std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()
 	);
+}
+
+cr::Tilemap loadTilemap(std::string_view path) {
+	std::ifstream file(path.data(), std::ios::binary);
+	if (!file) {
+		throw std::runtime_error(
+			std::format("Failed to open tilemap file: {}", path)
+		);
+	}
+
+	return cr::Tilemap::load(file);
+}
+
+cr::Tilemap generateTilemap(const ProgramOptions &options) {
+	cr::TilemapGenerationConfig config;
+	config.width = options.width;
+	config.height = options.height;
+	config.base_size = options.base_size;
+	config.num_resources = options.resources;
+	if (options.seed.has_value()) {
+		config.seed = cr::Seed::from_string(*options.seed);
+	} else {
+		config.seed = cr::Seed::device_random();
+	}
+
+	return cr::Tilemap::generate(config);
 }
 
 void writeChunk(std::ofstream &stream, std::span<const std::byte> chunk) {
@@ -96,6 +123,9 @@ ProgramOptions parseOptions(int argc, char *argv[]) {
 	program.add_argument("--p2-unit")
 		.default_value(std::string("player2_unit.elf"))
 		.help("path to player 2 unit ELF");
+	program.add_argument("--map")
+		.default_value(std::string(""))
+		.help("path to tilemap file (text or binary)");
 	program.add_argument("-s", "--seed")
 		.help("seed for map generation (omitted means device-random)");
 	program.add_argument("--replay-file")
@@ -123,11 +153,29 @@ ProgramOptions parseOptions(int argc, char *argv[]) {
 	options.p1_unit = program.get<std::string>("--p1-unit");
 	options.p2_base = program.get<std::string>("--p2-base");
 	options.p2_unit = program.get<std::string>("--p2-unit");
+	options.map_file = program.get<std::string>("--map");
 	if (program.is_used("--seed")) {
 		options.seed = program.get<std::string>("--seed");
 	}
 	options.replay_file = program.get<std::string>("--replay-file");
 	options.play_replay = program.get<std::string>("--play-replay");
+
+	if (!options.map_file.empty() && !options.play_replay.empty()) {
+		throw std::runtime_error("--map cannot be used with --play-replay");
+	}
+
+	if (!options.map_file.empty()) {
+		const bool used_random_generation_option = program.is_used("--width")
+			|| program.is_used("--height") || program.is_used("--base-size")
+			|| program.is_used("--resources") || program.is_used("--seed");
+		if (used_random_generation_option) {
+			throw std::runtime_error(
+				"--map cannot be combined with random generation options: "
+				"--width/--height/--base-size/--resources/--seed"
+			);
+		}
+	}
+
 	return options;
 }
 
@@ -151,7 +199,8 @@ int runPlaybackMode(const ProgramOptions &options) {
 			if (!decoder.canReadHeader()) {
 				std::lock_guard lock(replay_sync.mutex);
 				replay_sync.last_error = std::format(
-					"Header decode error: {}", cr::DecodeErrorCode::MissingHeader
+					"Header decode error: {}",
+					cr::DecodeErrorCode::MissingHeader
 				);
 				goto end_production;
 			}
@@ -238,18 +287,11 @@ int runPlaybackMode(const ProgramOptions &options) {
 
 int runLiveMode(const ProgramOptions &options) {
 	std::chrono::milliseconds step_interval{options.step_interval_ms};
-	cr::TilemapGenerationConfig config;
-	config.width = options.width;
-	config.height = options.height;
-	config.base_size = options.base_size;
-	config.num_resources = options.resources;
-	if (options.seed.has_value()) {
-		config.seed = cr::Seed::from_string(*options.seed);
-	} else {
-		config.seed = cr::Seed::device_random();
-	}
+	cr::Tilemap tilemap = options.map_file.empty()
+		? generateTilemap(options)
+		: loadTilemap(options.map_file);
 
-	cr::World world(cr::Tilemap::generate(config));
+	cr::World world(std::move(tilemap));
 	world.setPlayerProgram(
 		1, loadBinary(options.p1_base), loadBinary(options.p1_unit)
 	);

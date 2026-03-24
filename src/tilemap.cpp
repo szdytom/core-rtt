@@ -229,7 +229,7 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 	int width, height;
 	iss >> width >> height;
 	Tilemap tilemap(width, height);
-	// #: obstacle, .: empty, ~: water, R: resource(empty), B: base(empty)
+	// #: obstacle, .: empty, ~: water, $: resource(empty), B: base(empty)
 	std::string line;
 	for (int i = 0; i < height; ++i) {
 		std::getline(iss, line);

@@ -100,7 +100,7 @@ Tilemap Tilemap::load(std::istream &input_stream) {
 
 		for (int y = 0; y < height; ++y) {
 			for (int x = 0; x < width; ++x) {
-				const auto flags = unpackTileFlags(reader.readU8());
+				const auto flags = TileFlags::unpack(reader.readU8());
 				const auto terrain = flags.terrain;
 				const auto side = flags.side;
 				const auto is_resource = flags.is_resource;
@@ -326,14 +326,13 @@ void Tilemap::saveAsBinary(std::ostream &os) const {
 	for (int y = 0; y < _height; ++y) {
 		for (int x = 0; x < _width; ++x) {
 			const Tile &tile = tileOf(x, y);
-			payload.writeU8(packTileFlags(
-				TileFlags{
-					.terrain = tile.terrain,
-					.side = tile.side,
-					.is_resource = tile.is_resource,
-					.is_base = tile.is_base,
-				}
-			));
+			TileFlags flags{
+				.terrain = tile.terrain,
+				.side = tile.side,
+				.is_resource = tile.is_resource,
+				.is_base = tile.is_base,
+			};
+			payload.writeU8(flags.pack());
 		}
 	}
 

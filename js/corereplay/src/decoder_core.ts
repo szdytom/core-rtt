@@ -3,7 +3,7 @@ import { ReplayDecodeError } from './errors.js';
 import type { ReplayEndMarker, ReplayHeader, ReplayInput } from './types.js';
 import { parseEndMarkerAt } from './internal/parse_end.js';
 import { parseHeaderAt } from './internal/parse_header.js';
-import { parseTickPayload } from './internal/parse_tick.js';
+import { parseTickPayload, type TickParseLimits } from './internal/parse_tick.js';
 
 enum ParsePhase {
 	Header = 0,
@@ -15,15 +15,26 @@ const record_type_tick = 1;
 const record_type_end = 255;
 
 export class ReplayDecoderCore implements InternalDecoder {
-	private readonly options: DecodeOptions;
+	private readonly limits: TickParseLimits;
 	private phase: ParsePhase = ParsePhase.Header;
 	private buffer = new Uint8Array(0);
 	private cursor = 0;
+	private buffer_start = 0; // absolute byte offset of buffer[0]
 	private header_value: ReplayHeader | undefined;
 	private end_marker: ReplayEndMarker | undefined;
 
 	constructor(options: DecodeOptions = {}) {
-		this.options = options;
+		this.limits = {
+			maxUnitsPerTick: options.maxUnitsPerTick ?? 30,
+			maxBulletsPerTick: options.maxBulletsPerTick ?? 4096,
+			maxLogsPerTick: options.maxLogsPerTick ?? 64,
+			maxLogPayloadSize: options.maxLogPayloadSize ?? 512,
+		};
+	}
+
+	/** Returns the current absolute byte offset from the start of the stream. */
+	position(): number {
+		return this.buffer_start + this.cursor;
 	}
 
 	push(input: ReplayInput): void {
@@ -43,7 +54,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 	read(): InternalReadResult {
 		if (this.phase === ParsePhase.End) {
 			if (this.end_marker == null) {
-				throw new ReplayDecodeError('MISSING_END_MARKER', this.cursor);
+				throw new ReplayDecodeError('MISSING_END_MARKER', this.position());
 			}
 			return { kind: 'end', endMarker: this.end_marker };
 		}
@@ -86,7 +97,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 		}
 
 		if (record_type !== record_type_tick) {
-			throw new ReplayDecodeError('UNKNOWN_RECORD_TYPE', this.cursor);
+			throw new ReplayDecodeError('UNKNOWN_RECORD_TYPE', this.position());
 		}
 
 		if (this.buffer.length - this.cursor < 9) {
@@ -105,7 +116,12 @@ export class ReplayDecoderCore implements InternalDecoder {
 		const payload_end = payload_begin + payload_size;
 		const payload = this.buffer.subarray(payload_begin, payload_end);
 
-		const tick = parseTickPayload(payload, tick_id, payload_begin);
+		const tick = parseTickPayload(
+			payload,
+			tick_id,
+			this.buffer_start + payload_begin,
+			this.limits,
+		);
 
 		this.cursor = payload_end;
 		this.compact();
@@ -129,10 +145,10 @@ export class ReplayDecoderCore implements InternalDecoder {
 	finalize(): void {
 		const state = this.state();
 		if (!state.hasHeader) {
-			throw new ReplayDecodeError('MISSING_HEADER', this.cursor);
+			throw new ReplayDecodeError('MISSING_HEADER', this.position());
 		}
 		if (!state.ended) {
-			throw new ReplayDecodeError('MISSING_END_MARKER', this.cursor);
+			throw new ReplayDecodeError('MISSING_END_MARKER', this.position());
 		}
 	}
 
@@ -142,6 +158,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 		}
 
 		if (this.cursor * 2 >= this.buffer.length) {
+			this.buffer_start += this.cursor;
 			this.buffer = this.buffer.subarray(this.cursor);
 			this.cursor = 0;
 		}

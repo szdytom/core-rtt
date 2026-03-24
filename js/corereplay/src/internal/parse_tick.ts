@@ -13,15 +13,25 @@ export interface TickParseResult {
 	consumed: number;
 }
 
-const max_unit_count = 30;
-const max_bullet_count = 4096;
-const max_log_count = 64;
-const max_log_payload_size = 512;
+export interface TickParseLimits {
+	maxUnitsPerTick: number;
+	maxBulletsPerTick: number;
+	maxLogsPerTick: number;
+	maxLogPayloadSize: number;
+}
+
+const default_limits: TickParseLimits = {
+	maxUnitsPerTick: 30,
+	maxBulletsPerTick: 4096,
+	maxLogsPerTick: 64,
+	maxLogPayloadSize: 512,
+};
 
 export function parseTickPayload(
 	bytes: Uint8Array,
 	tick_id: number,
 	absolute_offset: number,
+	limits: TickParseLimits = default_limits,
 ): ReplayTickFrame {
 	const reader = new ByteReader(bytes);
 
@@ -48,7 +58,7 @@ export function parseTickPayload(
 	}
 
 	const unit_count = reader.readU16();
-	if (unit_count > max_unit_count) {
+	if (unit_count > limits.maxUnitsPerTick) {
 		throw new ReplayDecodeError(
 			'UNIT_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
@@ -87,7 +97,7 @@ export function parseTickPayload(
 	}
 
 	const bullet_count = reader.readU16();
-	if (bullet_count > max_bullet_count) {
+	if (bullet_count > limits.maxBulletsPerTick) {
 		throw new ReplayDecodeError(
 			'BULLET_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
@@ -122,7 +132,7 @@ export function parseTickPayload(
 	}
 
 	const log_count = reader.readU16();
-	if (log_count > max_log_count) {
+	if (log_count > limits.maxLogsPerTick) {
 		throw new ReplayDecodeError(
 			'LOG_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
@@ -132,7 +142,7 @@ export function parseTickPayload(
 	const logs: ReplayLogEntry[] = [];
 	logs.length = log_count;
 	for (let i = 0; i < log_count; i += 1) {
-		logs[i] = parseLogEntry(reader, absolute_offset);
+		logs[i] = parseLogEntry(reader, absolute_offset, limits.maxLogPayloadSize);
 	}
 
 	return {
@@ -144,7 +154,7 @@ export function parseTickPayload(
 	};
 }
 
-function parseLogEntry(reader: ByteReader, absolute_offset: number): ReplayLogEntry {
+function parseLogEntry(reader: ByteReader, absolute_offset: number, max_log_payload_size: number): ReplayLogEntry {
 	if (!reader.has(10)) {
 		throw new ReplayDecodeError(
 			'TRUNCATED_LOG_ENTRY',

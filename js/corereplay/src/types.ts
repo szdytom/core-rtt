@@ -1,4 +1,4 @@
-export type ReplayInput = ArrayBuffer | Uint8Array | Buffer;
+export type ReplayInput = ArrayBuffer | Uint8Array;
 
 export interface ReplayTile {
 	terrain: number;

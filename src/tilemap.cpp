@@ -1,10 +1,13 @@
 #include "corertt/tilemap.h"
+#include "corertt/buffer.h"
 #include "corertt/noise.h"
+#include "corertt/stream_adapter.h"
+#include "corertt/tile_codec.h"
 #include "corertt/xoroshiro.h"
 #include <algorithm>
 #include <array>
-#include <bit>
 #include <cctype>
+#include <iterator>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -18,28 +21,7 @@ namespace {
 constexpr std::array<std::uint8_t, 6> tilemap_binary_magic = {
 	'C', 'R', 'T', 'M', 'A', 'P'
 };
-constexpr std::uint8_t tilemap_binary_version = 1;
-
-void writeU16Le(std::ostream &os, std::uint16_t value) {
-	if constexpr (std::endian::native == std::endian::big) {
-		value = std::byteswap(value);
-	}
-	os.write(reinterpret_cast<const char *>(&value), sizeof(value));
-}
-
-std::uint16_t readU16Le(std::span<const char> data, std::size_t &offset) {
-	if (offset + sizeof(std::uint16_t) > data.size()) {
-		throw std::runtime_error("Unexpected end of binary tilemap data");
-	}
-
-	std::uint16_t value = 0;
-	std::memcpy(&value, data.data() + offset, sizeof(value));
-	if constexpr (std::endian::native == std::endian::big) {
-		value = std::byteswap(value);
-	}
-	offset += sizeof(value);
-	return value;
-}
+constexpr std::uint8_t tilemap_binary_version = 2;
 
 } // namespace
 
@@ -61,41 +43,40 @@ Tilemap::Tilemap(pos_t width, pos_t height)
 	, _height(height)
 	, _tiles(std::make_unique<Tile[]>(width * height)) {}
 
-Tilemap Tilemap::load(std::span<char> data) {
-	if (data.empty()) {
+Tilemap Tilemap::load(std::istream &input_stream) {
+	const auto first_char_int = input_stream.peek();
+	if (first_char_int == std::char_traits<char>::eof()) {
 		throw std::runtime_error("Cannot load tilemap from empty data");
 	}
+	const auto first_char = static_cast<char>(first_char_int);
 
-	if (!std::isdigit(data[0])) {
-		std::span<const char> binary_data(data.data(), data.size());
+	if (!std::isdigit(static_cast<unsigned char>(first_char))) {
+		IstreamAdapter stream_adapter(input_stream);
+		ReadBuffer reader(stream_adapter);
 
-		if (binary_data.size()
-		    < tilemap_binary_magic.size() + 1 + 3 * sizeof(std::uint16_t)) {
+		if (!reader.has(
+				tilemap_binary_magic.size() + 1 + 3 * sizeof(std::uint16_t)
+			)) {
 			throw std::runtime_error("Binary tilemap data is too short");
 		}
 
-		if (!std::equal(
-				binary_data.begin(),
-				binary_data.begin() + tilemap_binary_magic.size(),
-				tilemap_binary_magic.begin()
-			)) {
-			throw std::runtime_error("Invalid binary tilemap magic");
+		for (const auto expected : tilemap_binary_magic) {
+			if (reader.readU8() != expected) {
+				throw std::runtime_error("Invalid binary tilemap magic");
+			}
 		}
 
-		std::size_t offset = tilemap_binary_magic.size();
-		const auto version = static_cast<std::uint8_t>(binary_data[offset]);
-		offset += 1;
+		const auto version = reader.readU8();
 		if (version != tilemap_binary_version) {
 			throw std::runtime_error(
 				std::format("Unsupported binary tilemap version {}", version)
 			);
 		}
 
-		const auto width = static_cast<pos_t>(readU16Le(binary_data, offset));
-		const auto height = static_cast<pos_t>(readU16Le(binary_data, offset));
-		const auto base_size = static_cast<pos_t>(
-			readU16Le(binary_data, offset)
-		);
+		const auto width = static_cast<pos_t>(reader.readU16());
+		const auto height = static_cast<pos_t>(reader.readU16());
+		const auto base_size = static_cast<pos_t>(reader.readU16());
+		reader.skip(2);
 
 		if (width <= 0 || height <= 0) {
 			throw std::runtime_error(
@@ -105,12 +86,11 @@ Tilemap Tilemap::load(std::span<char> data) {
 
 		const std::size_t tile_count = static_cast<std::size_t>(width)
 			* static_cast<std::size_t>(height);
-		const std::size_t expected_size = offset + tile_count;
-		if (binary_data.size() != expected_size) {
+		if (!reader.has(tile_count)) {
 			throw std::runtime_error(
 				std::format(
-					"Binary tilemap size mismatch: expected {} bytes, got {}",
-					expected_size, binary_data.size()
+					"Binary tilemap size mismatch: expected at least {} bytes",
+					tilemap_binary_magic.size() + 1 + 8 + tile_count
 				)
 			);
 		}
@@ -120,14 +100,11 @@ Tilemap Tilemap::load(std::span<char> data) {
 
 		for (int y = 0; y < height; ++y) {
 			for (int x = 0; x < width; ++x) {
-				const auto packed = static_cast<std::uint8_t>(
-					binary_data[offset++]
-				);
-
-				const auto terrain = packed & 0b0000'0011;
-				const auto side = (packed >> 2) & 0b0000'0011;
-				const auto is_resource = (packed & 0b0001'0000) != 0;
-				const auto is_base = (packed & 0b0010'0000) != 0;
+				const auto flags = unpackTileFlags(reader.readU8());
+				const auto terrain = flags.terrain;
+				const auto side = flags.side;
+				const auto is_resource = flags.is_resource;
+				const auto is_base = flags.is_base;
 
 				if (terrain == 0b0000'0010) {
 					throw std::runtime_error(
@@ -154,11 +131,25 @@ Tilemap Tilemap::load(std::span<char> data) {
 			}
 		}
 
+		if (!reader.end()) {
+			throw std::runtime_error(
+				"Binary tilemap size mismatch: trailing bytes found"
+			);
+		}
+
 		return tilemap;
 	}
 
+	const std::string text_data{
+		std::istreambuf_iterator<char>(input_stream),
+		std::istreambuf_iterator<char>()
+	};
+	if (text_data.empty()) {
+		throw std::runtime_error("Cannot load tilemap from empty data");
+	}
+
 	// Text format: first line is width and height, then rows of terrain chars
-	std::istringstream iss(std::string(data.data(), data.size()));
+	std::istringstream iss(text_data);
 	int width, height;
 	iss >> width >> height;
 	Tilemap tilemap(width, height);
@@ -326,25 +317,31 @@ void Tilemap::saveAsBinary(std::ostream &os) const {
 		);
 	}
 
-	writeU16Le(os, static_cast<std::uint16_t>(_width));
-	writeU16Le(os, static_cast<std::uint16_t>(_height));
-	writeU16Le(os, static_cast<std::uint16_t>(_base_size));
+	WriteBuffer payload;
+	payload.writeU16(_width);
+	payload.writeU16(_height);
+	payload.writeU16(_base_size);
+	payload.writeU16(0);
 
 	for (int y = 0; y < _height; ++y) {
 		for (int x = 0; x < _width; ++x) {
 			const Tile &tile = tileOf(x, y);
-			std::uint8_t packed = 0;
-			packed |= tile.terrain & 0b0000'0011;
-			packed |= (tile.side & 0b0000'0011) << 2;
-			if (tile.is_resource) {
-				packed |= 0b0001'0000;
-			}
-			if (tile.is_base) {
-				packed |= 0b0010'0000;
-			}
-			os.put(static_cast<char>(packed));
+			payload.writeU8(packTileFlags(
+				TileFlags{
+					.terrain = tile.terrain,
+					.side = tile.side,
+					.is_resource = tile.is_resource,
+					.is_base = tile.is_base,
+				}
+			));
 		}
 	}
+
+	const auto &bytes = payload.bytes();
+	os.write(
+		reinterpret_cast<const char *>(bytes.data()),
+		static_cast<std::streamsize>(bytes.size())
+	);
 }
 
 Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {

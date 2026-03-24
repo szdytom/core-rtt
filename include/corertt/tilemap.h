@@ -5,8 +5,8 @@
 #include "corertt/xoroshiro.h"
 #include <cstdint>
 #include <iosfwd>
+#include <istream>
 #include <memory>
-#include <span>
 #include <utility>
 
 #ifndef NDEBUG
@@ -103,7 +103,7 @@ public:
 	}
 
 	static Tilemap generate(const TilemapGenerationConfig &config);
-	static Tilemap load(std::span<char> data);
+	static Tilemap load(std::istream &input_stream);
 	void saveAsText(std::ostream &os) const;
 	void saveAsBinary(std::ostream &os) const;
 

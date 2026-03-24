@@ -50,98 +50,108 @@ Tilemap Tilemap::load(std::istream &input_stream) {
 
 	int first_char = input_stream.peek();
 	if (!std::isdigit(first_char)) {
-		IstreamAdapter stream_adapter(input_stream);
-		ReadBuffer reader(stream_adapter);
-		constexpr std::size_t header_prefix_size = tilemap_binary_magic.size()
-			+ 1 + 4 * sizeof(std::uint16_t);
+		return loadBinary(input_stream);
+	}
+	return loadText(input_stream);
+}
 
-		if (!reader.has(header_prefix_size)) {
-			throw std::runtime_error("Binary tilemap data is too short");
+Tilemap Tilemap::loadBinary(std::istream &input_stream) {
+	if (!input_stream || input_stream.eof()) {
+		throw std::runtime_error("Input stream is not valid for reading");
+	}
+
+	IstreamAdapter stream_adapter(input_stream);
+	ReadBuffer reader(stream_adapter);
+	constexpr std::size_t header_prefix_size = tilemap_binary_magic.size() + 1
+		+ 4 * sizeof(std::uint16_t);
+
+	if (!reader.has(header_prefix_size)) {
+		throw std::runtime_error("Binary tilemap data is too short");
+	}
+
+	for (const auto expected : tilemap_binary_magic) {
+		if (reader.readU8() != expected) {
+			throw std::runtime_error("Invalid binary tilemap magic");
 		}
+	}
 
-		for (const auto expected : tilemap_binary_magic) {
-			if (reader.readU8() != expected) {
-				throw std::runtime_error("Invalid binary tilemap magic");
+	const auto version = reader.readU8();
+	if (version != TILEMAP_BINARY_VERSION) {
+		throw std::runtime_error(
+			std::format("Unsupported binary tilemap version {}", version)
+		);
+	}
+
+	const pos_t width = reader.readU16();
+	const pos_t height = reader.readU16();
+	const pos_t base_size = reader.readU16();
+	reader.skip(2);
+
+	constexpr pos_t MAX_DIMENSION = 512;
+	if (width <= 0 || height <= 0 || width > MAX_DIMENSION
+	    || height > MAX_DIMENSION) {
+		throw std::runtime_error(
+			std::format("Invalid tilemap size: {} x {}", width, height)
+		);
+	}
+
+	const std::size_t tile_count = width * height;
+	if (!reader.has(tile_count)) {
+		throw std::runtime_error(
+			std::format(
+				"Binary tilemap size mismatch: expected at least {} bytes",
+				tile_count
+			)
+		);
+	}
+
+	Tilemap tilemap(width, height);
+	tilemap._base_size = base_size;
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			const auto flags = TileFlags::unpack(reader.readU8());
+			const auto terrain = flags.terrain;
+			const auto side = flags.side;
+			const auto is_resource = flags.is_resource;
+			const auto is_base = flags.is_base;
+
+			if (terrain != Tile::EMPTY && terrain != Tile::WATER
+			    && terrain != Tile::OBSTACLE) {
+				throw std::runtime_error(
+					std::format(
+						"Invalid terrain code {} at ({}, {})", terrain, x, y
+					)
+				);
 			}
-		}
 
-		const auto version = reader.readU8();
-		if (version != TILEMAP_BINARY_VERSION) {
-			throw std::runtime_error(
-				std::format("Unsupported binary tilemap version {}", version)
-			);
-		}
-
-		// const auto width = static_cast<pos_t>(reader.readU16());
-		// const auto height = static_cast<pos_t>(reader.readU16());
-		// const auto base_size = static_cast<pos_t>(reader.readU16());
-		const pos_t width = reader.readU16();
-		const pos_t height = reader.readU16();
-		const pos_t base_size = reader.readU16();
-		reader.skip(2);
-
-		constexpr pos_t MAX_DIMENSION = 512;
-		if (width <= 0 || height <= 0 || width > MAX_DIMENSION
-		    || height > MAX_DIMENSION) {
-			throw std::runtime_error(
-				std::format("Invalid tilemap size: {} x {}", width, height)
-			);
-		}
-
-		const std::size_t tile_count = width * height;
-		if (!reader.has(tile_count)) {
-			throw std::runtime_error(
-				std::format(
-					"Binary tilemap size mismatch: expected at least {} bytes",
-					tile_count
-				)
-			);
-		}
-
-		Tilemap tilemap(width, height);
-		tilemap._base_size = base_size;
-
-		for (int y = 0; y < height; ++y) {
-			for (int x = 0; x < width; ++x) {
-				const auto flags = TileFlags::unpack(reader.readU8());
-				const auto terrain = flags.terrain;
-				const auto side = flags.side;
-				const auto is_resource = flags.is_resource;
-				const auto is_base = flags.is_base;
-
-				if (terrain != Tile::EMPTY && terrain != Tile::WATER
-				    && terrain != Tile::OBSTACLE) {
-					throw std::runtime_error(
-						std::format(
-							"Invalid terrain code {} at ({}, {})", terrain, x, y
-						)
-					);
-				}
-
-				if (side > 2) {
-					throw std::runtime_error(
-						std::format(
-							"Invalid side code {} at ({}, {})", side, x, y
-						)
-					);
-				}
-
-				Tile &tile = tilemap.tileOf(x, y);
-				tile.terrain = terrain;
-				tile.side = side;
-				tile.is_resource = is_resource;
-				tile.is_base = is_base;
-				tile.unsetOccupant();
+			if (side > 2) {
+				throw std::runtime_error(
+					std::format("Invalid side code {} at ({}, {})", side, x, y)
+				);
 			}
-		}
 
-		if (!reader.end()) {
-			throw std::runtime_error(
-				"Binary tilemap size mismatch: trailing bytes found"
-			);
+			Tile &tile = tilemap.tileOf(x, y);
+			tile.terrain = terrain;
+			tile.side = side;
+			tile.is_resource = is_resource;
+			tile.is_base = is_base;
+			tile.unsetOccupant();
 		}
+	}
 
-		return tilemap;
+	if (!reader.end()) {
+		throw std::runtime_error(
+			"Binary tilemap size mismatch: trailing bytes found"
+		);
+	}
+
+	return tilemap;
+}
+
+Tilemap Tilemap::loadText(std::istream &input_stream) {
+	if (!input_stream || input_stream.eof()) {
+		throw std::runtime_error("Input stream is not valid for reading");
 	}
 
 	const std::string text_data{

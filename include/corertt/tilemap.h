@@ -104,6 +104,8 @@ public:
 
 	static Tilemap generate(const TilemapGenerationConfig &config);
 	static Tilemap load(std::istream &input_stream);
+	static Tilemap loadBinary(std::istream &input_stream);
+	static Tilemap loadText(std::istream &input_stream);
 	void saveAsText(std::ostream &os) const;
 	void saveAsBinary(std::ostream &os) const;
 

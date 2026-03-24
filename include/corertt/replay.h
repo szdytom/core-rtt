@@ -1,7 +1,9 @@
 #ifndef CORERTT_REPLAY_H
 #define CORERTT_REPLAY_H
 
+#include "corertt/buffer.h"
 #include "corertt/runtime.h"
+#include "corertt/stream_adapter.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +11,7 @@
 #include <format>
 #include <iosfwd>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -183,6 +186,10 @@ struct ReplayEndMarker {
 	static std::vector<std::byte> encode(const ReplayEndMarker &end_marker);
 };
 
+void encodeTo(WriteBuffer &write_buffer, const ReplayHeader &header);
+void encodeTo(WriteBuffer &write_buffer, const ReplayTickFrame &tick);
+void encodeTo(WriteBuffer &write_buffer, const ReplayEndMarker &end_marker);
+
 struct ReplayData {
 	ReplayHeader header;
 	std::vector<ReplayTickFrame> ticks;
@@ -192,11 +199,6 @@ struct ReplayData {
 enum class ReplayRecordType : std::uint8_t {
 	Tick = 1,
 	End = 255,
-};
-
-enum class DecodeErrorKind : std::uint8_t {
-	NeedMoreData,
-	FormatError,
 };
 
 enum class DecodeErrorCode : std::uint8_t {
@@ -278,7 +280,6 @@ constexpr std::string_view decodeErrorCodeName(DecodeErrorCode code) noexcept {
 }
 
 struct DecodeError {
-	DecodeErrorKind kind = DecodeErrorKind::NeedMoreData;
 	DecodeErrorCode code = DecodeErrorCode::TruncatedInput;
 
 	constexpr std::string_view message() const noexcept {
@@ -349,26 +350,23 @@ enum class ReplayParsePhase {
 
 class ReplayStreamDecoder {
 public:
-	ReplayStreamDecoder() noexcept = default;
+	explicit ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream);
+	explicit ReplayStreamDecoder(std::istream &stream);
 
 	enum class ReadStatus {
-		NeedMoreData,
 		Tick,
 		End,
 		Error,
 	};
 
 	struct ReadResult {
-		ReadStatus status = ReadStatus::NeedMoreData;
+		ReadStatus status = ReadStatus::Error;
 		std::optional<ReplayTickFrame> tick;
 		std::optional<DecodeError> error;
 	};
 
-	void pushBytes(std::span<const std::byte> bytes) noexcept;
-	void pushBytes(std::span<const char> bytes) noexcept;
-
-	bool canReadHeader() const noexcept;
-	bool canReadNextRecord() const noexcept;
+	bool canReadHeader();
+	bool canReadNextRecord();
 
 	bool hasHeader() const noexcept {
 		return _phase != ReplayParsePhase::Header;
@@ -381,13 +379,12 @@ public:
 	const ReplayHeader &header() const;
 	const ReplayEndMarker &endMarker() const;
 
-	std::expected<void, DecodeError> readHeader() noexcept;
-	ReadResult nextTick() noexcept;
+	std::expected<void, DecodeError> readHeader();
+	ReadResult nextTick();
 
 private:
 	ReplayParsePhase _phase = ReplayParsePhase::Header;
-	std::vector<std::byte> _buffer;
-	std::size_t _cursor = 0;
+	std::unique_ptr<StreamAdapter> _stream;
 	ReplayHeader _header;
 	ReplayEndMarker _end_marker;
 };

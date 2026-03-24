@@ -1,11 +1,12 @@
 #include "corertt/replay.h"
 #include "corertt/entity.h"
+#include "corertt/tile_codec.h"
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cctype>
-#include <concepts>
 #include <cstddef>
 #include <cstring>
 #include <expected>
@@ -15,7 +16,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
 namespace cr {
@@ -27,165 +27,8 @@ constexpr std::array<std::byte, 4> replay_magic = {
 };
 constexpr std::uint16_t replay_version = 4;
 
-class ByteWriter {
-public:
-	template<typename... Args>
-	void write(Args &&...args) noexcept {
-		(writeOne(std::forward<Args>(args)), ...);
-	}
-
-	void writeU8(std::uint8_t value) noexcept {
-		_buffer.push_back(static_cast<std::byte>(value));
-	}
-
-	void writeU16(std::uint16_t value) noexcept {
-		_buffer.push_back(static_cast<std::byte>(value & 0xFF));
-		_buffer.push_back(static_cast<std::byte>((value >> 8) & 0xFF));
-	}
-
-	void writeI16(std::int16_t value) noexcept {
-		writeU16(static_cast<std::uint16_t>(value));
-	}
-
-	void writeU32(std::uint32_t value) noexcept {
-		_buffer.push_back(static_cast<std::byte>(value & 0xFF));
-		_buffer.push_back(static_cast<std::byte>((value >> 8) & 0xFF));
-		_buffer.push_back(static_cast<std::byte>((value >> 16) & 0xFF));
-		_buffer.push_back(static_cast<std::byte>((value >> 24) & 0xFF));
-	}
-
-	void writeBytes(std::span<const std::byte> bytes) noexcept {
-		_buffer.insert(_buffer.end(), bytes.begin(), bytes.end());
-	}
-
-	std::size_t size() const noexcept {
-		return _buffer.size();
-	}
-
-	void patchU32(std::size_t offset, std::uint32_t value) noexcept {
-		assert(offset + sizeof(std::uint32_t) <= _buffer.size());
-		_buffer[offset] = static_cast<std::byte>(value & 0xFF);
-		_buffer[offset + 1] = static_cast<std::byte>((value >> 8) & 0xFF);
-		_buffer[offset + 2] = static_cast<std::byte>((value >> 16) & 0xFF);
-		_buffer[offset + 3] = static_cast<std::byte>((value >> 24) & 0xFF);
-	}
-
-	std::vector<std::byte> take() noexcept {
-		return std::move(_buffer);
-	}
-
-private:
-	template<typename>
-	static constexpr bool always_false = false;
-
-	template<typename T>
-	void writeOne(T &&value) noexcept {
-		using value_type = std::remove_cvref_t<T>;
-
-		if constexpr (std::is_enum_v<value_type>) {
-			writeOne(std::to_underlying(value));
-		} else if constexpr (std::integral<value_type>) {
-			if constexpr (sizeof(value_type) == 1) {
-				writeU8(static_cast<std::uint8_t>(value));
-			} else if constexpr (sizeof(value_type) == 2) {
-				if constexpr (std::is_signed_v<value_type>) {
-					writeI16(static_cast<std::int16_t>(value));
-				} else {
-					writeU16(static_cast<std::uint16_t>(value));
-				}
-			} else if constexpr (sizeof(value_type) == 4) {
-				writeU32(static_cast<std::uint32_t>(value));
-			} else {
-				static_assert(
-					always_false<value_type>,
-					"ByteWriter::write does not support this integer size"
-				);
-			}
-		} else if constexpr (
-			std::same_as<value_type, std::span<const std::byte>>
-			|| std::same_as<value_type, std::span<std::byte>>
-		) {
-			writeBytes(std::span<const std::byte>(value));
-		} else {
-			static_assert(
-				always_false<value_type>,
-				"ByteWriter::write does not support this type"
-			);
-		}
-	}
-
-	std::vector<std::byte> _buffer;
-};
-
-class ByteReader {
-public:
-	explicit ByteReader(std::span<const std::byte> bytes) noexcept
-		: _bytes(bytes), _cursor(0) {}
-
-	std::size_t remaining() const noexcept {
-		return _bytes.size() - _cursor;
-	}
-
-	std::size_t cursor() const noexcept {
-		return _cursor;
-	}
-
-	bool has(std::size_t size) const noexcept {
-		return _cursor + size <= _bytes.size();
-	}
-
-	std::uint8_t readU8() noexcept {
-		return std::to_integer<std::uint8_t>(_bytes[_cursor++]);
-	}
-
-	std::uint16_t readU16() noexcept {
-		const auto b0 = std::to_integer<std::uint16_t>(_bytes[_cursor++]);
-		const auto b1 = std::to_integer<std::uint16_t>(_bytes[_cursor++]);
-		return static_cast<std::uint16_t>(b0 | (b1 << 8));
-	}
-
-	std::int16_t readI16() noexcept {
-		return static_cast<std::int16_t>(readU16());
-	}
-
-	std::uint32_t readU32() noexcept {
-		const auto b0 = std::to_integer<std::uint32_t>(_bytes[_cursor++]);
-		const auto b1 = std::to_integer<std::uint32_t>(_bytes[_cursor++]);
-		const auto b2 = std::to_integer<std::uint32_t>(_bytes[_cursor++]);
-		const auto b3 = std::to_integer<std::uint32_t>(_bytes[_cursor++]);
-		return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
-	}
-
-	std::span<const std::byte> readBytes(std::size_t size) noexcept {
-		auto res = _bytes.subspan(_cursor, size);
-		_cursor += size;
-		return res;
-	}
-
-	bool skip(std::size_t size) noexcept {
-		if (!has(size)) {
-			return false;
-		}
-		_cursor += size;
-		return true;
-	}
-
-	std::span<const std::byte> _bytes;
-	std::size_t _cursor;
-};
-
-DecodeError needMoreData(DecodeErrorCode code) noexcept {
-	return DecodeError{
-		.kind = DecodeErrorKind::NeedMoreData,
-		.code = code,
-	};
-}
-
 DecodeError formatError(DecodeErrorCode code) noexcept {
-	return DecodeError{
-		.kind = DecodeErrorKind::FormatError,
-		.code = code,
-	};
+	return DecodeError{.code = code};
 }
 
 std::size_t tileCount(const ReplayTilemap &tilemap) noexcept {
@@ -196,7 +39,7 @@ std::size_t tilemapEncodedSize(const ReplayTilemap &tilemap) noexcept {
 	return 8 + tileCount(tilemap);
 }
 
-void encodeTilemap(ByteWriter &writer, const ReplayTilemap &tilemap) {
+void encodeTilemap(WriteBuffer &writer, const ReplayTilemap &tilemap) {
 	writer.write(tilemap.width, tilemap.height, tilemap.base_size);
 	writer.writeU16(0);
 
@@ -211,26 +54,22 @@ void encodeTilemap(ByteWriter &writer, const ReplayTilemap &tilemap) {
 	}
 
 	for (const auto &tile : tilemap.tiles) {
-		std::uint8_t packed = 0;
-		packed |= static_cast<std::uint8_t>(tile.terrain & 0b11);
-		packed |= static_cast<std::uint8_t>((tile.side & 0b11) << 2);
-		packed |= static_cast<std::uint8_t>(tile.is_resource ? 0b00010000 : 0);
-		packed |= static_cast<std::uint8_t>(tile.is_base ? 0b00100000 : 0);
-		writer.writeU8(packed);
+		writer.writeU8(packTileFlags(
+			TileFlags{
+				.terrain = tile.terrain,
+				.side = tile.side,
+				.is_resource = tile.is_resource,
+				.is_base = tile.is_base,
+			}
+		));
 	}
 }
 
-DecodeResult<ReplayTilemap> decodeTilemap(
-	ByteReader &reader, bool short_is_format
-) noexcept {
-	auto short_error = [&](DecodeErrorCode code) {
-		return short_is_format ? formatError(code) : needMoreData(code);
-	};
-
+DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 	ReplayTilemap tilemap;
 	if (!reader.has(8)) {
 		return std::unexpected(
-			short_error(DecodeErrorCode::TruncatedTilemapHeader)
+			formatError(DecodeErrorCode::TruncatedTilemapHeader)
 		);
 	}
 	tilemap.width = reader.readU16();
@@ -255,23 +94,25 @@ DecodeResult<ReplayTilemap> decodeTilemap(
 	}
 	if (!reader.has(count)) {
 		return std::unexpected(
-			short_error(DecodeErrorCode::TilemapDataTruncated)
+			formatError(DecodeErrorCode::TilemapDataTruncated)
 		);
 	}
 	tilemap.tiles.reserve(count);
 	for (std::size_t i = 0; i < count; ++i) {
-		const auto packed = reader.readU8();
-		ReplayTile tile;
-		tile.terrain = packed & 0b11;
-		tile.side = (packed >> 2) & 0b11;
-		tile.is_resource = (packed & 0b00010000) != 0;
-		tile.is_base = (packed & 0b00100000) != 0;
-		tilemap.tiles.push_back(tile);
+		const auto flags = unpackTileFlags(reader.readU8());
+		tilemap.tiles.push_back(
+			ReplayTile{
+				.terrain = flags.terrain,
+				.side = flags.side,
+				.is_resource = flags.is_resource,
+				.is_base = flags.is_base,
+			}
+		);
 	}
 	return tilemap;
 }
 
-void encodeLogEntry(ByteWriter &writer, const ReplayLogEntry &entry) {
+void encodeLogEntry(WriteBuffer &writer, const ReplayLogEntry &entry) {
 	if (entry.payload.size() > std::numeric_limits<std::uint16_t>::max()) {
 		throw std::runtime_error("Replay encode failed: log payload too large");
 	}
@@ -286,16 +127,10 @@ void encodeLogEntry(ByteWriter &writer, const ReplayLogEntry &entry) {
 	}
 }
 
-DecodeResult<ReplayLogEntry> decodeLogEntry(
-	ByteReader &reader, bool short_is_format
-) noexcept {
-	auto short_error = [&](DecodeErrorCode code) {
-		return short_is_format ? formatError(code) : needMoreData(code);
-	};
-
+DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 	ReplayLogEntry entry;
 	if (!reader.has(10)) {
-		return std::unexpected(short_error(DecodeErrorCode::TruncatedLogEntry));
+		return std::unexpected(formatError(DecodeErrorCode::TruncatedLogEntry));
 	}
 	entry.tick = reader.readU32();
 	entry.player_id = reader.readU8();
@@ -329,7 +164,7 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(
 	if (payload_size > 0) {
 		if (!reader.has(payload_size)) {
 			return std::unexpected(
-				short_error(DecodeErrorCode::LogPayloadTruncated)
+				formatError(DecodeErrorCode::LogPayloadTruncated)
 			);
 		}
 
@@ -340,7 +175,7 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(
 	return entry;
 }
 
-void encodeReplayTick(ByteWriter &writer, const ReplayTickFrame &tick) {
+void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
 	if (tick.units.size() > std::numeric_limits<std::uint16_t>::max()) {
 		throw std::runtime_error("Replay encode failed: too many units");
 	}
@@ -393,8 +228,8 @@ void encodeReplayTick(ByteWriter &writer, const ReplayTickFrame &tick) {
 }
 
 DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
-	ByteReader &reader, std::uint32_t tick_id
-) noexcept {
+	ReadBuffer &reader, std::uint32_t tick_id
+) {
 	auto fail_format = [&](DecodeErrorCode code) {
 		return std::unexpected(formatError(code));
 	};
@@ -479,7 +314,7 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 	}
 	tick.logs.reserve(log_count);
 	for (std::uint16_t i = 0; i < log_count; ++i) {
-		auto log_entry = decodeLogEntry(reader, true);
+		auto log_entry = decodeLogEntry(reader);
 		if (!log_entry.has_value()) {
 			return std::unexpected(log_entry.error());
 		}
@@ -489,7 +324,7 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 	return tick;
 }
 
-void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
+void encodeReplayHeader(WriteBuffer &writer, const ReplayHeader &header) {
 	writer.writeBytes(replay_magic);
 	const auto header_size = tilemapEncodedSize(header.tilemap);
 	if (header_size > std::numeric_limits<std::uint16_t>::max()) {
@@ -503,7 +338,7 @@ void encodeReplayHeader(ByteWriter &writer, const ReplayHeader &header) {
 }
 
 void encodeReplayEndMarker(
-	ByteWriter &writer, const ReplayEndMarker &end_marker
+	WriteBuffer &writer, const ReplayEndMarker &end_marker
 ) {
 	writer.write(
 		std::to_underlying(ReplayRecordType::End),
@@ -511,13 +346,11 @@ void encodeReplayEndMarker(
 	);
 }
 
-DecodeResult<ReplayEndMarker> decodeReplayEndMarker(
-	ByteReader &reader
-) noexcept {
+DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 	ReplayEndMarker end_marker;
 	if (!reader.has(2)) {
 		return std::unexpected(
-			needMoreData(DecodeErrorCode::TruncatedEndMarker)
+			formatError(DecodeErrorCode::TruncatedEndMarker)
 		);
 	}
 	const auto raw_termination = reader.readU8();
@@ -553,9 +386,9 @@ DecodeResult<ReplayEndMarker> decodeReplayEndMarker(
 	return end_marker;
 }
 
-DecodeResult<ReplayHeader> decodeReplayHeader(ByteReader &reader) noexcept {
+DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	if (!reader.has(8)) {
-		return std::unexpected(needMoreData(DecodeErrorCode::TruncatedInput));
+		return std::unexpected(formatError(DecodeErrorCode::TruncatedInput));
 	}
 
 	for (const auto magic : replay_magic) {
@@ -575,12 +408,12 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ByteReader &reader) noexcept {
 
 	if (!reader.has(header_size)) {
 		return std::unexpected(
-			needMoreData(DecodeErrorCode::TruncatedHeaderPayload)
+			formatError(DecodeErrorCode::TruncatedHeaderPayload)
 		);
 	}
-
-	ByteReader header_reader(reader.readBytes(header_size));
-	auto tilemap = decodeTilemap(header_reader, true);
+	MemoryStreamAdapter header_stream(reader.readBytes(header_size));
+	ReadBuffer header_reader(header_stream);
+	auto tilemap = decodeTilemap(header_reader);
 	if (!tilemap.has_value()) {
 		return std::unexpected(tilemap.error());
 	}
@@ -828,9 +661,9 @@ ReplayHeader ReplayHeader::fromWorld(const World &world) {
 }
 
 std::vector<std::byte> ReplayHeader::encode(const ReplayHeader &header) {
-	ByteWriter writer;
-	encodeReplayHeader(writer, header);
-	return writer.take();
+	WriteBuffer write_buffer;
+	encodeTo(write_buffer, header);
+	return write_buffer.take();
 }
 
 ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
@@ -889,9 +722,9 @@ ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
 }
 
 std::vector<std::byte> ReplayTickFrame::encode(const ReplayTickFrame &tick) {
-	ByteWriter writer;
-	encodeReplayTick(writer, tick);
-	return writer.take();
+	WriteBuffer write_buffer;
+	encodeTo(write_buffer, tick);
+	return write_buffer.take();
 }
 
 ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) {
@@ -917,71 +750,78 @@ ReplayEndMarker ReplayEndMarker::aborted() {
 std::vector<std::byte> ReplayEndMarker::encode(
 	const ReplayEndMarker &end_marker
 ) {
-	ByteWriter writer;
-	encodeReplayEndMarker(writer, end_marker);
-	return writer.take();
+	WriteBuffer write_buffer;
+	encodeTo(write_buffer, end_marker);
+	return write_buffer.take();
 }
 
-void ReplayStreamDecoder::pushBytes(std::span<const std::byte> bytes) noexcept {
-	_buffer.insert(_buffer.end(), bytes.begin(), bytes.end());
+void encodeTo(WriteBuffer &write_buffer, const ReplayHeader &header) {
+	encodeReplayHeader(write_buffer, header);
 }
 
-void ReplayStreamDecoder::pushBytes(std::span<const char> bytes) noexcept {
-	pushBytes(
-		{reinterpret_cast<const std::byte *>(bytes.data()), bytes.size()}
-	);
+void encodeTo(WriteBuffer &write_buffer, const ReplayTickFrame &tick) {
+	encodeReplayTick(write_buffer, tick);
 }
 
-bool ReplayStreamDecoder::canReadHeader() const noexcept {
+void encodeTo(WriteBuffer &write_buffer, const ReplayEndMarker &end_marker) {
+	encodeReplayEndMarker(write_buffer, end_marker);
+}
+
+ReplayStreamDecoder::ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream)
+	: _stream(std::move(stream)) {
+	if (_stream == nullptr) {
+		throw std::runtime_error(
+			"Replay decode failed: stream adapter cannot be null"
+		);
+	}
+}
+
+ReplayStreamDecoder::ReplayStreamDecoder(std::istream &stream)
+	: ReplayStreamDecoder(std::make_unique<IstreamAdapter>(stream)) {}
+
+bool ReplayStreamDecoder::canReadHeader() {
 	if (hasHeader()) {
 		return true;
 	}
 
 	constexpr std::size_t header_prefix_size = 8;
-	if (_buffer.size() < header_prefix_size) {
+	if (!_stream->has(header_prefix_size)) {
 		return false;
 	}
 
-	const auto size_low = std::to_integer<std::uint16_t>(_buffer[6]);
-	const auto size_high = std::to_integer<std::uint16_t>(_buffer[7]);
+	const auto prefix = _stream->peek(header_prefix_size);
+	const auto size_low = std::to_integer<std::uint16_t>(prefix[6]);
+	const auto size_high = std::to_integer<std::uint16_t>(prefix[7]);
 	const std::size_t header_size = size_low | (size_high << 8);
-	return _buffer.size() >= header_prefix_size + header_size;
+	return _stream->has(header_prefix_size + header_size);
 }
 
-bool ReplayStreamDecoder::canReadNextRecord() const noexcept {
+bool ReplayStreamDecoder::canReadNextRecord() {
 	if (!hasHeader() || ended()) {
 		return false;
 	}
-
-	const std::size_t scan_cursor = _cursor;
-
-	if (scan_cursor >= _buffer.size()) {
+	if (!_stream->has(1)) {
 		return false;
 	}
-
-	ByteReader record_reader(
-		std::span<const std::byte>(_buffer.data(), _buffer.size())
-			.subspan(scan_cursor)
+	const auto type = static_cast<ReplayRecordType>(
+		std::to_integer<std::uint8_t>(_stream->peek(1)[0])
 	);
-	if (!record_reader.has(1)) {
-		return false;
-	}
-
-	const auto type = std::bit_cast<ReplayRecordType>(record_reader.readU8());
 	if (type == ReplayRecordType::End) {
-		return record_reader.remaining() >= 2;
+		return _stream->has(3);
 	}
 	if (type != ReplayRecordType::Tick) {
+		return true;
+	}
+	if (!_stream->has(9)) {
 		return false;
 	}
-
-	if (!record_reader.has(8)) {
-		return false;
-	}
-	record_reader.readU32();
-	const auto payload_size = record_reader.readU32();
-
-	return payload_size <= record_reader.remaining();
+	const auto prefix = _stream->peek(9);
+	const auto b0 = std::to_integer<std::uint32_t>(prefix[5]);
+	const auto b1 = std::to_integer<std::uint32_t>(prefix[6]);
+	const auto b2 = std::to_integer<std::uint32_t>(prefix[7]);
+	const auto b3 = std::to_integer<std::uint32_t>(prefix[8]);
+	const auto payload_size = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+	return _stream->has(9 + payload_size);
 }
 
 const ReplayHeader &ReplayStreamDecoder::header() const {
@@ -1000,81 +840,34 @@ const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
 	return _end_marker;
 }
 
-std::expected<void, DecodeError> ReplayStreamDecoder::readHeader() noexcept {
+std::expected<void, DecodeError> ReplayStreamDecoder::readHeader() {
 	assert(!hasHeader());
 	assert(canReadHeader());
-
-	ByteReader reader(
-		std::span<const std::byte>(_buffer.data(), _buffer.size())
-	);
+	ReadBuffer reader(*_stream);
 	auto header_result = decodeReplayHeader(reader);
 	if (!header_result.has_value()) {
 		return std::unexpected(header_result.error());
 	}
 	_header = std::move(*header_result);
 	_phase = ReplayParsePhase::Tick;
-	_cursor = reader.cursor();
 	return {};
 }
 
-ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() noexcept {
+ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
 	ReadResult result;
+	assert(hasHeader());
+	assert(!ended());
+	assert(canReadNextRecord());
+
 	if (ended()) {
 		result.status = ReadStatus::End;
 		return result;
 	}
-
-	auto compact_buffer = [&] {
-		if (_cursor > 0 && _cursor * 2 >= _buffer.size()) {
-			_buffer.erase(_buffer.begin(), _buffer.begin() + _cursor);
-			_cursor = 0;
-		}
-	};
-
-	if (!hasHeader()) {
-		ByteReader header_reader(
-			std::span<const std::byte>(_buffer.data(), _buffer.size())
-		);
-		auto header_result = decodeReplayHeader(header_reader);
-		if (!header_result.has_value()) {
-			if (header_result.error().kind == DecodeErrorKind::NeedMoreData) {
-				result.status = ReadStatus::NeedMoreData;
-				return result;
-			}
-			result.status = ReadStatus::Error;
-			result.error = header_result.error();
-			return result;
-		}
-
-		_header = std::move(*header_result);
-		_phase = ReplayParsePhase::Tick;
-		_cursor = header_reader.cursor();
-		compact_buffer();
-	}
-
-	if (_cursor >= _buffer.size()) {
-		result.status = ReadStatus::NeedMoreData;
-		return result;
-	}
-
-	ByteReader reader(
-		std::span<const std::byte>(_buffer.data(), _buffer.size())
-			.subspan(_cursor)
-	);
-
-	if (!reader.has(1)) {
-		result.status = ReadStatus::NeedMoreData;
-		return result;
-	}
-
+	ReadBuffer reader(*_stream);
 	const auto type = std::bit_cast<ReplayRecordType>(reader.readU8());
 	if (type == ReplayRecordType::End) {
 		auto end_marker = decodeReplayEndMarker(reader);
 		if (!end_marker.has_value()) {
-			if (end_marker.error().kind == DecodeErrorKind::NeedMoreData) {
-				result.status = ReadStatus::NeedMoreData;
-				return result;
-			}
 			result.status = ReadStatus::Error;
 			result.error = end_marker.error();
 			return result;
@@ -1082,8 +875,6 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() noexcept {
 
 		_end_marker = std::move(*end_marker);
 		_phase = ReplayParsePhase::End;
-		_cursor += reader.cursor();
-		compact_buffer();
 		result.status = ReadStatus::End;
 		return result;
 	}
@@ -1094,77 +885,51 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() noexcept {
 		return result;
 	}
 
-	if (!reader.has(8)) {
-		result.status = ReadStatus::NeedMoreData;
-		return result;
-	}
-
 	const auto tick_id = reader.readU32();
 	const auto payload_size = reader.readU32();
-
-	if (payload_size > reader.remaining()) {
-		result.status = ReadStatus::NeedMoreData;
+	if (!reader.has(payload_size)) {
+		result.status = ReadStatus::Error;
+		result.error = formatError(DecodeErrorCode::TickPayloadTooSmall);
 		return result;
 	}
-
-	ByteReader payload_reader(reader.readBytes(payload_size));
+	MemoryStreamAdapter payload_stream(reader.peek(payload_size));
+	ReadBuffer payload_reader(payload_stream);
 	auto tick = decodeReplayTickPayload(payload_reader, tick_id);
 	if (!tick.has_value()) {
 		result.status = ReadStatus::Error;
 		result.error = tick.error();
 		return result;
 	}
-
-	_cursor += reader.cursor();
-	compact_buffer();
+	reader.skip(payload_size);
 	result.status = ReadStatus::Tick;
 	result.tick = std::move(*tick);
 	return result;
 }
 
 ReplayData readReplay(std::istream &is) {
-	std::vector<std::byte> bytes;
-	std::array<char, 4096> chunk{};
-	while (is.good()) {
-		is.read(chunk.data(), static_cast<std::streamsize>(chunk.size()));
-		const auto read_size = is.gcount();
-		if (read_size <= 0) {
-			break;
-		}
-		const auto *start = reinterpret_cast<const std::byte *>(chunk.data());
-		bytes.insert(bytes.end(), start, start + read_size);
+	ReplayStreamDecoder decoder(is);
+	if (!decoder.canReadHeader()) {
+		throw std::runtime_error(
+			std::format("{}", formatError(DecodeErrorCode::MissingHeader))
+		);
+	}
+	auto header_result = decoder.readHeader();
+	if (!header_result.has_value()) {
+		throw std::runtime_error(std::format("{}", header_result.error()));
 	}
 
-	ReplayStreamDecoder decoder;
-	decoder.pushBytes(bytes);
-
 	ReplayData replay;
-	bool header_captured = false;
+	replay.header = decoder.header();
 
-	while (true) {
+	while (decoder.canReadNextRecord()) {
 		auto read_result = decoder.nextTick();
-		if (decoder.hasHeader() && !header_captured) {
-			replay.header = decoder.header();
-			header_captured = true;
-		}
 		if (read_result.status == ReplayStreamDecoder::ReadStatus::Error) {
 			throw std::runtime_error(std::format("{}", *read_result.error));
-		}
-
-		if (read_result.status
-		    == ReplayStreamDecoder::ReadStatus::NeedMoreData) {
-			break;
 		}
 		if (read_result.status == ReplayStreamDecoder::ReadStatus::End) {
 			break;
 		}
 		replay.ticks.push_back(std::move(*read_result.tick));
-	}
-
-	if (!header_captured) {
-		throw std::runtime_error(
-			std::format("{}", formatError(DecodeErrorCode::MissingHeader))
-		);
 	}
 
 	if (!decoder.ended()) {

@@ -106,7 +106,6 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 	}
 
 	Tilemap tilemap(width, height);
-	tilemap._base_size = base_size;
 
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
@@ -131,12 +130,75 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 				);
 			}
 
+			if (!is_base && side != 0) {
+				throw std::runtime_error(
+					std::format(
+						"Non-base tile has nonzero side {} at ({}, {})", side,
+						x, y
+					)
+				);
+			}
+
 			Tile &tile = tilemap.tileOf(x, y);
 			tile.terrain = terrain;
 			tile.side = side;
 			tile.is_resource = is_resource;
 			tile.is_base = is_base;
 			tile.unsetOccupant();
+		}
+	}
+
+	// Check base is square and consistent with base_size
+	bool base_found[2] = {false, false};
+	int base_x[2] = {0, 0};
+	int base_y[2] = {0, 0};
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			const Tile &tile = tilemap.tileOf(x, y);
+			if (!tile.is_base) {
+				continue;
+			}
+
+			const auto side = tile.side;
+			if (base_found[tile.side - 1]) {
+				if (x < base_x[side - 1] || x >= base_x[side - 1] + base_size
+				    || y < base_y[side - 1]
+				    || y >= base_y[side - 1] + base_size) {
+					throw std::runtime_error(
+						std::format("Base for player {} is invalid", tile.side)
+					);
+				}
+				continue; // Already validated this base area
+			}
+
+			base_found[side - 1] = true;
+			base_x[side - 1] = x;
+			base_y[side - 1] = y;
+
+			if (x + base_size > width || y + base_size > height) {
+				throw std::runtime_error(
+					std::format(
+						"Base for player {} exceeds map bounds", tile.side
+					)
+				);
+			}
+
+			for (int dy = 0; dy < base_size; ++dy) {
+				for (int dx = 0; dx < base_size; ++dx) {
+					const int nx = x + dx;
+					const int ny = y + dy;
+
+					const Tile &base_tile = tilemap.tileOf(nx, ny);
+					if (!base_tile.is_base || base_tile.side != side) {
+						throw std::runtime_error(
+							std::format(
+								"Base at ({}, {}) is not a square of size {}",
+								x, y, base_size
+							)
+						);
+					}
+				}
+			}
 		}
 	}
 

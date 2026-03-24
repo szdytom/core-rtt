@@ -33,11 +33,7 @@ export function parseTickPayload(
 	absolute_offset: number,
 	limits: TickParseLimits = default_limits,
 ): ReplayTickFrame {
-	const reader = new ByteReader(bytes);
-
-	if (!reader.has(8)) {
-		throw new ReplayDecodeError('TICK_PAYLOAD_TOO_SMALL', absolute_offset);
-	}
+	const reader = new ByteReader(bytes, absolute_offset);
 
 	const p1: ReplayPlayer = {
 		id: reader.readU8(),
@@ -50,27 +46,11 @@ export function parseTickPayload(
 		baseCaptureCounter: reader.readU8(),
 	};
 
-	if (!reader.has(2)) {
-		throw new ReplayDecodeError(
-			'TICK_PAYLOAD_TOO_SMALL',
-			absolute_offset + reader.cursor(),
-		);
-	}
-
 	const unit_count = reader.readU16();
 	if (unit_count > limits.maxUnitsPerTick) {
 		throw new ReplayDecodeError(
 			'UNIT_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
-		);
-	}
-
-	// 12 bytes per unit from the field list in the binary format doc.
-	const unit_section_bytes = unit_count * 12;
-	if (!reader.has(unit_section_bytes)) {
-		throw new ReplayDecodeError(
-			'TICK_PAYLOAD_TOO_SMALL',
-			absolute_offset + reader.cursor(),
 		);
 	}
 
@@ -89,26 +69,11 @@ export function parseTickPayload(
 		};
 	}
 
-	if (!reader.has(2)) {
-		throw new ReplayDecodeError(
-			'TICK_PAYLOAD_TOO_SMALL',
-			absolute_offset + reader.cursor(),
-		);
-	}
-
 	const bullet_count = reader.readU16();
 	if (bullet_count > limits.maxBulletsPerTick) {
 		throw new ReplayDecodeError(
 			'BULLET_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
-		);
-	}
-
-	const bullet_section_bytes = bullet_count * 7;
-	if (!reader.has(bullet_section_bytes)) {
-		throw new ReplayDecodeError(
-			'TICK_PAYLOAD_TOO_SMALL',
-			absolute_offset + reader.cursor(),
 		);
 	}
 
@@ -122,13 +87,6 @@ export function parseTickPayload(
 			playerId: reader.readU8(),
 			damage: reader.readU8(),
 		};
-	}
-
-	if (!reader.has(2)) {
-		throw new ReplayDecodeError(
-			'TICK_PAYLOAD_TOO_SMALL',
-			absolute_offset + reader.cursor(),
-		);
 	}
 
 	const log_count = reader.readU16();
@@ -155,13 +113,6 @@ export function parseTickPayload(
 }
 
 function parseLogEntry(reader: ByteReader, absolute_offset: number, max_log_payload_size: number): ReplayLogEntry {
-	if (!reader.has(10)) {
-		throw new ReplayDecodeError(
-			'TRUNCATED_LOG_ENTRY',
-			absolute_offset + reader.cursor(),
-		);
-	}
-
 	const tick = reader.readU32();
 	const player_id = reader.readU8();
 	const unit_id = reader.readU8();
@@ -187,13 +138,6 @@ function parseLogEntry(reader: ByteReader, absolute_offset: number, max_log_payl
 		throw new ReplayDecodeError(
 			'LOG_PAYLOAD_SIZE_EXCEEDS_MAXIMUM',
 			absolute_offset + reader.cursor() - 2,
-		);
-	}
-
-	if (!reader.has(payload_size)) {
-		throw new ReplayDecodeError(
-			'LOG_PAYLOAD_TRUNCATED',
-			absolute_offset + reader.cursor(),
 		);
 	}
 

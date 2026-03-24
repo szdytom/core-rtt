@@ -11,10 +11,7 @@ export function parseEndMarkerAt(
 	bytes: Uint8Array,
 	offset: number,
 ): EndMarkerParseResult {
-	const reader = new ByteReader(bytes.subarray(offset));
-	if (!reader.has(2)) {
-		throw new ReplayDecodeError('TRUNCATED_END_MARKER', offset + reader.cursor());
-	}
+	const reader = new ByteReader(bytes.subarray(offset), offset);
 
 	const raw_termination = reader.readU8();
 	if (raw_termination > 1) {

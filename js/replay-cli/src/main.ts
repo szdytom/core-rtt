@@ -47,7 +47,8 @@ function parseCliArgs(argv: string[]): CliOptions {
 	});
 
 	if (parsed.values.help) {
-		throw new Error(usage);
+		process.stdout.write(`${usage}\n`);
+		process.exit(0);
 	}
 
 	const replay_file = parsed.values['replay-file'];

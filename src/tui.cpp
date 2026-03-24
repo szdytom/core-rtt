@@ -101,7 +101,7 @@ bool isInBounds(const ReplayTilemap &tilemap, int x, int y) noexcept {
 	return x >= 0 && y >= 0 && x < tilemap.width && y < tilemap.height;
 }
 
-ReplayTile tileAt(const ReplayTilemap &tilemap, int x, int y) noexcept {
+TileFlags tileAt(const ReplayTilemap &tilemap, int x, int y) noexcept {
 	return tilemap.tiles[y * tilemap.width + x];
 }
 

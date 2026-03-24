@@ -54,14 +54,7 @@ void encodeTilemap(WriteBuffer &writer, const ReplayTilemap &tilemap) {
 	}
 
 	for (const auto &tile : tilemap.tiles) {
-		writer.writeU8(packTileFlags(
-			TileFlags{
-				.terrain = tile.terrain,
-				.side = tile.side,
-				.is_resource = tile.is_resource,
-				.is_base = tile.is_base,
-			}
-		));
+		writer.writeU8(tile.pack());
 	}
 }
 
@@ -99,15 +92,7 @@ DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 	}
 	tilemap.tiles.reserve(count);
 	for (std::size_t i = 0; i < count; ++i) {
-		const auto flags = unpackTileFlags(reader.readU8());
-		tilemap.tiles.push_back(
-			ReplayTile{
-				.terrain = flags.terrain,
-				.side = flags.side,
-				.is_resource = flags.is_resource,
-				.is_base = flags.is_base,
-			}
-		);
+		tilemap.tiles.push_back(TileFlags::unpack(reader.readU8()));
 	}
 	return tilemap;
 }
@@ -840,8 +825,7 @@ const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
 	return _end_marker;
 }
 
-std::expected<const ReplayHeader &, DecodeErrorCode>
-ReplayStreamDecoder::readHeader() {
+std::expected<void, DecodeErrorCode> ReplayStreamDecoder::readHeader() {
 	assert(!hasHeader());
 	assert(canReadHeader());
 	ReadBuffer reader(*_stream);
@@ -851,7 +835,7 @@ ReplayStreamDecoder::readHeader() {
 	}
 	_header = std::move(*header_result);
 	_phase = ReplayParsePhase::Tick;
-	return (_header);
+	return {};
 }
 
 ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {

@@ -10,10 +10,10 @@ struct TileFlags {
 	std::uint8_t side = 0;
 	bool is_resource = false;
 	bool is_base = false;
-};
 
-std::uint8_t packTileFlags(const TileFlags &tile) noexcept;
-TileFlags unpackTileFlags(std::uint8_t packed) noexcept;
+	static TileFlags unpack(std::uint8_t packed) noexcept;
+	std::uint8_t pack(this TileFlags tile) noexcept;
+};
 
 } // namespace cr
 

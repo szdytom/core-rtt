@@ -4,6 +4,7 @@
 #include "corertt/buffer.h"
 #include "corertt/runtime.h"
 #include "corertt/stream_adapter.h"
+#include "corertt/tile_codec.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -113,18 +114,11 @@ private:
 	std::string _prefix;
 };
 
-struct ReplayTile {
-	std::uint8_t terrain = 0;
-	std::uint8_t side = 0;
-	bool is_resource = false;
-	bool is_base = false;
-};
-
 struct ReplayTilemap {
 	std::uint16_t width = 0;
 	std::uint16_t height = 0;
 	std::uint16_t base_size = 0;
-	std::vector<ReplayTile> tiles;
+	std::vector<TileFlags> tiles;
 };
 
 struct ReplayPlayer {
@@ -319,7 +313,7 @@ public:
 	const ReplayHeader &header() const;
 	const ReplayEndMarker &endMarker() const;
 
-	std::expected<const ReplayHeader &, DecodeErrorCode> readHeader();
+	std::expected<void, DecodeErrorCode> readHeader();
 	ReadResult nextTick();
 
 private:

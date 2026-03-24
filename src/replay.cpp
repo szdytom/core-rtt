@@ -1,5 +1,6 @@
 #include "corertt/replay.h"
 #include "corertt/entity.h"
+#include "corertt/fail_fast.h"
 #include "corertt/tile_codec.h"
 #include "corertt/tilemap.h"
 #include "corertt/world.h"
@@ -44,7 +45,8 @@ void encodeTilemap(WriteBuffer &writer, const ReplayTilemap &tilemap) {
 	writer.writeU16(0);
 
 	if (tilemap.tiles.size() != tileCount(tilemap)) {
-		throw std::runtime_error(
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false,
 			std::format(
 				"Replay encode failed: tile count mismatch (expected {}, got "
 				"{})",
@@ -92,7 +94,9 @@ DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 
 void encodeLogEntry(WriteBuffer &writer, const ReplayLogEntry &entry) {
 	if (entry.payload.size() > std::numeric_limits<std::uint16_t>::max()) {
-		throw std::runtime_error("Replay encode failed: log payload too large");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay encode failed: log payload too large"
+		);
 	}
 
 	writer.write(
@@ -155,13 +159,17 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 
 void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
 	if (tick.units.size() > std::numeric_limits<std::uint16_t>::max()) {
-		throw std::runtime_error("Replay encode failed: too many units");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay encode failed: too many units"
+		);
 	}
 	if (tick.bullets.size() > std::numeric_limits<std::uint16_t>::max()) {
-		throw std::runtime_error("Replay encode failed: too many bullets");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay encode failed: too many bullets"
+		);
 	}
 	if (tick.logs.size() > std::numeric_limits<std::uint16_t>::max()) {
-		throw std::runtime_error("Replay encode failed: too many logs");
+		CR_FAIL_FAST_ASSERT_LIGHT(false, "Replay encode failed: too many logs");
 	}
 
 	writer.write(std::to_underlying(ReplayRecordType::Tick), tick.tick);
@@ -198,8 +206,8 @@ void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
 
 	const auto payload_size = writer.size() - payload_begin;
 	if (payload_size > std::numeric_limits<std::uint32_t>::max()) {
-		throw std::runtime_error(
-			"Replay encode failed: tick payload too large"
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay encode failed: tick payload too large"
 		);
 	}
 	writer.patchU32(payload_size_offset, payload_size);
@@ -306,8 +314,8 @@ void encodeReplayHeader(WriteBuffer &writer, const ReplayHeader &header) {
 	writer.writeBytes(replay_magic);
 	const auto header_size = tilemapEncodedSize(header.tilemap);
 	if (header_size > std::numeric_limits<std::uint16_t>::max()) {
-		throw std::runtime_error(
-			"Replay encode failed: header payload too large"
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay encode failed: header payload too large"
 		);
 	}
 	writer.write(header.version);
@@ -456,7 +464,9 @@ ReplayLogEntry ReplayLogEntry::executionExceptionLog(
 ) {
 	const auto reason_string = std::format("{}", reason);
 	if (reason_string.empty()) {
-		throw std::runtime_error("Replay log failed: invalid stop reason");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay log failed: invalid stop reason"
+		);
 	}
 
 	return {
@@ -473,7 +483,9 @@ ReplayLogEntry ReplayLogEntry::baseCapturedLog(
 	std::uint32_t tick, std::uint8_t winner_player_id
 ) {
 	if (winner_player_id == 0 || winner_player_id > 2) {
-		throw std::runtime_error("Replay log failed: invalid player id");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay log failed: invalid player id"
+		);
 	}
 
 	static constexpr std::array<std::string_view, 2> messages = {
@@ -705,15 +717,20 @@ std::vector<std::byte> ReplayTickFrame::encode(const ReplayTickFrame &tick) {
 	return write_buffer.take();
 }
 
-ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) {
+ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) noexcept {
 	if (world.gameOver()) {
 		return ReplayEndMarker::completed(world.winnerPlayerId());
 	}
 	return ReplayEndMarker::aborted();
 }
 
-ReplayEndMarker ReplayEndMarker::completed(std::uint8_t winner_player_id) {
-	assert(winner_player_id == 1 || winner_player_id == 2);
+ReplayEndMarker ReplayEndMarker::completed(
+	std::uint8_t winner_player_id
+) noexcept {
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		winner_player_id == 1 || winner_player_id == 2,
+		std::format("invalid winner player id: {}", winner_player_id)
+	);
 
 	return {
 		.termination = ReplayTermination::Completed,
@@ -721,7 +738,7 @@ ReplayEndMarker ReplayEndMarker::completed(std::uint8_t winner_player_id) {
 	};
 }
 
-ReplayEndMarker ReplayEndMarker::aborted() {
+ReplayEndMarker ReplayEndMarker::aborted() noexcept {
 	return {.termination = ReplayTermination::Aborted, .winner_player_id = 0};
 }
 
@@ -745,13 +762,13 @@ void encodeTo(WriteBuffer &write_buffer, const ReplayEndMarker &end_marker) {
 	encodeReplayEndMarker(write_buffer, end_marker);
 }
 
-ReplayStreamDecoder::ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream)
+ReplayStreamDecoder::ReplayStreamDecoder(
+	std::unique_ptr<StreamAdapter> stream
+) noexcept
 	: _stream(std::move(stream)) {
-	if (_stream == nullptr) {
-		throw std::runtime_error(
-			"Replay decode failed: stream adapter cannot be null"
-		);
-	}
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		_stream != nullptr, "stream adapter cannot be null"
+	);
 }
 
 ReplayStreamDecoder::ReplayStreamDecoder(std::istream &stream)
@@ -801,25 +818,32 @@ bool ReplayStreamDecoder::canReadNextRecord() {
 	return _stream->has(9zu + payload_size);
 }
 
-const ReplayHeader &ReplayStreamDecoder::header() const {
+const ReplayHeader &ReplayStreamDecoder::header() const noexcept {
 	if (!hasHeader()) {
-		throw std::runtime_error("Replay decode failed: header not available");
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay decode failed: header not available"
+		);
 	}
 	return _header;
 }
 
-const ReplayEndMarker &ReplayStreamDecoder::endMarker() const {
+const ReplayEndMarker &ReplayStreamDecoder::endMarker() const noexcept {
 	if (!ended()) {
-		throw std::runtime_error(
-			"Replay decode failed: end marker not available"
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			false, "Replay decode failed: end marker not available"
 		);
 	}
 	return _end_marker;
 }
 
 std::expected<void, DecodeErrorCode> ReplayStreamDecoder::readHeader() {
-	assert(!hasHeader());
-	assert(canReadHeader());
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		!hasHeader(), "ReplayStreamDecoder::readHeader called after header read"
+	);
+	CR_FAIL_FAST_ASSERT_HEAVY(
+		canReadHeader(),
+		"ReplayStreamDecoder::readHeader called before header is available"
+	);
 	ReadBuffer reader(*_stream);
 	auto header_result = decodeReplayHeader(reader);
 	if (!header_result.has_value()) {
@@ -832,9 +856,11 @@ std::expected<void, DecodeErrorCode> ReplayStreamDecoder::readHeader() {
 
 ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
 	ReadResult result;
-	assert(hasHeader());
-	assert(!ended());
-	assert(canReadNextRecord());
+	CR_FAIL_FAST_ASSERT_LIGHT(hasHeader(), "replay header not read");
+	CR_FAIL_FAST_ASSERT_LIGHT(!ended(), "replay ended");
+	CR_FAIL_FAST_ASSERT_HEAVY(
+		canReadNextRecord(), "complete next record not available yet"
+	);
 
 	if (ended()) {
 		result.status = ReadStatus::End;

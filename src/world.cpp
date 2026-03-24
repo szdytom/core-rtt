@@ -1,10 +1,9 @@
 #include "corertt/world.h"
 #include "corertt/entity.h"
+#include "corertt/fail_fast.h"
 #include "corertt/runtime.h"
 #include "corertt/xoroshiro.h"
 #include <algorithm>
-#include <cpptrace/basic.hpp>
-#include <iostream>
 #include <queue>
 #include <random>
 #include <set>
@@ -102,13 +101,10 @@ World::World(Tilemap tilemap) noexcept
 		}
 	}
 
-#ifndef NDEBUG
-	if (!base_found[0] || !base_found[1]) {
-		std::cerr << "Error: failed to find base for both players in tilemap\n";
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
-#endif
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		base_found[0] && base_found[1],
+		"Failed to find base for both players in tilemap"
+	);
 
 	// Init each base with 3 units
 	for (auto &player : _players) {
@@ -385,17 +381,7 @@ void World::_processUnitMovement() noexcept {
 			}
 		}
 
-		if (occ == -1) {
-			// Shouldn't happen
-#ifndef NDEBUG
-			std::cerr << "Error: occupant not found or inactive\n";
-			cpptrace::generate_trace().print(std::cerr);
-			std::abort();
-#endif
-			active[i] = false;
-			continue;
-		}
-
+		CR_FAIL_FAST_ASSERT_LIGHT(occ != -1, "Occupant not found or inactive");
 		blocked_by[occ].push_back(i);
 	}
 
@@ -592,10 +578,9 @@ void World::_spawnUnitAtBase(std::uint8_t player_id, std::uint8_t unit_id) {
 		}
 	}
 
-	if (empty_tiles.empty()) {
-		// Insufficient capacity, unit can't be spawned.
-		throw std::runtime_error("Failed to spawn unit at base: no empty tile");
-	}
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		!empty_tiles.empty(), "Failed to spawn unit at base: no empty tile"
+	);
 
 	// Randomly select an empty tile to spawn the unit
 	auto &rng = Xoroshiro128PP::globalInstance();
@@ -779,13 +764,10 @@ void World::setPlayerProgram(
 	int player_id, std::vector<std::uint8_t> base_elf,
 	std::vector<std::uint8_t> unit_elf
 ) noexcept {
-#ifndef NDEBUG
-	if (player_id < 1 || player_id > 2) {
-		std::cerr << "Error: invalid player_id in setPlayerProgram\n";
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
-#endif
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		player_id >= 1 && player_id <= 2,
+		"World::setPlayerProgram invalid player_id"
+	);
 
 	auto &player = _players[player_id - 1];
 	player.base_elf = std::move(base_elf);

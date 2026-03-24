@@ -174,9 +174,9 @@ struct ReplayEndMarker {
 	ReplayTermination termination = ReplayTermination::Aborted;
 	std::uint8_t winner_player_id = 0;
 
-	static ReplayEndMarker aborted();
-	static ReplayEndMarker completed(std::uint8_t winner_player_id);
-	static ReplayEndMarker fromWorld(const World &world);
+	static ReplayEndMarker aborted() noexcept;
+	static ReplayEndMarker completed(std::uint8_t winner_player_id) noexcept;
+	static ReplayEndMarker fromWorld(const World &world) noexcept;
 	static std::vector<std::byte> encode(const ReplayEndMarker &end_marker);
 };
 
@@ -284,7 +284,9 @@ enum class ReplayParsePhase {
 
 class ReplayStreamDecoder {
 public:
-	explicit ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream);
+	explicit ReplayStreamDecoder(
+		std::unique_ptr<StreamAdapter> stream
+	) noexcept;
 	explicit ReplayStreamDecoder(std::istream &stream);
 
 	enum class ReadStatus {
@@ -310,8 +312,8 @@ public:
 		return _phase == ReplayParsePhase::End;
 	}
 
-	const ReplayHeader &header() const;
-	const ReplayEndMarker &endMarker() const;
+	const ReplayHeader &header() const noexcept;
+	const ReplayEndMarker &endMarker() const noexcept;
 
 	std::expected<void, DecodeErrorCode> readHeader();
 	ReadResult nextTick();

@@ -1,4 +1,5 @@
 #include "corertt/tui.h"
+#include "corertt/fail_fast.h"
 #include "corertt/replay.h"
 #include "corertt/tilemap.h"
 #include <algorithm>
@@ -130,15 +131,17 @@ const ReplayBullet *findBulletAt(
 MapCellVisual describeMapCell(
 	const PlaybackState &playback_state, int x, int y
 ) noexcept {
-	if (!playback_state.hasHeader()) {
-		assert(0); // should not call this when no header
-	}
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		playback_state.hasHeader(), "replay header is not available"
+	);
 
 	const auto &tilemap = playback_state.progress.header.tilemap;
 	const auto &current_tick = playback_state.progress.current_tick;
-	if (!isInBounds(tilemap, x, y)) {
-		assert(0); // should not call this when out of bounds
-	}
+
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		isInBounds(tilemap, x, y),
+		std::format("out-of-bounds coordinate ({}, {})", x, y)
+	);
 
 	const auto tile = tileAt(tilemap, x, y);
 

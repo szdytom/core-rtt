@@ -1,9 +1,8 @@
 #include "corertt/noise.h"
+#include "corertt/fail_fast.h"
 #include <algorithm>
 #include <cmath>
-#include <cpptrace/cpptrace.hpp>
 #include <format>
-#include <iostream>
 #include <random>
 
 namespace cr {
@@ -138,15 +137,9 @@ void UniformPerlinNoise::calibrate(
 }
 
 double UniformPerlinNoise::uniform_noise(double x, double y) const {
-#ifndef NDEBUG
-	if (!_is_calibrated) {
-		std::cerr << std::format(
-			"UniformPerlinNoise::uniform_noise() called before calibration.\n"
-		);
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
-#endif
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		_is_calibrated, "calibration must be performed first"
+	);
 
 	// Generate raw noise value
 	double raw_value;

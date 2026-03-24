@@ -1,5 +1,5 @@
 #include "corertt/buffer.h"
-#include <cassert>
+#include "corertt/fail_fast.h"
 #include <cstring>
 
 namespace cr {
@@ -37,7 +37,13 @@ void WriteBuffer::writeBytes(std::span<const std::byte> bytes) noexcept {
 }
 
 void WriteBuffer::patchU32(std::size_t offset, std::uint32_t value) noexcept {
-	assert(offset + sizeof(std::uint32_t) <= _buffer.size());
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		offset + sizeof(std::uint32_t) <= _buffer.size(),
+		std::format(
+			"offset {} out of bounds(buffer size {}) U32", offset,
+			_buffer.size()
+		)
+	);
 	_buffer[offset] = static_cast<std::byte>(value & 0xFF);
 	_buffer[offset + 1] = static_cast<std::byte>((value >> 8) & 0xFF);
 	_buffer[offset + 2] = static_cast<std::byte>((value >> 16) & 0xFF);
@@ -63,7 +69,7 @@ bool ReadBuffer::has(std::size_t size) {
 }
 
 void ReadBuffer::require(std::size_t size) {
-	assert(has(size));
+	CR_FAIL_FAST_ASSERT_HEAVY(has(size), "requested bytes are unavailable");
 }
 
 std::uint8_t ReadBuffer::readU8() {
@@ -113,7 +119,9 @@ std::span<const std::byte> ReadBuffer::peek(std::size_t size) {
 std::span<const std::byte> ReadBuffer::peek(
 	std::size_t left, std::size_t right
 ) {
-	assert(left <= right);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		left <= right, std::format("invalid range ({}, {})", left, right)
+	);
 	require(right);
 	return _stream.peek(left, right);
 }
@@ -127,7 +135,10 @@ std::span<const std::byte> ReadBuffer::readBytes(std::size_t size) {
 
 void ReadBuffer::take(std::size_t size, std::span<std::byte> out) {
 	require(size);
-	assert(out.size() >= size);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		out.size() >= size,
+		std::format("output span size {} < requested size {}", out.size(), size)
+	);
 	_stream.take(size, out);
 }
 

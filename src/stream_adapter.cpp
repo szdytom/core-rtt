@@ -1,7 +1,7 @@
 #include "corertt/stream_adapter.h"
+#include "corertt/fail_fast.h"
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cstring>
 #include <istream>
 
@@ -17,27 +17,32 @@ bool MemoryStreamAdapter::has(std::size_t size) {
 }
 
 std::span<const std::byte> MemoryStreamAdapter::peek(std::size_t size) {
-	assert(has(size));
+	CR_FAIL_FAST_ASSERT_HEAVY(has(size), "requested bytes are unavailable");
 	return _bytes.subspan(_cursor, size);
 }
 
 std::span<const std::byte> MemoryStreamAdapter::peek(
 	std::size_t left, std::size_t right
 ) {
-	assert(left <= right);
-	assert(has(right));
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		left <= right, std::format("Range ({}, {}) is invalid", left, right)
+	);
+	CR_FAIL_FAST_ASSERT_HEAVY(has(right), "range exceeds buffer");
 	return _bytes.subspan(_cursor + left, right - left);
 }
 
 void MemoryStreamAdapter::take(std::size_t size, std::span<std::byte> out) {
-	assert(out.size() >= size);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		out.size() >= size,
+		std::format("Output span size {} < requested size {}", out.size(), size)
+	);
 	const auto bytes = peek(size);
 	std::memcpy(out.data(), bytes.data(), size);
 	_cursor += size;
 }
 
 void MemoryStreamAdapter::skip(std::size_t size) {
-	assert(has(size));
+	CR_FAIL_FAST_ASSERT_HEAVY(has(size), "requested bytes are unavailable");
 	_cursor += size;
 }
 
@@ -57,22 +62,29 @@ bool IstreamAdapter::has(std::size_t size) {
 }
 
 std::span<const std::byte> IstreamAdapter::peek(std::size_t size) {
-	assert(has(size));
+	CR_FAIL_FAST_ASSERT_HEAVY(has(size), "requested bytes are unavailable");
 	return std::span<const std::byte>(_buffer).subspan(_cursor, size);
 }
 
 std::span<const std::byte> IstreamAdapter::peek(
 	std::size_t left, std::size_t right
 ) {
-	assert(left <= right);
-	assert(has(right));
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		left <= right, std::format("Range ({}, {}) is invalid", left, right)
+	);
+	CR_FAIL_FAST_ASSERT_HEAVY(
+		has(right), std::format("Range ({}, {}) exceeds buffer", left, right)
+	);
 	return std::span<const std::byte>(_buffer).subspan(
 		_cursor + left, right - left
 	);
 }
 
 void IstreamAdapter::take(std::size_t size, std::span<std::byte> out) {
-	assert(out.size() >= size);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		out.size() >= size,
+		std::format("Output span size {} < requested size {}", out.size(), size)
+	);
 	const auto bytes = peek(size);
 	std::memcpy(out.data(), bytes.data(), size);
 	_cursor += size;
@@ -81,7 +93,7 @@ void IstreamAdapter::take(std::size_t size, std::span<std::byte> out) {
 }
 
 void IstreamAdapter::skip(std::size_t size) {
-	assert(has(size));
+	CR_FAIL_FAST_ASSERT_HEAVY(has(size), "requested bytes are unavailable");
 	_cursor += size;
 	_absolute_position += size;
 	compactBuffer();

@@ -1,12 +1,10 @@
 #include "corertt/runtime.h"
 #include "corertt/entity.h"
+#include "corertt/fail_fast.h"
 #include "corertt/replay.h"
 #include "corertt/world.h"
 #include "corertt/xoroshiro.h"
 #include <bit>
-#include <cpptrace/basic.hpp>
-#include <cstdlib>
-#include <iostream>
 #include <libriscv/common.hpp>
 #include <libriscv/types.hpp>
 #include <memory>
@@ -16,28 +14,12 @@ namespace cr {
 
 namespace {
 
-#ifndef NDEBUG
 RuntimeECallContext *check_userdata(RVMachine &machine) {
 	auto ctx = machine.get_userdata<RuntimeECallContext>();
-	if (!ctx) {
-		std::cerr << "ECALL error: userdata is null\n";
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
-
-	if (ctx->world == nullptr) {
-		std::cerr << "ECALL error: world pointer is null\n";
-		cpptrace::generate_trace().print(std::cerr);
-		std::abort();
-	}
+	CR_FAIL_FAST_ASSERT_LIGHT(ctx != nullptr, "userdata is null");
+	CR_FAIL_FAST_ASSERT_LIGHT(ctx->world != nullptr, "world pointer is null");
 	return ctx;
 }
-#else
-RuntimeECallContext *check_userdata(RVMachine &machine) {
-	// Do nothing in release mode.
-	return machine.get_userdata<RuntimeECallContext>();
-}
-#endif
 
 void ecall_ebreak(RVMachine &machine) {}
 

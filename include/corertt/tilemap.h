@@ -2,18 +2,13 @@
 #define CORERTT_TILEMAP_H
 
 #include "corertt/entity.h"
+#include "corertt/fail_fast.h"
 #include "corertt/xoroshiro.h"
 #include <cstdint>
 #include <iosfwd>
 #include <istream>
 #include <memory>
 #include <utility>
-
-#ifndef NDEBUG
-#include <cpptrace/cpptrace.hpp>
-#include <cstdlib>
-#include <iostream>
-#endif
 
 namespace cr {
 
@@ -73,32 +68,26 @@ public:
 	}
 
 	Tile tileOf(int x, int y) const noexcept {
-#ifndef NDEBUG
-		if (x < 0 || x >= _width || y < 0 || y >= _height) {
-			std::cerr << std::format(
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			x >= 0 && x < _width && y >= 0 && y < _height,
+			std::format(
 				"Tilemap::tileOf() out of bounds access: ({}, {}) with size "
-				"({}, {})\n",
+				"({}, {})",
 				x, y, _width, _height
-			);
-			cpptrace::generate_trace().print(std::cerr);
-			std::abort();
-		}
-#endif
+			)
+		);
 		return _tiles[y * _width + x];
 	}
 
 	Tile &tileOf(int x, int y) noexcept {
-#ifndef NDEBUG
-		if (x < 0 || x >= _width || y < 0 || y >= _height) {
-			std::cerr << std::format(
+		CR_FAIL_FAST_ASSERT_LIGHT(
+			x >= 0 && x < _width && y >= 0 && y < _height,
+			std::format(
 				"Tilemap::tileOf() out of bounds access: ({}, {}) with size "
-				"({}, {})\n",
+				"({}, {})",
 				x, y, _width, _height
-			);
-			cpptrace::generate_trace().print(std::cerr);
-			std::abort();
-		}
-#endif
+			)
+		);
 		return _tiles[y * _width + x];
 	}
 

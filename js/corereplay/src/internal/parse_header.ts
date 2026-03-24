@@ -14,11 +14,7 @@ const max_tile_count = max_tile_dimension * max_tile_dimension;
 
 export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseResult {
 	const available = bytes.subarray(offset);
-	const reader = new ByteReader(available);
-
-	if (!reader.has(8)) {
-		throw new ReplayDecodeError('TRUNCATED_INPUT', offset + reader.cursor());
-	}
+	const reader = new ByteReader(available, offset);
 
 	for (const expected of replay_magic) {
 		const actual = reader.readU8();
@@ -31,13 +27,6 @@ export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseRes
 	const header_size = reader.readU16();
 	if (version !== replay_version) {
 		throw new ReplayDecodeError('UNSUPPORTED_VERSION', offset + 4);
-	}
-
-	if (!reader.has(header_size)) {
-		throw new ReplayDecodeError(
-			'TRUNCATED_HEADER_PAYLOAD',
-			offset + reader.cursor(),
-		);
 	}
 
 	const header_payload = reader.readBytes(header_size);
@@ -54,10 +43,7 @@ export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseRes
 }
 
 function parseTilemap(bytes: Uint8Array, absolute_offset: number): ReplayTilemap {
-	const reader = new ByteReader(bytes);
-	if (!reader.has(8)) {
-		throw new ReplayDecodeError('TRUNCATED_TILEMAP_HEADER', absolute_offset);
-	}
+	const reader = new ByteReader(bytes, absolute_offset);
 
 	const width = reader.readU16();
 	const height = reader.readU16();
@@ -76,13 +62,6 @@ function parseTilemap(bytes: Uint8Array, absolute_offset: number): ReplayTilemap
 		throw new ReplayDecodeError(
 			'TILEMAP_TILE_COUNT_EXCEEDS_MAXIMUM',
 			absolute_offset,
-		);
-	}
-
-	if (!reader.has(tile_count)) {
-		throw new ReplayDecodeError(
-			'TILEMAP_DATA_TRUNCATED',
-			absolute_offset + reader.cursor(),
 		);
 	}
 

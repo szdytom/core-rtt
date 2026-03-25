@@ -2,7 +2,6 @@
 #define CORERTT_PLAIN_UI_H
 
 #include "corertt/ui.h"
-#include <atomic>
 #include <iosfwd>
 
 namespace cr {
@@ -25,7 +24,6 @@ public:
 private:
 	std::ostream &_output;
 	std::ostream &_error;
-	std::atomic<bool> _stop_requested = false;
 };
 
 } // namespace cr

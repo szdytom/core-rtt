@@ -83,11 +83,9 @@ void PlainUIRunner::publishError(const std::string &message) {
 }
 
 bool PlainUIRunner::shouldStop() const noexcept {
-	return _stop_requested.load(std::memory_order_relaxed);
+	return false;
 }
 
-void PlainUIRunner::requestStop() noexcept {
-	_stop_requested.store(true, std::memory_order_relaxed);
-}
+void PlainUIRunner::requestStop() noexcept {}
 
 } // namespace cr

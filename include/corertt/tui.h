@@ -3,7 +3,6 @@
 
 #include "corertt/replay.h"
 #include "corertt/ui.h"
-#include <atomic>
 #include <ftxui/component/screen_interactive.hpp>
 #include <mutex>
 #include <string>
@@ -41,7 +40,6 @@ private:
 	void runUIThread(std::stop_token stop_token);
 
 	TuiSynchronizedReplayProgress _replay;
-	std::atomic<bool> _stop_requested = false;
 	std::jthread _ui_thread;
 	ftxui::ScreenInteractive _screen;
 };

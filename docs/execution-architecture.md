@@ -13,14 +13,11 @@ A brief description of the headless mode (`corertt_headless`) is also included a
 1. Parse CLI options (`parseOptions`).
 2. Validate `--step-interval-ms > 0`.
 3. Create UI instance from `--ui-mode`:
-   - `tui`: `TuiUi`
-   - `plain`: `PlainUi`
 4. Select runtime mode:
    - `--play-replay <file>`: playback mode (`runPlaybackMode`).
    - otherwise: live simulation mode (`runLiveMode`).
 
-All top-level exceptions are converted into stderr messages and process exit code
-`1`.
+All top-level exceptions are converted into stderr messages and process exit code `1`.
 
 ## UI abstraction contract
 

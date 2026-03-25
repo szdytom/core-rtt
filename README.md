@@ -39,16 +39,6 @@ This repository now builds two runtime executables:
 - `corertt`: runtime mode with selectable UI (`--ui-mode=tui|plain`, default `tui`). It supports live simulation and replay playback.
 - `corertt_headless`: a non-interactive mode without UI. It runs full-speed simulation and writes a binary replay file for later analysis or playback.
 
-Example:
-
-```sh
-# Live simulation with plain text output
-./build/corertt --ui-mode plain
-
-# Replay playback with plain text output
-./build/corertt --play-replay replay.bin --ui-mode plain
-```
-
 ## Game Rules and Programming
 
 Please refer to

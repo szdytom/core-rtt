@@ -492,11 +492,14 @@ void TuiRunner::publishError(const std::string &message) {
 }
 
 bool TuiRunner::shouldStop() const noexcept {
-	return _stop_requested.load(std::memory_order_relaxed);
+	return _ui_thread.joinable()
+		&& _ui_thread.get_stop_token().stop_requested();
 }
 
 void TuiRunner::requestStop() noexcept {
-	_stop_requested.store(true, std::memory_order_relaxed);
+	if (_ui_thread.joinable()) {
+		_ui_thread.request_stop();
+	}
 	_screen.PostEvent(ftxui::Event::Custom);
 }
 
@@ -564,7 +567,9 @@ void TuiRunner::runUIThread(std::stop_token stop_token) {
 		}
 
 		if (event == Event::q || event == Event::Q || event == Event::Escape) {
-			_stop_requested.store(true, std::memory_order_relaxed);
+			if (_ui_thread.joinable()) {
+				_ui_thread.request_stop();
+			}
 			_screen.ExitLoopClosure()();
 			return true;
 		}

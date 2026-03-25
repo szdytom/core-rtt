@@ -32,6 +32,11 @@ export function decodeReplay(
 		break;
 	}
 
+	decoder.finalize();
+	if (end_marker == null) {
+		end_marker = decoder.state().endMarker;
+	}
+
 	if (header == null) {
 		throw new ReplayDecodeError('MISSING_HEADER', decoder.position());
 	}

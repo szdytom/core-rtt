@@ -56,6 +56,50 @@ describe('decodeReplay', () => {
 		}
 	});
 
+	test('decodes header-only replay in non-strict mode', () => {
+		const full = sampleReplayBytes();
+		const header_size = full[6] | (full[7] << 8);
+		const header_total_size = 8 + header_size;
+		const header_only = full.subarray(0, header_total_size);
+
+		const replay = decodeReplay(header_only, { strict: false });
+		expect(replay.ticks).toHaveLength(0);
+		expect(replay.endMarker.termination).toBe('aborted');
+		expect(replay.endMarker.winnerPlayerId).toBe(0);
+	});
+
+	test('decodes replay without end marker in non-strict mode', () => {
+		const full = sampleReplayBytes();
+		const missing_end_marker = full.subarray(0, full.length - 3);
+
+		expect(() => decodeReplay(missing_end_marker)).toThrowError(ReplayDecodeError);
+
+		const replay = decodeReplay(missing_end_marker, { strict: false });
+		expect(replay.ticks).toHaveLength(1);
+		expect(replay.endMarker.termination).toBe('aborted');
+		expect(replay.endMarker.winnerPlayerId).toBe(0);
+	});
+
+	test('ignores truncated trailing tick in non-strict mode', () => {
+		const full = sampleReplayBytes();
+		const missing_end_marker = full.subarray(0, full.length - 3);
+		const partial_second_tick = u8(
+			1,
+			6, 0, 0, 0,
+			10, 0, 0, 0,
+			0xaa, 0xbb,
+		);
+		const truncated_tail = concatBytes(missing_end_marker, partial_second_tick);
+
+		expect(() => decodeReplay(truncated_tail)).toThrowError(ReplayDecodeError);
+
+		const replay = decodeReplay(truncated_tail, { strict: false });
+		expect(replay.ticks).toHaveLength(1);
+		expect(replay.ticks[0].tick).toBe(5);
+		expect(replay.endMarker.termination).toBe('aborted');
+		expect(replay.endMarker.winnerPlayerId).toBe(0);
+	});
+
 	test('throws when unit count exceeds maximum', () => {
 		const bytes = sampleReplayBytes();
 

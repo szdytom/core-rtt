@@ -20,6 +20,23 @@ console.log(replay.header.version);
 console.log(replay.ticks.length);
 ```
 
+### Strict vs non-strict decoding
+
+Decoding is strict by default. This requires a complete replay stream with a valid end marker.
+
+Set `strict: false` to enable tolerant decoding for incomplete files (for example: header-only files, missing end marker, or a truncated final tick record). In this mode:
+
+- all complete tick frames are returned;
+- trailing incomplete bytes are ignored;
+- an aborted end marker is synthesized automatically.
+
+```ts
+import { decodeReplay } from '@corertt/corereplay';
+
+const replay = decodeReplay(bytes, { strict: false });
+console.log(replay.endMarker); // { termination: 'aborted', winnerPlayerId: 0 }
+```
+
 ```ts
 import { decodeReplayStream } from '@corertt/corereplay';
 

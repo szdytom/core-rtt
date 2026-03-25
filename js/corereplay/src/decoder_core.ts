@@ -16,6 +16,7 @@ const record_type_end = 255;
 
 export class ReplayDecoderCore implements InternalDecoder {
 	private readonly limits: TickParseLimits;
+	private readonly is_strict: boolean;
 	private phase: ParsePhase = ParsePhase.Header;
 	private buffer = new Uint8Array(0);
 	private cursor = 0;
@@ -24,6 +25,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 	private end_marker: ReplayEndMarker | undefined;
 
 	constructor(options: DecodeOptions = {}) {
+		this.is_strict = options.strict ?? true;
 		this.limits = {
 			maxUnitsPerTick: options.maxUnitsPerTick ?? 30,
 			maxBulletsPerTick: options.maxBulletsPerTick ?? 4096,
@@ -147,9 +149,23 @@ export class ReplayDecoderCore implements InternalDecoder {
 		if (!state.hasHeader) {
 			throw new ReplayDecodeError('MISSING_HEADER', this.position());
 		}
-		if (!state.ended) {
+		if (state.ended) {
+			return;
+		}
+
+		if (this.is_strict) {
 			throw new ReplayDecodeError('MISSING_END_MARKER', this.position());
 		}
+
+		this.synthesizeAbortedEndMarker();
+	}
+
+	private synthesizeAbortedEndMarker(): void {
+		this.end_marker = {
+			termination: 'aborted',
+			winnerPlayerId: 0,
+		};
+		this.phase = ParsePhase.End;
 	}
 
 	private compact(): void {

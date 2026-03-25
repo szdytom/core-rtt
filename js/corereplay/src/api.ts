@@ -8,6 +8,11 @@ import type {
 } from './types.js';
 
 export interface DecodeOptions {
+	/**
+	 * Decoding strictness.
+	 * - `true` (default): replay must contain a full end marker.
+	 * - `false`: tolerate EOF truncation and synthesize an aborted end marker.
+	 */
 	strict?: boolean;
 	maxUnitsPerTick?: number;
 	maxBulletsPerTick?: number;

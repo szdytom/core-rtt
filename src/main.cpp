@@ -173,8 +173,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (options.step_interval_ms <= 0) {
-		std::cerr << "--step-interval-ms must be positive\n";
+	if (options.step_interval_ms < 0) {
+		std::cerr << "--step-interval-ms must be non-negative\n";
 		return 1;
 	}
 

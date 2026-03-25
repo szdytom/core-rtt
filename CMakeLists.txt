@@ -28,16 +28,6 @@ configure_file(
 	@ONLY
 )
 
-# msft_proxy
-FetchContent_Declare(msft_proxy4
-	GIT_REPOSITORY https://github.com/microsoft/proxy.git
-	GIT_TAG 4.0.1
-	GIT_SHALLOW ON
-	GIT_PROGRESS ON
-	EXCLUDE_FROM_ALL SYSTEM
-)
-FetchContent_MakeAvailable(msft_proxy4)
-
 # nlohmann_json
 FetchContent_Declare(
 	json
@@ -114,10 +104,8 @@ target_include_directories(corertt_core PUBLIC
 )
 
 target_link_libraries(corertt_core PUBLIC
-	msft_proxy4::proxy
 	cpptrace::cpptrace
 	riscv
-	nlohmann_json::nlohmann_json
 )
 
 add_executable(corertt
@@ -128,18 +116,8 @@ add_executable(corertt
 target_link_libraries(corertt PRIVATE
 	corertt_core
 	argparse::argparse
+	cpptrace::cpptrace
 	ftxui::screen
 	ftxui::dom
 	ftxui::component
-
-)
-
-add_executable(corertt_replay_log
-	src/tools/replay_log_extract.cpp
-)
-
-target_link_libraries(corertt_replay_log PRIVATE
-	corertt_core
-	argparse::argparse
-	nlohmann_json::nlohmann_json
 )

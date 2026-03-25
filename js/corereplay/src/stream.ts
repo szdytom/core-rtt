@@ -11,6 +11,7 @@ export async function* decodeReplayStream(
 	options: DecodeOptions = {},
 ): AsyncGenerator<ReplayStreamEvent, import('./types.js').ReplayEndMarker, void> {
 	const decoder = new ReplayDecoderCore(options);
+	let end_emitted = false;
 
 	for await (const chunk of toAsyncIterable(input)) {
 		decoder.push(chunk);
@@ -28,6 +29,7 @@ export async function* decodeReplayStream(
 				yield { kind: 'tick', tick: result.tick };
 				continue;
 			}
+			end_emitted = true;
 			yield { kind: 'end', endMarker: result.endMarker };
 			return result.endMarker;
 		}
@@ -35,6 +37,9 @@ export async function* decodeReplayStream(
 
 	decoder.finalize();
 	const state = decoder.state();
+	if (!end_emitted) {
+		yield { kind: 'end', endMarker: state.endMarker! };
+	}
 	// finalize() ensures end marker exists.
 	return state.endMarker!;
 }

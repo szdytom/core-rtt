@@ -89,4 +89,28 @@ describe('replay-cli', () => {
 	test('throws when replay-file is missing', async () => {
 		await expect(run(['--format', 'jsonl'])).rejects.toThrow('Missing required argument: --replay-file');
 	});
+
+	test('defaults to non-strict decode for truncated replay tail', async () => {
+		const dir = await createTempDir();
+		const replay_path = join(dir, 'sample.replay');
+		const output_path = join(dir, 'logs.jsonl');
+		const full = sampleReplayBytesWithPayload(u8(0x41, 0x42, 0x43));
+		const truncated = full.subarray(0, full.length - 3);
+
+		await writeFile(replay_path, truncated);
+		await run(['--replay-file', replay_path, '--output', output_path, '--format', 'jsonl']);
+
+		const content = await readFile(output_path, 'utf8');
+		expect(content).toBe('{"payload_hex":"414243","payload_text":"ABC","player_id":1,"source":"USR","tick":5,"type":"custom","unit_id":7}\n');
+	});
+
+	test('fails on truncated replay when --strict is set', async () => {
+		const dir = await createTempDir();
+		const replay_path = join(dir, 'sample.replay');
+		const full = sampleReplayBytesWithPayload(u8(0x41, 0x42, 0x43));
+		const truncated = full.subarray(0, full.length - 3);
+
+		await writeFile(replay_path, truncated);
+		await expect(run(['--replay-file', replay_path, '--strict'])).rejects.toThrow('missing end marker');
+	});
 });

@@ -1,10 +1,23 @@
 #include "corertt/cli_common.h"
 #include "corertt/replay.h"
+#include <atomic>
+#include <csignal>
 #include <iostream>
 
 namespace {
 
+static std::atomic<bool> g_terminateRequested{false};
+
+void signalHandler(int signum) noexcept {
+	if (signum == SIGTERM || signum == SIGINT) {
+		g_terminateRequested.store(true, std::memory_order_relaxed);
+	}
+}
+
 int runHeadlessLiveMode(const cr::ProgramOptions &options) {
+	std::signal(SIGTERM, signalHandler);
+	std::signal(SIGINT, signalHandler);
+
 	cr::World world = cr::createWorldFromOptions(options);
 	auto replay_file_stream = cr::openReplayFile(options.replay_file);
 	if (!replay_file_stream) {
@@ -19,9 +32,15 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 
 	while (!world.gameOver()) {
 		world.step();
+
 		auto tick = cr::ReplayTickFrame::fromWorldState(world);
 		auto tick_bytes = cr::ReplayTickFrame::encode(tick);
 		cr::writeChunk(*replay_file_stream, tick_bytes);
+
+		if (g_terminateRequested.load(std::memory_order_relaxed)) {
+			std::println(std::cerr, "Termination signal received, quitting...");
+			break;
+		}
 	}
 
 	auto end_marker = cr::ReplayEndMarker::fromWorld(world);

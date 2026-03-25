@@ -4,6 +4,8 @@ This document describes the `corertt` executable flow in `src/main.cpp`,
 including the UI abstraction layer and thread interaction in live/playback
 modes.
 
+A brief description of the headless mode (`corertt_headless`) is also included at the end.
+
 ## Entry flow
 
 `main()` executes the following steps:
@@ -22,12 +24,12 @@ All top-level exceptions are converted into stderr messages and process exit cod
 
 ## UI abstraction contract
 
-`corertt` runtime drives UI only through `IUi` (`include/corertt/ui.h`):
+`corertt` runtime drives UI only through `UIRunner` (`include/corertt/ui.h`):
 
 ```cpp
-class IUi {
+class UIRunner {
 public:
-    virtual ~IUi() = default;
+    virtual ~UIRunner() = default;
 
     virtual void start() = 0;
     virtual int wait() = 0;
@@ -138,15 +140,22 @@ Finally `return ui.wait()`.
 
 ## Headless mode (`corertt_headless`)
 
-`corertt_headless` remains unchanged and runs live simulation in a single
-thread with replay output only:
+`corertt_headless` runs a live simulation in a single thread and writes replay
+output only.
+
+Execution flow:
 
 1. Parse CLI options.
-2. Validate headless-only constraints.
-3. Build `World`.
-4. Write replay header.
-5. Loop `world.step()` until `world.gameOver()` or `--max-ticks`.
-6. Write replay end marker and exit.
+  - `--play-replay` is not available in headless mode.
+  - `--replay-file` is required.
+  - `--ui-mode` is not available in headless mode.
+  - `--step-interval-ms` is not available in headless mode (runs full speed).
+  - `--max-ticks` is available in headless mode to limit simulation length.
+2. Build `World` from map generation/file plus player ELF binaries.
+3. Write replay header.
+4. Loop until `world.gameOver()`, `--max-ticks` reached, or `SIGINT` received:
+  - `world.step()`
+  - encode and write one `ReplayTickFrame`
+5. Write replay end marker and exit.
 
-Unlike `corertt`, headless mode ignores `--step-interval-ms` to maximize
-throughput.
+Unlike `corertt`, headless mode has no producer/UI split.

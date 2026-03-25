@@ -7,9 +7,9 @@
 
 namespace cr {
 
-class PlainUi final : public IUi {
+class PlainUIRunner final : public UIRunner {
 public:
-	explicit PlainUi(std::ostream &output, std::ostream &error) noexcept;
+	PlainUIRunner(std::ostream &output, std::ostream &error) noexcept;
 
 	void start() override;
 	int wait() override;

@@ -17,13 +17,13 @@ struct TuiSynchronizedReplayProgress {
 	std::string last_error;
 };
 
-class TuiUi final : public IUi {
+class TuiRunner final : public UIRunner {
 public:
-	TuiUi() noexcept;
-	~TuiUi() override;
+	TuiRunner() noexcept;
+	~TuiRunner() override;
 
-	TuiUi(const TuiUi &) = delete;
-	TuiUi &operator=(const TuiUi &) = delete;
+	TuiRunner(const TuiRunner &) = delete;
+	TuiRunner &operator=(const TuiRunner &) = delete;
 
 	void start() override;
 	int wait() override;
@@ -38,7 +38,7 @@ public:
 
 private:
 	void notifyUpdate() noexcept;
-	void runUiThread(std::stop_token stop_token);
+	void runUIThread(std::stop_token stop_token);
 
 	TuiSynchronizedReplayProgress _replay;
 	std::atomic<bool> _stop_requested = false;

@@ -18,25 +18,25 @@ std::string_view toString(ReplayTermination termination) noexcept {
 
 } // namespace
 
-PlainUi::PlainUi(std::ostream &output, std::ostream &error) noexcept
+PlainUIRunner::PlainUIRunner(std::ostream &output, std::ostream &error) noexcept
 	: _output(output), _error(error) {}
 
-void PlainUi::start() {
+void PlainUIRunner::start() {
 	_output << "UI mode: plain\n";
 }
 
-int PlainUi::wait() {
+int PlainUIRunner::wait() {
 	return 0;
 }
 
-void PlainUi::publishHeader(const ReplayHeader &header) {
+void PlainUIRunner::publishHeader(const ReplayHeader &header) {
 	_output << std::format(
 		"H v={} map={}x{} base={}\n", header.version, header.tilemap.width,
 		header.tilemap.height, header.tilemap.base_size
 	);
 }
 
-void PlainUi::publishTick(const ReplayTickFrame &tick) {
+void PlainUIRunner::publishTick(const ReplayTickFrame &tick) {
 	_output << std::format(
 		"T t={} p1(e={},c={}) p2(e={},c={}) u={} b={} logs={}\n", tick.tick,
 		tick.players[0].base_energy, tick.players[0].base_capture_counter,
@@ -69,7 +69,7 @@ void PlainUi::publishTick(const ReplayTickFrame &tick) {
 	_output.flush();
 }
 
-void PlainUi::publishEnd(const ReplayEndMarker &end_marker) {
+void PlainUIRunner::publishEnd(const ReplayEndMarker &end_marker) {
 	_output << std::format(
 		"E term={} winner={}\n", toString(end_marker.termination),
 		end_marker.winner_player_id
@@ -77,16 +77,16 @@ void PlainUi::publishEnd(const ReplayEndMarker &end_marker) {
 	_output.flush();
 }
 
-void PlainUi::publishError(const std::string &message) {
+void PlainUIRunner::publishError(const std::string &message) {
 	_error << std::format("ERR {}\n", message);
 	_error.flush();
 }
 
-bool PlainUi::shouldStop() const noexcept {
+bool PlainUIRunner::shouldStop() const noexcept {
 	return _stop_requested.load(std::memory_order_relaxed);
 }
 
-void PlainUi::requestStop() noexcept {
+void PlainUIRunner::requestStop() noexcept {
 	_stop_requested.store(true, std::memory_order_relaxed);
 }
 

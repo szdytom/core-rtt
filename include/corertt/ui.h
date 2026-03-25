@@ -6,14 +6,14 @@
 
 namespace cr {
 
-enum class UiMode {
+enum class UIMode {
 	Tui,
 	Plain,
 };
 
-class IUi {
+class UIRunner {
 public:
-	virtual ~IUi() = default;
+	virtual ~UIRunner() = default;
 
 	virtual void start() = 0;
 	virtual int wait() = 0;

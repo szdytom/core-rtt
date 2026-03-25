@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CORERTT_CLI_COMMON_H
+#define CORERTT_CLI_COMMON_H
 
 #include "corertt/tilemap.h"
 #include "corertt/ui.h"
@@ -34,7 +35,7 @@ struct ProgramOptions {
 	std::optional<std::string> seed;
 	std::string replay_file;
 	std::string play_replay;
-	UiMode ui_mode = UiMode::Tui;
+	UIMode ui_mode = UIMode::Tui;
 };
 
 ProgramOptions parseOptions(
@@ -50,3 +51,5 @@ std::optional<std::ofstream> openReplayFile(const std::string &path);
 void writeChunk(std::ofstream &stream, std::span<const std::byte> chunk);
 
 } // namespace cr
+
+#endif // CORERTT_CLI_COMMON_H

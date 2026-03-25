@@ -12,18 +12,18 @@
 
 namespace {
 
-std::unique_ptr<cr::IUi> createUi(cr::UiMode mode) {
+std::unique_ptr<cr::UIRunner> createUI(cr::UIMode mode) {
 	switch (mode) {
-	case cr::UiMode::Tui:
-		return std::make_unique<cr::TuiUi>();
-	case cr::UiMode::Plain:
-		return std::make_unique<cr::PlainUi>(std::cout, std::cerr);
+	case cr::UIMode::Tui:
+		return std::make_unique<cr::TuiRunner>();
+	case cr::UIMode::Plain:
+		return std::make_unique<cr::PlainUIRunner>(std::cout, std::cerr);
 	}
 
 	throw std::runtime_error("Unsupported UI mode");
 }
 
-int runPlaybackMode(const cr::ProgramOptions &options, cr::IUi &ui) {
+int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 	std::chrono::milliseconds step_interval(options.step_interval_ms);
 	ui.start();
 
@@ -109,7 +109,7 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::IUi &ui) {
 	}
 }
 
-int runLiveMode(const cr::ProgramOptions &options, cr::IUi &ui) {
+int runLiveMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 	std::chrono::milliseconds step_interval{options.step_interval_ms};
 	ui.start();
 
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	try {
-		auto ui = createUi(options.ui_mode);
+		auto ui = createUI(options.ui_mode);
 		if (!options.play_replay.empty()) {
 			return runPlaybackMode(options, *ui);
 		}

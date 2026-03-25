@@ -10,6 +10,23 @@
 
 namespace cr {
 
+namespace {
+
+UiMode parseUiMode(const std::string &value) {
+	if (value == "tui") {
+		return UiMode::Tui;
+	}
+	if (value == "plain") {
+		return UiMode::Plain;
+	}
+
+	throw std::runtime_error(
+		std::format("Invalid --ui-mode '{}', expected 'tui' or 'plain'", value)
+	);
+}
+
+} // namespace
+
 ProgramOptions parseOptions(
 	int argc, char *argv[], const std::string &program_name, CliMode mode
 ) {
@@ -65,6 +82,9 @@ ProgramOptions parseOptions(
 				"(0=unlimited)"
 			);
 	} else {
+		program.add_argument("--ui-mode")
+			.default_value(std::string("tui"))
+			.help("UI mode: tui or plain");
 		program.add_argument("--replay-file")
 			.default_value(std::string(""))
 			.help("optional path to write binary replay in live mode");
@@ -99,33 +119,40 @@ ProgramOptions parseOptions(
 	if (mode == CliMode::Headless) {
 		options.max_ticks = program.get<unsigned int>("--max-ticks");
 	}
-	if (mode == CliMode::Interactive) {
-		options.play_replay = program.get<std::string>("--play-replay");
-	}
+	try {
+		if (mode == CliMode::Interactive) {
+			options.play_replay = program.get<std::string>("--play-replay");
+			options.ui_mode = parseUiMode(
+				program.get<std::string>("--ui-mode")
+			);
+		}
 
-	const bool used_random_generation_option = program.is_used("--width")
-		|| program.is_used("--height") || program.is_used("--base-size")
-		|| program.is_used("--resources") || program.is_used("--seed");
+		const bool used_random_generation_option = program.is_used("--width")
+			|| program.is_used("--height") || program.is_used("--base-size")
+			|| program.is_used("--resources") || program.is_used("--seed");
 
-	if (mode == CliMode::Interactive && !options.map_file.empty()
-	    && !options.play_replay.empty()) {
-		throw std::runtime_error("--map cannot be used with --play-replay");
-	}
+		if (mode == CliMode::Interactive && !options.map_file.empty()
+		    && !options.play_replay.empty()) {
+			throw std::runtime_error("--map cannot be used with --play-replay");
+		}
 
-	if (mode == CliMode::Interactive && used_random_generation_option
-	    && !options.play_replay.empty()) {
-		throw std::runtime_error(
-			"Random generation options cannot be used with --play-replay"
-		);
-	}
+		if (mode == CliMode::Interactive && used_random_generation_option
+		    && !options.play_replay.empty()) {
+			throw std::runtime_error(
+				"Random generation options cannot be used with --play-replay"
+			);
+		}
 
-	if (!options.map_file.empty()) {
-		if (used_random_generation_option) {
+		if (!options.map_file.empty() && used_random_generation_option) {
 			throw std::runtime_error(
 				"--map cannot be combined with random generation options: "
 				"--width/--height/--base-size/--resources/--seed"
 			);
 		}
+	} catch (const std::exception &e) {
+		std::cerr << e.what() << '\n';
+		std::cerr << program;
+		throw;
 	}
 
 	return options;

@@ -431,14 +431,79 @@ ftxui::Element renderMapPanel(
 
 } // namespace
 
-TuiRunner::TuiRunner(SynchronizedReplayProgress &replay) noexcept
-	: _replay(replay), _screen(ftxui::ScreenInteractive::Fullscreen()) {}
+TuiUi::TuiUi() noexcept: _screen(ftxui::ScreenInteractive::Fullscreen()) {}
 
-void TuiRunner::notifyUpdate() noexcept {
+TuiUi::~TuiUi() {
+	requestStop();
+	if (_ui_thread.joinable()) {
+		_ui_thread.join();
+	}
+}
+
+void TuiUi::start() {
+	if (_ui_thread.joinable()) {
+		return;
+	}
+	_ui_thread = std::jthread([this](std::stop_token stop_token) {
+		runUiThread(stop_token);
+	});
+}
+
+int TuiUi::wait() {
+	if (_ui_thread.joinable()) {
+		_ui_thread.join();
+	}
+	return 0;
+}
+
+void TuiUi::publishHeader(const ReplayHeader &header) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.phase = ReplayParsePhase::Tick;
+		_replay.progress.header = header;
+	}
+	notifyUpdate();
+}
+
+void TuiUi::publishTick(const ReplayTickFrame &tick) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.current_tick = tick;
+	}
+	notifyUpdate();
+}
+
+void TuiUi::publishEnd(const ReplayEndMarker &end_marker) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.phase = ReplayParsePhase::End;
+		_replay.progress.end_marker = end_marker;
+	}
+	notifyUpdate();
+}
+
+void TuiUi::publishError(const std::string &message) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.last_error = message;
+	}
+	notifyUpdate();
+}
+
+bool TuiUi::shouldStop() const noexcept {
+	return _stop_requested.load(std::memory_order_relaxed);
+}
+
+void TuiUi::requestStop() noexcept {
+	_stop_requested.store(true, std::memory_order_relaxed);
 	_screen.PostEvent(ftxui::Event::Custom);
 }
 
-int TuiRunner::run() {
+void TuiUi::notifyUpdate() noexcept {
+	_screen.PostEvent(ftxui::Event::Custom);
+}
+
+void TuiUi::runUiThread(std::stop_token stop_token) {
 	using namespace ftxui;
 
 	CameraState camera;
@@ -459,6 +524,11 @@ int TuiRunner::run() {
 	root |= CatchEvent([&](Event event) {
 		bool moved = false;
 		if (event == Event::Custom) {
+			if (stop_token.stop_requested() || shouldStop()) {
+				_screen.ExitLoopClosure()();
+				return true;
+			}
+
 			std::lock_guard lock(_replay.mutex);
 			auto prev_tick = playback_state.currentTick();
 			if (_replay.progress.phase != playback_state.progress.phase) {
@@ -493,6 +563,7 @@ int TuiRunner::run() {
 		}
 
 		if (event == Event::q || event == Event::Q || event == Event::Escape) {
+			_stop_requested.store(true, std::memory_order_relaxed);
 			_screen.ExitLoopClosure()();
 			return true;
 		}
@@ -525,7 +596,6 @@ int TuiRunner::run() {
 
 	notifyUpdate();
 	_screen.Loop(root);
-	return 0;
 }
 
 } // namespace cr

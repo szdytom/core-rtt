@@ -1,6 +1,7 @@
 #pragma once
 
 #include "corertt/tilemap.h"
+#include "corertt/ui.h"
 #include "corertt/world.h"
 #include <cstddef>
 #include <cstdint>
@@ -33,6 +34,7 @@ struct ProgramOptions {
 	std::optional<std::string> seed;
 	std::string replay_file;
 	std::string play_replay;
+	UiMode ui_mode = UiMode::Tui;
 };
 
 ProgramOptions parseOptions(

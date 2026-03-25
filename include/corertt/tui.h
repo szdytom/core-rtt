@@ -2,29 +2,47 @@
 #define CORERTT_TUI_H
 
 #include "corertt/replay.h"
+#include "corertt/ui.h"
+#include <atomic>
 #include <ftxui/component/screen_interactive.hpp>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace cr {
 
-struct SynchronizedReplayProgress {
+struct TuiSynchronizedReplayProgress {
 	std::mutex mutex;
 	ReplayProgress progress;
 	std::string last_error;
 };
 
-class TuiRunner {
+class TuiUi final : public IUi {
 public:
-	explicit TuiRunner(SynchronizedReplayProgress &replay) noexcept;
+	TuiUi() noexcept;
+	~TuiUi() override;
 
-	TuiRunner(const TuiRunner &) = delete;
-	TuiRunner &operator=(const TuiRunner &) = delete;
+	TuiUi(const TuiUi &) = delete;
+	TuiUi &operator=(const TuiUi &) = delete;
 
-	void notifyUpdate() noexcept;
-	int run();
+	void start() override;
+	int wait() override;
+
+	void publishHeader(const ReplayHeader &header) override;
+	void publishTick(const ReplayTickFrame &tick) override;
+	void publishEnd(const ReplayEndMarker &end_marker) override;
+	void publishError(const std::string &message) override;
+
+	bool shouldStop() const noexcept override;
+	void requestStop() noexcept override;
 
 private:
-	SynchronizedReplayProgress &_replay;
+	void notifyUpdate() noexcept;
+	void runUiThread(std::stop_token stop_token);
+
+	TuiSynchronizedReplayProgress _replay;
+	std::atomic<bool> _stop_requested = false;
+	std::jthread _ui_thread;
 	ftxui::ScreenInteractive _screen;
 };
 

@@ -20,7 +20,7 @@ namespace cr {
 
 namespace {
 
-namespace UiConst {
+namespace UIConst {
 constexpr int min_map_window_outer_width = 3;
 constexpr int min_map_window_outer_height = 3;
 constexpr int info_panel_preferred_min_width = 28;
@@ -54,7 +54,7 @@ const ftxui::Color color_water = ftxui::Color::RGB(95, 170, 255);
 const ftxui::Color color_win = ftxui::Color::RGB(92, 201, 110);
 const ftxui::Color color_loss = ftxui::Color::RGB(229, 96, 96);
 const ftxui::Color color_terminated = ftxui::Color::RGB(237, 189, 86);
-} // namespace UiConst
+} // namespace UIConst
 
 struct CameraState {
 	int x = 0;
@@ -93,8 +93,8 @@ struct PlaybackState {
 };
 
 struct MapCellVisual {
-	char glyph = UiConst::glyph_plain;
-	ftxui::Color fg = UiConst::color_plain;
+	char glyph = UIConst::glyph_plain;
+	ftxui::Color fg = UIConst::color_plain;
 	bool emphasize = false;
 };
 
@@ -147,9 +147,9 @@ MapCellVisual describeMapCell(
 
 	if (const auto *unit = findUnitAt(current_tick, x, y); unit != nullptr) {
 		return {
-			.glyph = unit->player_id == 1 ? UiConst::glyph_player_1_unit
-										  : UiConst::glyph_player_2_unit,
-			.fg = UiConst::color_unit,
+			.glyph = unit->player_id == 1 ? UIConst::glyph_player_1_unit
+										  : UIConst::glyph_player_2_unit,
+			.fg = UIConst::color_unit,
 			.emphasize = true,
 		};
 	}
@@ -157,49 +157,49 @@ MapCellVisual describeMapCell(
 	if (const auto *bullet = findBulletAt(current_tick, x, y);
 	    bullet != nullptr) {
 		return {
-			.glyph = UiConst::glyph_bullet,
-			.fg = bullet->player_id == 1 ? UiConst::color_bullet_p1
-										 : UiConst::color_bullet_p2,
+			.glyph = UIConst::glyph_bullet,
+			.fg = bullet->player_id == 1 ? UIConst::color_bullet_p1
+										 : UIConst::color_bullet_p2,
 			.emphasize = true,
 		};
 	}
 
 	if (tile.is_base) {
 		return {
-			.glyph = UiConst::glyph_base,
-			.fg = tile.side == 1 ? UiConst::color_base_p1
-								 : UiConst::color_base_p2,
+			.glyph = UIConst::glyph_base,
+			.fg = tile.side == 1 ? UIConst::color_base_p1
+								 : UIConst::color_base_p2,
 			.emphasize = false,
 		};
 	}
 
 	if (tile.is_resource) {
 		return {
-			.glyph = UiConst::glyph_resource,
-			.fg = UiConst::color_resource,
+			.glyph = UIConst::glyph_resource,
+			.fg = UIConst::color_resource,
 			.emphasize = false,
 		};
 	}
 
 	if (tile.terrain == Tile::OBSTACLE) {
 		return {
-			.glyph = UiConst::glyph_obstacle,
-			.fg = UiConst::color_obstacle,
+			.glyph = UIConst::glyph_obstacle,
+			.fg = UIConst::color_obstacle,
 			.emphasize = false,
 		};
 	}
 
 	if (tile.terrain == Tile::WATER) {
 		return {
-			.glyph = UiConst::glyph_water,
-			.fg = UiConst::color_water,
+			.glyph = UIConst::glyph_water,
+			.fg = UIConst::color_water,
 			.emphasize = false,
 		};
 	}
 
 	return {
-		.glyph = UiConst::glyph_plain,
-		.fg = UiConst::color_plain,
+		.glyph = UIConst::glyph_plain,
+		.fg = UIConst::color_plain,
 		.emphasize = false,
 	};
 }
@@ -227,15 +227,15 @@ int computeViewportSize(const PlaybackState &playback_state) noexcept {
 	const int terminal_rows = std::max(1, terminal_size.dimy);
 
 	const int map_content_max_rows = std::max(
-		1, terminal_rows - (UiConst::min_map_window_outer_height - 1)
+		1, terminal_rows - (UIConst::min_map_window_outer_height - 1)
 	);
 
 	const int reserved_info_width = terminal_cols
-			> UiConst::info_panel_preferred_min_width
-		? UiConst::info_panel_preferred_min_width
+			> UIConst::info_panel_preferred_min_width
+		? UIConst::info_panel_preferred_min_width
 		: 0;
 	const int map_outer_max_width = std::max(
-		UiConst::min_map_window_outer_width, terminal_cols - reserved_info_width
+		UIConst::min_map_window_outer_width, terminal_cols - reserved_info_width
 	);
 
 	const int map_content_max_cols = std::max(1, (map_outer_max_width - 1) / 2);
@@ -283,7 +283,7 @@ std::vector<RenderedLogLine> collectVisibleLogLines(
 	}
 
 	if (lines.empty()) {
-		lines.push_back({std::string(UiConst::no_logs_yet), false});
+		lines.push_back({std::string(UIConst::no_logs_yet), false});
 		return lines;
 	}
 
@@ -299,7 +299,7 @@ ftxui::Element renderGameStatusLine(const PlaybackState &playback_state) {
 
 	if (playback_state.last_error.size() > 0) {
 		return text(std::format("Decode error: {}", playback_state.last_error))
-			| color(UiConst::color_loss) | bold;
+			| color(UIConst::color_loss) | bold;
 	}
 
 	if (playback_state.progress.phase == ReplayParsePhase::End) {
@@ -310,12 +310,12 @@ ftxui::Element renderGameStatusLine(const PlaybackState &playback_state) {
 								  "P{} wins", end_marker.winner_player_id
 							  )
 						  )
-				| color(UiConst::color_win) | bold;
+				| color(UIConst::color_win) | bold;
 			return hbox({text("Game over: "), winner});
 		}
 
 		return text("Replay terminated early (unfinished)")
-			| color(UiConst::color_terminated) | bold;
+			| color(UIConst::color_terminated) | bold;
 	}
 	return text("Replay stream running");
 }
@@ -353,8 +353,8 @@ ftxui::Element renderInfoPanel(
 	Element status_panel = window(
 		text("Info"),
 		vbox({
-			text(std::string(UiConst::controls_line_1)),
-			text(std::string(UiConst::controls_line_2)),
+			text(std::string(UIConst::controls_line_1)),
+			text(std::string(UIConst::controls_line_2)),
 			separator(),
 			text(std::format("Current tick: {}", playback_state.currentTick())),
 			renderGameStatusLine(playback_state),
@@ -394,7 +394,7 @@ ftxui::Element renderMapPanel(
 
 	if (!playback_state.hasHeader()) {
 		return window(
-			text("Map"), vbox({text(std::string(UiConst::waiting_for_stream))})
+			text("Map"), vbox({text(std::string(UIConst::waiting_for_stream))})
 		);
 	}
 
@@ -416,7 +416,7 @@ ftxui::Element renderMapPanel(
 
 	const auto title = text(
 		std::format(
-			UiConst::map_title_format,
+			UIConst::map_title_format,
 			playback_state.progress.header.tilemap.width,
 			playback_state.progress.header.tilemap.height,
 			playback_state.currentTick()
@@ -431,14 +431,83 @@ ftxui::Element renderMapPanel(
 
 } // namespace
 
-TuiRunner::TuiRunner(SynchronizedReplayProgress &replay) noexcept
-	: _replay(replay), _screen(ftxui::ScreenInteractive::Fullscreen()) {}
+TuiRunner::TuiRunner() noexcept
+	: _screen(ftxui::ScreenInteractive::Fullscreen()) {}
+
+TuiRunner::~TuiRunner() {
+	requestStop();
+	if (_ui_thread.joinable()) {
+		_ui_thread.join();
+	}
+}
+
+void TuiRunner::start() {
+	if (_ui_thread.joinable()) {
+		return;
+	}
+	_ui_thread = std::jthread([this](std::stop_token stop_token) {
+		runUIThread(stop_token);
+	});
+}
+
+int TuiRunner::wait() {
+	if (_ui_thread.joinable()) {
+		_ui_thread.join();
+	}
+	return 0;
+}
+
+void TuiRunner::publishHeader(const ReplayHeader &header) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.phase = ReplayParsePhase::Tick;
+		_replay.progress.header = header;
+	}
+	notifyUpdate();
+}
+
+void TuiRunner::publishTick(const ReplayTickFrame &tick) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.current_tick = tick;
+	}
+	notifyUpdate();
+}
+
+void TuiRunner::publishEnd(const ReplayEndMarker &end_marker) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.progress.phase = ReplayParsePhase::End;
+		_replay.progress.end_marker = end_marker;
+	}
+	notifyUpdate();
+}
+
+void TuiRunner::publishError(const std::string &message) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.last_error = message;
+	}
+	notifyUpdate();
+}
+
+bool TuiRunner::shouldStop() const noexcept {
+	return _ui_thread.joinable()
+		&& _ui_thread.get_stop_token().stop_requested();
+}
+
+void TuiRunner::requestStop() noexcept {
+	if (_ui_thread.joinable()) {
+		_ui_thread.request_stop();
+	}
+	_screen.PostEvent(ftxui::Event::Custom);
+}
 
 void TuiRunner::notifyUpdate() noexcept {
 	_screen.PostEvent(ftxui::Event::Custom);
 }
 
-int TuiRunner::run() {
+void TuiRunner::runUIThread(std::stop_token stop_token) {
 	using namespace ftxui;
 
 	CameraState camera;
@@ -459,6 +528,11 @@ int TuiRunner::run() {
 	root |= CatchEvent([&](Event event) {
 		bool moved = false;
 		if (event == Event::Custom) {
+			if (stop_token.stop_requested() || shouldStop()) {
+				_screen.ExitLoopClosure()();
+				return true;
+			}
+
 			std::lock_guard lock(_replay.mutex);
 			auto prev_tick = playback_state.currentTick();
 			if (_replay.progress.phase != playback_state.progress.phase) {
@@ -493,6 +567,9 @@ int TuiRunner::run() {
 		}
 
 		if (event == Event::q || event == Event::Q || event == Event::Escape) {
+			if (_ui_thread.joinable()) {
+				_ui_thread.request_stop();
+			}
 			_screen.ExitLoopClosure()();
 			return true;
 		}
@@ -525,7 +602,6 @@ int TuiRunner::run() {
 
 	notifyUpdate();
 	_screen.Loop(root);
-	return 0;
 }
 
 } // namespace cr

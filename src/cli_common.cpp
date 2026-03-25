@@ -10,6 +10,23 @@
 
 namespace cr {
 
+namespace {
+
+UIMode parseUIMode(const std::string &value) {
+	if (value == "tui") {
+		return UIMode::Tui;
+	}
+	if (value == "plain") {
+		return UIMode::Plain;
+	}
+
+	throw std::runtime_error(
+		std::format("Invalid --ui-mode '{}', expected 'tui' or 'plain'", value)
+	);
+}
+
+} // namespace
+
 ProgramOptions parseOptions(
 	int argc, char *argv[], const std::string &program_name, CliMode mode
 ) {
@@ -32,10 +49,6 @@ ProgramOptions parseOptions(
 		.default_value(5)
 		.scan<'i', int>()
 		.help("number of resource clusters");
-	program.add_argument("--step-interval-ms")
-		.default_value(200)
-		.scan<'i', int>()
-		.help("step or playback interval in milliseconds");
 	program.add_argument("--p1-base")
 		.default_value(std::string("player1_base.elf"))
 		.help("path to player 1 base ELF");
@@ -64,7 +77,14 @@ ProgramOptions parseOptions(
 				"maximum number of ticks to simulate before auto draw "
 				"(0=unlimited)"
 			);
-	} else {
+	} else if (mode == CliMode::Interactive) {
+		program.add_argument("--step-interval-ms")
+			.default_value(200)
+			.scan<'i', int>()
+			.help("step or playback interval in milliseconds");
+		program.add_argument("--ui-mode")
+			.default_value(std::string("tui"))
+			.help("UI mode: tui or plain");
 		program.add_argument("--replay-file")
 			.default_value(std::string(""))
 			.help("optional path to write binary replay in live mode");
@@ -86,7 +106,6 @@ ProgramOptions parseOptions(
 	options.height = program.get<int>("--height");
 	options.base_size = program.get<int>("--base-size");
 	options.resources = program.get<int>("--resources");
-	options.step_interval_ms = program.get<int>("--step-interval-ms");
 	options.p1_base = program.get<std::string>("--p1-base");
 	options.p1_unit = program.get<std::string>("--p1-unit");
 	options.p2_base = program.get<std::string>("--p2-base");
@@ -99,8 +118,11 @@ ProgramOptions parseOptions(
 	if (mode == CliMode::Headless) {
 		options.max_ticks = program.get<unsigned int>("--max-ticks");
 	}
+
 	if (mode == CliMode::Interactive) {
+		options.step_interval_ms = program.get<int>("--step-interval-ms");
 		options.play_replay = program.get<std::string>("--play-replay");
+		options.ui_mode = parseUIMode(program.get<std::string>("--ui-mode"));
 	}
 
 	const bool used_random_generation_option = program.is_used("--width")
@@ -119,13 +141,11 @@ ProgramOptions parseOptions(
 		);
 	}
 
-	if (!options.map_file.empty()) {
-		if (used_random_generation_option) {
-			throw std::runtime_error(
-				"--map cannot be combined with random generation options: "
-				"--width/--height/--base-size/--resources/--seed"
-			);
-		}
+	if (!options.map_file.empty() && used_random_generation_option) {
+		throw std::runtime_error(
+			"--map cannot be combined with random generation options: "
+			"--width/--height/--base-size/--resources/--seed"
+		);
 	}
 
 	return options;

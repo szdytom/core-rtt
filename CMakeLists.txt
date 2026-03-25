@@ -111,6 +111,7 @@ target_link_libraries(corertt_core PUBLIC
 add_executable(corertt
 	src/main.cpp
 	src/cli_common.cpp
+	src/plain_ui.cpp
 	src/tui.cpp
 )
 

@@ -332,8 +332,6 @@ struct ReplayProgress {
 	ReplayEndMarker end_marker;
 };
 
-ReplayData readReplay(std::istream &is);
-
 } // namespace cr
 
 template<>

@@ -909,40 +909,4 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
 	return result;
 }
 
-ReplayData readReplay(std::istream &is) {
-	ReplayStreamDecoder decoder(is);
-	if (!decoder.canReadHeader()) {
-		throw std::runtime_error(
-			std::format("{}", DecodeErrorCode::MissingHeader)
-		);
-	}
-	auto header_result = decoder.readHeader();
-	if (!header_result.has_value()) {
-		throw std::runtime_error(std::format("{}", header_result.error()));
-	}
-
-	ReplayData replay;
-	replay.header = decoder.header();
-
-	while (decoder.canReadNextRecord()) {
-		auto read_result = decoder.nextTick();
-		if (read_result.status == ReplayStreamDecoder::ReadStatus::Error) {
-			throw std::runtime_error(std::format("{}", *read_result.error));
-		}
-		if (read_result.status == ReplayStreamDecoder::ReadStatus::End) {
-			break;
-		}
-		replay.ticks.push_back(std::move(*read_result.tick));
-	}
-
-	if (!decoder.ended()) {
-		throw std::runtime_error(
-			std::format("{}", DecodeErrorCode::MissingEndMarker)
-		);
-	}
-	replay.end_marker = decoder.endMarker();
-
-	return replay;
-}
-
 } // namespace cr

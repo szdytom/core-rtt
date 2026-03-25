@@ -20,6 +20,7 @@ Options:
 - `--replay-file <path>`: Input replay file path (required).
 - `--output <path>`: Output file path. Writes to stdout when omitted.
 - `--format <jsonl|text>`: Output format, default is `jsonl`.
+- `--strict`: Enable strict replay decoding. By default, the CLI uses non-strict decoding to tolerate incomplete replay tails.
 
 ## Output Modes
 

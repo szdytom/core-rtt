@@ -11,15 +11,17 @@ interface CliOptions {
 	replay_file: string;
 	output: string;
 	format: OutputFormat;
+	strict: boolean;
 }
 
 const usage = [
-	'Usage: corertt-replay-log --replay-file <path> [--output <path>] [--format <jsonl|text>]',
+	'Usage: corertt-replay-log --replay-file <path> [--output <path>] [--format <jsonl|text>] [--strict]',
 	'',
 	'Options:',
 	'  --replay-file <path>    input replay file path',
 	'  --output <path>         output file path, stdout when omitted',
 	'  --format <value>        output format: jsonl or text (default: jsonl)',
+	'  --strict                require full end marker (default: non-strict decoding)',
 ].join('\n');
 
 function parseCliArgs(argv: string[]): CliOptions {
@@ -36,6 +38,10 @@ function parseCliArgs(argv: string[]): CliOptions {
 			format: {
 				type: 'string',
 				default: 'jsonl',
+			},
+			strict: {
+				type: 'boolean',
+				default: false,
 			},
 			help: {
 				type: 'boolean',
@@ -66,15 +72,25 @@ function parseCliArgs(argv: string[]): CliOptions {
 		throw new Error('--format must be one of: jsonl, text');
 	}
 
+	const strict = parsed.values.strict;
+	if (typeof strict !== 'boolean') {
+		throw new Error('Invalid value for --strict');
+	}
+
 	return {
 		replay_file,
 		output,
 		format,
+		strict,
 	};
 }
 
-function buildOutputContent(replay_file_bytes: Uint8Array, format: OutputFormat): string {
-	const replay_data = decodeReplay(replay_file_bytes);
+function buildOutputContent(
+	replay_file_bytes: Uint8Array,
+	format: OutputFormat,
+	strict: boolean,
+): string {
+	const replay_data = decodeReplay(replay_file_bytes, { strict });
 	const lines: string[] = [];
 
 	for (const tick of replay_data.ticks) {
@@ -108,7 +124,7 @@ async function writeToStdout(content: string): Promise<void> {
 export async function run(argv: string[]): Promise<void> {
 	const options = parseCliArgs(argv);
 	const replay_file_bytes = await readFile(options.replay_file);
-	const content = buildOutputContent(replay_file_bytes, options.format);
+	const content = buildOutputContent(replay_file_bytes, options.format, options.strict);
 
 	if (options.output.length === 0) {
 		await writeToStdout(content);

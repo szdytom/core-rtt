@@ -9,7 +9,7 @@ C++ Specific Instructions:
 - Mark functions that do not throw exceptions with `noexcept`.
 - Don't perform `static_cast` if a implicit conversion is automatically applied.
 - Use `std::to_underlying` for enum to integer conversions instead of `static_cast`.
-- Use `find . -type d -name build -prune -o -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -print0 | xargs -0 clang-format -i` to format all source files (Linux only).
+- Use `scripts/format-c.sh` to format all C/C++ source files.
 
 JavaScript/TypeScript Specific Instructions:
 - Use the latest ECMAScript features whenever applicable.

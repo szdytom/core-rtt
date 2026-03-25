@@ -111,4 +111,26 @@ destroyed.
 
 - `corertt_core`: simulation and replay library.
 - `corertt`: executable for live mode and playback mode.
+- `corertt_headless`: executable for single-thread live simulation replay generation without TUI.
 - `corertt_replay_log`: replay log extraction tool (`text` / `jsonl`).
+
+## Headless mode (`corertt_headless`)
+
+`corertt_headless` runs a live simulation in a single thread and writes replay
+output only.
+
+Execution flow:
+
+1. Parse CLI options.
+2. Validate headless-only constraints:
+  - `--play-replay` is not available in headless mode.
+  - `--replay-file` is required.
+3. Build `World` from map generation/file plus player ELF binaries.
+4. Write replay header.
+5. Loop until `world.gameOver()`:
+  - `world.step()`
+  - encode and write one `ReplayTickFrame`
+6. Write replay end marker and exit.
+
+Unlike `corertt`, headless mode has no producer/UI split, no `TuiRunner`, and
+ignores `--step-interval-ms` so simulation runs at maximum speed.

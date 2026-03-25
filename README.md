@@ -12,7 +12,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo .
 cmake --build build --config RelWithDebInfo
 ```
 
-The resulting executable will be located at `build/core-rtt` (or `build\core-rtt.exe` on Windows).
+The resulting executable will be located at `build/corertt` (or `build\corertt.exe` on Windows).
 
 The corelib, the support library to provide basic utilities and functions for user programs, is a C library using traditional Makefile as its build system. To build the corelib, you need to have a RISC-V 32-bit cross-compilation toolchain installed.
 
@@ -31,6 +31,13 @@ make CLANG=1
 ```
 
 Specify `-j<num-threads>` to speed up the build with parallel compilation, for example, `make CLANG=1 -j$(nproc)` on Linux will use all available CPU cores.
+
+## Runtime Tools
+
+This repository now builds two runtime executables:
+
+- `corertt`: an interactive mode with terminal UI. It supports live simulation with step-by-step rendering and also replay playback of previously recorded game traces.
+- `corertt_headless`: a non-interactive mode without UI. It runs full-speed simulation and writes a binary replay file for later analysis or playback.
 
 ## Game Rules and Programming
 

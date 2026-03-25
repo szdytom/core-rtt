@@ -110,6 +110,7 @@ target_link_libraries(corertt_core PUBLIC
 
 add_executable(corertt
 	src/main.cpp
+	src/cli_common.cpp
 	src/tui.cpp
 )
 
@@ -120,4 +121,15 @@ target_link_libraries(corertt PRIVATE
 	ftxui::screen
 	ftxui::dom
 	ftxui::component
+)
+
+add_executable(corertt_headless
+	src/headless_main.cpp
+	src/cli_common.cpp
+)
+
+target_link_libraries(corertt_headless PRIVATE
+	corertt_core
+	argparse::argparse
+	cpptrace::cpptrace
 )

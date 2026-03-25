@@ -27,6 +27,7 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 	std::chrono::milliseconds step_interval(options.step_interval_ms);
 	ui.start();
 
+	int exit_code = 0;
 	try {
 		std::ifstream input(options.play_replay, std::ios::binary);
 		if (!input.is_open()) {
@@ -46,7 +47,8 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 					cr::DecodeErrorCode::MissingHeader
 				)
 			);
-			return ui.wait();
+			ui.wait();
+			return 1;
 		}
 
 		auto header_result = decoder.readHeader();
@@ -54,7 +56,8 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 			ui.publishError(
 				std::format("Header decode error: {}", header_result.error())
 			);
-			return ui.wait();
+			ui.wait();
+			return 1;
 		}
 
 		ui.publishHeader(decoder.header());
@@ -75,6 +78,7 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 					ui.publishError(
 						std::format("Tick decode error: {}", *read_result.error)
 					);
+					exit_code = 1;
 					break;
 				}
 
@@ -95,13 +99,24 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 						cr::DecodeErrorCode::MissingEndMarker
 					)
 				);
+				exit_code = 1;
+				break;
+			} else if (!input.good()) {
+				ui.publishError(
+					std::format(
+						"I/O error while reading replay file: {}",
+						options.play_replay
+					)
+				);
+				exit_code = 1;
 				break;
 			}
 
 			std::this_thread::sleep_until(next_tick_time);
 		}
 
-		return ui.wait();
+		ui.wait();
+		return exit_code;
 	} catch (...) {
 		ui.requestStop();
 		ui.wait();

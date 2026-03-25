@@ -3,6 +3,7 @@
 #include <atomic>
 #include <csignal>
 #include <iostream>
+#include <limits>
 
 namespace {
 
@@ -30,7 +31,11 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	auto header_bytes = cr::ReplayHeader::encode(header);
 	cr::writeChunk(*replay_file_stream, header_bytes);
 
-	while (!world.gameOver()) {
+	std::uint32_t tick_limit = options.max_ticks > 0
+		? options.max_ticks
+		: std::numeric_limits<std::uint32_t>::max();
+
+	while (!world.gameOver() && world.currentTick() < tick_limit) {
 		world.step();
 
 		auto tick = cr::ReplayTickFrame::fromWorldState(world);

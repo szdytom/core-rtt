@@ -24,6 +24,7 @@ struct ProgramOptions {
 	int base_size = 5;
 	int resources = 5;
 	int step_interval_ms = 200;
+	std::uint32_t max_ticks = 0; // 0 means no max tick limit
 	std::string p1_base = "player1_base.elf";
 	std::string p1_unit = "player1_unit.elf";
 	std::string p2_base = "player2_base.elf";

@@ -57,6 +57,13 @@ ProgramOptions parseOptions(
 		program.add_argument("--replay-file")
 			.required()
 			.help("path to write binary replay in headless mode");
+		program.add_argument("--max-ticks")
+			.default_value(0u)
+			.scan<'u', unsigned int>()
+			.help(
+				"maximum number of ticks to simulate before auto draw "
+				"(0=unlimited)"
+			);
 	} else {
 		program.add_argument("--replay-file")
 			.default_value(std::string(""))
@@ -89,6 +96,9 @@ ProgramOptions parseOptions(
 		options.seed = program.get<std::string>("--seed");
 	}
 	options.replay_file = program.get<std::string>("--replay-file");
+	if (mode == CliMode::Headless) {
+		options.max_ticks = program.get<unsigned int>("--max-ticks");
+	}
 	if (mode == CliMode::Interactive) {
 		options.play_replay = program.get<std::string>("--play-replay");
 	}

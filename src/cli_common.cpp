@@ -69,10 +69,11 @@ ProgramOptions parseOptions(
 			"seed for map generation: either any string, or 32 hex chars "
 			"(omitted means device-random)"
 		);
+	program.add_argument("--replay-file")
+		.default_value(std::string(""))
+		.help("optional path to write binary replay file to");
+
 	if (mode == CliMode::Headless) {
-		program.add_argument("--replay-file")
-			.required()
-			.help("path to write binary replay in headless mode");
 		program.add_argument("--max-ticks")
 			.default_value(0u)
 			.scan<'u', unsigned int>()
@@ -88,9 +89,6 @@ ProgramOptions parseOptions(
 		program.add_argument("--ui-mode")
 			.default_value(std::string("tui"))
 			.help("UI mode: tui or plain");
-		program.add_argument("--replay-file")
-			.default_value(std::string(""))
-			.help("optional path to write binary replay in live mode");
 		program.add_argument("--play-replay")
 			.default_value(std::string(""))
 			.help("optional replay file path for playback mode");
@@ -141,6 +139,13 @@ ProgramOptions parseOptions(
 	    && !options.play_replay.empty()) {
 		throw std::runtime_error(
 			"Random generation options cannot be used with --play-replay"
+		);
+	}
+
+	if (mode == CliMode::Interactive && !options.replay_file.empty()
+	    && !options.play_replay.empty()) {
+		throw std::runtime_error(
+			"--replay-file cannot be used with --play-replay"
 		);
 	}
 
@@ -236,7 +241,7 @@ std::optional<std::ofstream> openReplayFile(const std::string &path) {
 	return stream;
 }
 
-void writeChunk(std::ofstream &stream, std::span<const std::byte> chunk) {
+void writeChunk(std::ostream &stream, std::span<const std::byte> chunk) {
 	if (chunk.empty()) {
 		return;
 	}

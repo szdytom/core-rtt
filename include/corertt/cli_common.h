@@ -48,7 +48,7 @@ Tilemap generateTilemap(const ProgramOptions &options);
 World createWorldFromOptions(const ProgramOptions &options);
 
 std::optional<std::ofstream> openReplayFile(const std::string &path);
-void writeChunk(std::ofstream &stream, std::span<const std::byte> chunk);
+void writeChunk(std::ostream &stream, std::span<const std::byte> chunk);
 
 } // namespace cr
 

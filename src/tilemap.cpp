@@ -106,6 +106,7 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 	}
 
 	Tilemap tilemap(width, height);
+	tilemap._base_size = base_size;
 
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {

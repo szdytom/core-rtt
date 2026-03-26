@@ -51,13 +51,11 @@ export async function decodeReplayFromStream(
 	for await (const event of decodeReplayStream(input, options)) {
 		if (event.kind === 'header') {
 			header = event.header;
-			continue;
-		}
-		if (event.kind === 'tick') {
+		} else if (event.kind === 'tick') {
 			ticks.push(event.tick);
-			continue;
+		} else {
+			end_marker = event.endMarker;
 		}
-		end_marker = event.endMarker;
 	}
 
 	// decodeReplayStream calls decoder.finalize() which throws if header or end marker is missing.

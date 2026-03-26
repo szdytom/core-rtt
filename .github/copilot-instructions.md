@@ -1,7 +1,7 @@
 General Instructions:
 - Use English for all comments in code.
 - Keep comments concise: let the code explain itself if possible.
-- Use snake_case for variable, camelCase for function and method names, and PascalCase for class names.
+- Use snake_case for variable, camelCase for function and method names, PascalCase for class names, and SCREAMING_SNAKE_CASE for constants and enum values.
 
 C++ Specific Instructions:
 - Use the latest C++23 features whenever applicable.

@@ -33,14 +33,15 @@ export function decodeReplay(
 	}
 
 	decoder.finalize();
-	if (end_marker == null) {
+	if (end_marker === undefined) {
 		end_marker = decoder.state().endMarker;
 	}
 
-	if (header == null) {
+	if (header === undefined) {
 		throw new ReplayDecodeError('MISSING_HEADER', decoder.position());
 	}
-	if (end_marker == null) {
+
+	if (end_marker === undefined) {
 		throw new ReplayDecodeError('MISSING_END_MARKER', decoder.position());
 	}
 
@@ -73,10 +74,10 @@ export async function decodeReplayFromStream(
 
 	// decodeReplayStream calls decoder.finalize() which throws if header or end marker is missing.
 	// These checks are defensive guards that should not normally be reached.
-	if (header == null) {
+	if (header === undefined) {
 		throw new ReplayDecodeError('MISSING_HEADER', 0);
 	}
-	if (end_marker == null) {
+	if (end_marker === undefined) {
 		throw new ReplayDecodeError('MISSING_END_MARKER', 0);
 	}
 

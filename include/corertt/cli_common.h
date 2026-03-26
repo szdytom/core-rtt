@@ -32,7 +32,7 @@ struct ProgramOptions {
 	std::string p2_base = "player2_base.elf";
 	std::string p2_unit = "player2_unit.elf";
 	std::string map_file;
-	std::optional<std::string> seed;
+	std::optional<Seed> seed;
 	std::string replay_file;
 	std::string play_replay;
 	UIMode ui_mode = UIMode::Tui;

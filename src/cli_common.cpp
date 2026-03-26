@@ -65,7 +65,10 @@ ProgramOptions parseOptions(
 		.default_value(std::string(""))
 		.help("path to tilemap file (text or binary)");
 	program.add_argument("-s", "--seed")
-		.help("seed for map generation (omitted means device-random)");
+		.help(
+			"seed for map generation: either any string, or 32 hex chars "
+			"(omitted means device-random)"
+		);
 	if (mode == CliMode::Headless) {
 		program.add_argument("--replay-file")
 			.required()
@@ -112,7 +115,7 @@ ProgramOptions parseOptions(
 	options.p2_unit = program.get<std::string>("--p2-unit");
 	options.map_file = program.get<std::string>("--map");
 	if (program.is_used("--seed")) {
-		options.seed = program.get<std::string>("--seed");
+		options.seed = Seed::from_string(program.get<std::string>("--seed"));
 	}
 	options.replay_file = program.get<std::string>("--replay-file");
 	if (mode == CliMode::Headless) {
@@ -146,6 +149,10 @@ ProgramOptions parseOptions(
 			"--map cannot be combined with random generation options: "
 			"--width/--height/--base-size/--resources/--seed"
 		);
+	}
+
+	if (options.map_file.empty() && !options.seed.has_value()) {
+		options.seed = Seed::device_random();
 	}
 
 	return options;
@@ -192,7 +199,7 @@ Tilemap generateTilemap(const ProgramOptions &options) {
 	config.base_size = options.base_size;
 	config.num_resources = options.resources;
 	if (options.seed.has_value()) {
-		config.seed = Seed::from_string(*options.seed);
+		config.seed = *options.seed;
 	} else {
 		config.seed = Seed::device_random();
 	}

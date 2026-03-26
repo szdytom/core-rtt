@@ -3,6 +3,7 @@
 #include "corertt/replay.h"
 #include "corertt/tui.h"
 #include <chrono>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
@@ -23,9 +24,41 @@ std::unique_ptr<cr::UIRunner> createUI(cr::UIMode mode) {
 	throw std::runtime_error("Unsupported UI mode");
 }
 
-int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
+std::string computeTilemapSourceLabel(const cr::ProgramOptions &options) {
+	if (!options.map_file.empty()) {
+		return std::format(
+			"map file: {}",
+			std::filesystem::path(options.map_file).filename().string()
+		);
+	}
+
+	if (options.seed.has_value()) {
+		return std::format("seed: {}", options.seed->to_string());
+	}
+
+	return "seed: (unknown)";
+}
+
+std::string computePlaybackTilemapSourceLabel(
+	const cr::ProgramOptions &options
+) {
+	return std::format(
+		"replay: {}",
+		std::filesystem::path(options.play_replay).filename().string()
+	);
+}
+
+int runPlaybackMode(
+	const cr::ProgramOptions &options, cr::UIRunner &ui,
+	cr::TuiRunner *tui_runner
+) {
 	std::chrono::milliseconds step_interval(options.step_interval_ms);
 	ui.start();
+	if (tui_runner != nullptr) {
+		tui_runner->publishTilemapSource(
+			computePlaybackTilemapSourceLabel(options)
+		);
+	}
 
 	int exit_code = 0;
 	try {
@@ -124,9 +157,15 @@ int runPlaybackMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
 	}
 }
 
-int runLiveMode(const cr::ProgramOptions &options, cr::UIRunner &ui) {
+int runLiveMode(
+	const cr::ProgramOptions &options, cr::UIRunner &ui,
+	cr::TuiRunner *tui_runner
+) {
 	std::chrono::milliseconds step_interval{options.step_interval_ms};
 	ui.start();
+	if (tui_runner != nullptr) {
+		tui_runner->publishTilemapSource(computeTilemapSourceLabel(options));
+	}
 
 	try {
 		cr::World world = cr::createWorldFromOptions(options);
@@ -195,10 +234,11 @@ int main(int argc, char *argv[]) {
 
 	try {
 		auto ui = createUI(options.ui_mode);
+		auto *tui_runner = dynamic_cast<cr::TuiRunner *>(ui.get());
 		if (!options.play_replay.empty()) {
-			return runPlaybackMode(options, *ui);
+			return runPlaybackMode(options, *ui, tui_runner);
 		}
-		return runLiveMode(options, *ui);
+		return runLiveMode(options, *ui, tui_runner);
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << '\n';
 		return 1;

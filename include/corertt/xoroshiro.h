@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <string_view>
 
 namespace cr {
@@ -11,6 +12,7 @@ struct Seed {
 	std::uint64_t s[2];
 
 	static Seed from_string(std::string_view str) noexcept;
+	std::string to_string() const;
 	static Seed device_random();
 };
 

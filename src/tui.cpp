@@ -79,6 +79,7 @@ struct PlaybackState {
 	ReplayProgress progress;
 	std::vector<ReplayLogEntry> log_history;
 	std::string last_error;
+	std::string tilemap_source = "(unknown)";
 
 	std::uint32_t currentTick() const noexcept {
 		if (progress.phase == ReplayParsePhase::Header) {
@@ -357,6 +358,7 @@ ftxui::Element renderInfoPanel(
 			text(std::string(UIConst::controls_line_2)),
 			separator(),
 			text(std::format("Current tick: {}", playback_state.currentTick())),
+			text(playback_state.tilemap_source),
 			renderGameStatusLine(playback_state),
 			text(
 				std::format(
@@ -491,6 +493,14 @@ void TuiRunner::publishError(const std::string &message) {
 	notifyUpdate();
 }
 
+void TuiRunner::publishTilemapSource(const std::string &source) {
+	{
+		std::lock_guard lock(_replay.mutex);
+		_replay.tilemap_source = source;
+	}
+	notifyUpdate();
+}
+
 bool TuiRunner::shouldStop() const noexcept {
 	return _ui_thread.joinable()
 		&& _ui_thread.get_stop_token().stop_requested();
@@ -544,6 +554,10 @@ void TuiRunner::runUIThread(std::stop_token stop_token) {
 
 			if (_replay.last_error.size() > 0) {
 				playback_state.last_error = _replay.last_error;
+			}
+
+			if (_replay.tilemap_source.size() > 0) {
+				playback_state.tilemap_source = _replay.tilemap_source;
 			}
 
 			// concat new log entries to history

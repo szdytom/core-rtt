@@ -14,6 +14,7 @@ struct TuiSynchronizedReplayProgress {
 	std::mutex mutex;
 	ReplayProgress progress;
 	std::string last_error;
+	std::string tilemap_source;
 };
 
 class TuiRunner final : public UIRunner {
@@ -31,6 +32,7 @@ public:
 	void publishTick(const ReplayTickFrame &tick) override;
 	void publishEnd(const ReplayEndMarker &end_marker) override;
 	void publishError(const std::string &message) override;
+	void publishTilemapSource(const std::string &source);
 
 	bool shouldStop() const noexcept override;
 	void requestStop() noexcept override;

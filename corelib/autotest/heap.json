@@ -1,0 +1,39 @@
+{
+	"version": 1,
+	"name": "heap ecall assert test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"program": [
+		{
+			"base": "heap",
+			"unit": "@dummy"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] heap ecall behavior is correct\\.$"
+				}
+			}
+		}
+	]
+}

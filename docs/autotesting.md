@@ -71,6 +71,26 @@ File: `corelib/autotest/log_quota.json`
 
 This case validates log quota behavior and forbids any `System + ExecutionException + ABORTED` log.
 
+## Migrated Assert Cases
+
+The following legacy `corelib/test` programs are migrated to assert-driven autotests under `corelib/autotest`:
+
+- `msg.c` + `msg.json`
+- `heap.c` + `heap.json`
+- `deposit_withdraw.c` + `deposit_withdraw.json`
+
+Each migrated case follows the same pattern:
+
+- program logic is assert-driven (wrong behavior triggers runtime abort)
+- JSON contains a `forbiddenLogs` rule forbidding `System + ExecutionException + ABORTED`
+- JSON contains an `expectedLogs` rule matching a `[PASS] ...` payload to ensure the test path is really executed
+
+Run a migrated case by name:
+
+```bash
+pnpm -C js --filter='@corertt/core-autotest' exec node dist/main.js --case "heap ecall assert test"
+```
+
 ## Counterexample For forbiddenLogs Interception
 
 Files:

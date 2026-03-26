@@ -33,15 +33,17 @@ TEST_LIBS = -L. -lcorelib
 LIB_SRC = corelib.c
 LIB_OBJ = $(LIB_SRC:.c=.o)
 
+AUTOTEST_SRCS = $(wildcard autotest/*.c)
+
 # List of test source files and corresponding ELF targets
 TEST_SRCS = test/base.c test/dummy.c test/heap.c \
             test/misc.c test/msg.c \
             test/unit_fight.c test/deposit_withdraw.c \
             test/unit_random_walk.c test/manufact.c \
-            test/log_quota.c \
             example/harvester.c
-TEST_OBJS = $(TEST_SRCS:.c=.o)
-TEST_ELFS = $(TEST_SRCS:.c=.elf)
+ALL_TEST_SRCS = $(TEST_SRCS) $(AUTOTEST_SRCS)
+TEST_OBJS = $(ALL_TEST_SRCS:.c=.o)
+TEST_ELFS = $(ALL_TEST_SRCS:.c=.elf)
 
 # Default target: build library and all test executables
 all: libcorelib.a $(TEST_ELFS)
@@ -68,4 +70,4 @@ $(TEST_ELFS): %.elf: %.o libcorelib.a link.ld
 
 # Clean up all generated files
 clean:
-	rm -f *.o *.a *.elf *.d test/*.o test/*.elf test/*.d
+	rm -f *.o *.a *.elf *.d test/*.o test/*.elf test/*.d autotest/*.o autotest/*.elf autotest/*.d

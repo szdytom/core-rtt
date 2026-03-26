@@ -8,6 +8,22 @@ importers:
 
   .: {}
 
+  core-autotest:
+    dependencies:
+      '@corertt/corereplay':
+        specifier: workspace:*
+        version: link:../corereplay
+    devDependencies:
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.5.0
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^4.1.1
+        version: 4.1.1(@types/node@25.5.0)(vite@8.0.2(@types/node@25.5.0))
+
   corereplay:
     devDependencies:
       '@types/node':

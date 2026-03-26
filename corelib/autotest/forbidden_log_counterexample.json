@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"name": "forbiddenLogs interception counterexample",
+	"runs": 1,
+	"expectFailure": true,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"program": [
+		{
+			"base": "abort_immediately",
+			"unit": "@dummy"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": []
+}

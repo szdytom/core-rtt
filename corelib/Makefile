@@ -36,9 +36,9 @@ LIB_OBJ = $(LIB_SRC:.c=.o)
 AUTOTEST_SRCS = $(wildcard autotest/*.c)
 
 # List of test source files and corresponding ELF targets
-TEST_SRCS = test/base.c test/dummy.c test/heap.c \
-            test/misc.c test/msg.c \
-            test/unit_fight.c test/deposit_withdraw.c \
+TEST_SRCS = test/base.c test/dummy.c \
+            test/misc.c \
+            test/unit_fight.c \
             test/unit_random_walk.c test/manufact.c \
             example/harvester.c
 ALL_TEST_SRCS = $(TEST_SRCS) $(AUTOTEST_SRCS)

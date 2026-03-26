@@ -37,6 +37,8 @@ const replay = decodeReplay(bytes, { strict: false });
 console.log(replay.endMarker); // { termination: 'aborted', winnerPlayerId: 0 }
 ```
 
+### SAX / streaming decoding
+
 ```ts
 import { decodeReplayStream } from '@corertt/corereplay';
 

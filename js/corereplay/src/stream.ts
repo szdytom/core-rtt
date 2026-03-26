@@ -9,9 +9,8 @@ import { ReplayDecoderCore } from './decoder_core.js';
 export async function* decodeReplayStream(
 	input: ReplayStreamInput,
 	options: DecodeOptions = {},
-): AsyncGenerator<ReplayStreamEvent, import('./types.js').ReplayEndMarker, void> {
+): AsyncGenerator<ReplayStreamEvent> {
 	const decoder = new ReplayDecoderCore(options);
-	let end_emitted = false;
 
 	for await (const chunk of toAsyncIterable(input)) {
 		decoder.push(chunk);
@@ -21,27 +20,22 @@ export async function* decodeReplayStream(
 			if (result.kind === 'need-more-data') {
 				break;
 			}
+
+			if (result.kind === 'end') {
+				return { kind: 'end', endMarker: result.endMarker };
+			}
+
 			if (result.kind === 'header') {
 				yield { kind: 'header', header: result.header };
-				continue;
-			}
-			if (result.kind === 'tick') {
+			} else if (result.kind === 'tick') {
 				yield { kind: 'tick', tick: result.tick };
-				continue;
 			}
-			end_emitted = true;
-			yield { kind: 'end', endMarker: result.endMarker };
-			return result.endMarker;
 		}
 	}
 
 	decoder.finalize();
-	const state = decoder.state();
-	if (!end_emitted) {
-		yield { kind: 'end', endMarker: state.endMarker! };
-	}
 	// finalize() ensures end marker exists.
-	return state.endMarker!;
+	return { kind: 'end', endMarker: decoder.state().endMarker! };
 }
 
 async function* toAsyncIterable(

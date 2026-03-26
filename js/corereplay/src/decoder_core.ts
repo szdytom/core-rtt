@@ -55,7 +55,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 
 	read(): InternalReadResult {
 		if (this.phase === ParsePhase.End) {
-			if (this.end_marker == null) {
+			if (this.end_marker === undefined) {
 				throw new ReplayDecodeError('MISSING_END_MARKER', this.position());
 			}
 			return { kind: 'end', endMarker: this.end_marker };
@@ -137,7 +137,7 @@ export class ReplayDecoderCore implements InternalDecoder {
 		endMarker?: ReplayEndMarker;
 	} {
 		return {
-			hasHeader: this.header_value != null,
+			hasHeader: this.header_value !== undefined,
 			ended: this.phase === ParsePhase.End,
 			header: this.header_value,
 			endMarker: this.end_marker,

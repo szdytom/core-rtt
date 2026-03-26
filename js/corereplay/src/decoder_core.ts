@@ -4,6 +4,7 @@ import type { ReplayEndMarker, ReplayHeader, ReplayInput } from './types.js';
 import { parseEndMarkerAt } from './internal/parse_end.js';
 import { parseHeaderAt } from './internal/parse_header.js';
 import { parseTickPayload, type TickParseLimits } from './internal/parse_tick.js';
+import assert from 'assert';
 
 enum ParsePhase {
 	Header = 0,
@@ -144,28 +145,31 @@ export class ReplayDecoderCore implements InternalDecoder {
 		};
 	}
 
-	finalize(): void {
-		const state = this.state();
-		if (!state.hasHeader) {
+	finalize(): ReplayEndMarker {
+		if (this.phase === ParsePhase.Header) {
 			throw new ReplayDecodeError('MISSING_HEADER', this.position());
 		}
-		if (state.ended) {
-			return;
+
+		if (this.phase === ParsePhase.End) {
+			assert(this.end_marker !== undefined);
+			return this.end_marker;
 		}
 
+		assert(this.phase === ParsePhase.Tick);
 		if (this.is_strict) {
 			throw new ReplayDecodeError('MISSING_END_MARKER', this.position());
 		}
 
-		this.synthesizeAbortedEndMarker();
+		return this.synthesizeAbortedEndMarker();
 	}
 
-	private synthesizeAbortedEndMarker(): void {
+	private synthesizeAbortedEndMarker(): ReplayEndMarker {
+		this.phase = ParsePhase.End;
 		this.end_marker = {
 			termination: 'aborted',
 			winnerPlayerId: 0,
 		};
-		this.phase = ParsePhase.End;
+		return this.end_marker;
 	}
 
 	private compact(): void {

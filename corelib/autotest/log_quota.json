@@ -25,5 +25,15 @@
 			}
 		}
 	],
-	"expectedLogs": []
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\]"
+				}
+			}
+		}
+	]
 }

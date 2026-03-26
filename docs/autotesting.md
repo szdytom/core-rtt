@@ -8,6 +8,19 @@ The autotest pipeline validates integration across three layers:
 - `corertt_headless` engine execution and replay output
 - `@corertt/corereplay` replay decoding and assertion checks
 
+## Workflow for New Cases
+
+_Refer to the later sections for detailed explanations of each step._
+
+1. **Write a C program** a new test case usually involves writing new guest C code under `corelib/autotest`. This program should implement the test logic and produce observable behavior (e.g. logs) that can be asserted against.
+2. **Create a JSON case file** for the new program under `corelib/autotest`. This file defines how the runner should execute the test and what assertions to check on the replay logs.
+3. **Rebuild the test program** invoke `make` in the `corelib` directory. The `Makefile` uses wildcard patterns to automatically discover all `*.c` files under `corelib/autotest` and build them into corresponding `.elf` binaries.
+4. **Run the autotest runner** use `scripts/autotest.sh` to evaluate all cases involving the new case.
+
+Hints for avoiding common pitfalls:
+
+1. Properly escape regexes in JSON.
+
 ## Entry Command
 
 TLDR: There is a convenient "scripts/autotest.sh" wrapper for the main runner command, it checks prerequisites and runs all cases.

@@ -22,7 +22,8 @@ export async function* decodeReplayStream(
 			}
 
 			if (result.kind === 'end') {
-				return { kind: 'end', endMarker: result.endMarker };
+				yield { kind: 'end', endMarker: result.endMarker };
+				return;
 			}
 
 			if (result.kind === 'header') {
@@ -35,7 +36,7 @@ export async function* decodeReplayStream(
 
 	decoder.finalize();
 	// finalize() ensures end marker exists.
-	return { kind: 'end', endMarker: decoder.state().endMarker! };
+	yield { kind: 'end', endMarker: decoder.state().endMarker! };
 }
 
 async function* toAsyncIterable(

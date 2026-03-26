@@ -28,7 +28,7 @@ enum class ActionResult : std::int32_t {
 	UNSUPPORTED_RUNTIME = -8,
 };
 
-enum class StoppedReason : std::int32_t {
+enum class StoppedReason : std::uint8_t {
 	NOT_STOPPED = 0,
 	ABORTED,
 	PAGE_PROTECTION_FAULT,
@@ -159,6 +159,7 @@ struct RuntimeECallContext {
 	Player *player;       // borrowed pointer
 	Unit *unit = nullptr; // borrowed, nullptr for base calls
 	StoppedReason stop_reason;
+	std::uint16_t log_quota = 2048;
 	int msg_idx;
 	Xoroshiro128PP rng;
 	ECallInvokedFlags flags;

@@ -30,15 +30,20 @@ void ecall_abort(RVMachine &machine) {
 }
 
 void ecall_log(RVMachine &machine) {
-	constexpr int length_limit = 512;
+	constexpr int LENGTH_LIMIT = 512;
 
 	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
-	if (len < 1 || len > length_limit) {
+	if (len < 1 || len > LENGTH_LIMIT) {
 		machine.set_result(ActionResult::OUT_OF_RANGE);
 		return;
 	}
 
 	auto ctx = check_userdata(machine);
+	if (len > ctx->log_quota) {
+		machine.set_result(ActionResult::ON_COOLDOWN);
+		return;
+	}
+	ctx->log_quota -= len;
 
 	try {
 		auto entry = ReplayLogEntry::customLog(
@@ -579,11 +584,18 @@ void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 void RuntimeECallContext::simulate(
 	World &world, Player &player, Unit *unit, RVMachine &machine
 ) noexcept {
+	constexpr int MAX_LOG_QUOTA = 4096;
+
 	msg_idx = 0;
 	flags = {};
 	this->world = &world;
 	this->player = &player;
 	this->unit = unit;
+	log_quota += 32;
+	if (log_quota > MAX_LOG_QUOTA) {
+		log_quota = MAX_LOG_QUOTA;
+	}
+
 	machine.set_userdata(this);
 
 	constexpr int max_cycles = 100'000;

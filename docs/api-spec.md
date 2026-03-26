@@ -92,6 +92,15 @@ Logs a message of `n` bytes from the provided `str` pointer to the game log. The
 
 The length `n` must be between 1 and 512, inclusive. The call will fail if the length is out of range with error `OUT_OF_RANGE`. The call will also fail if the pointer cannot be read with error `INVALID_POINTER`.
 
+In addition to the single-call length limit, each runtime instance has a log quota budget:
+
+- Initial quota: 2048 bytes when the runtime instance starts.
+- Refill rate: +32 bytes per turn, until the quota reaches the maximum of 4096 bytes.
+- Quota consumption: each successful `log` call consumes exactly `n` bytes from the current quota.
+- Quota exhaustion behavior: if `n` is greater than the remaining quota, the call fails with `ON_COOLDOWN` and does not consume quota.
+
+Quota is tracked independently per runtime instance (base and each unit have separate budgets).
+
 It is recommended to output ASCII strings only, as non-ASCII characters may not be displayed properly in the game log. The string can but not necessarily be null-terminated, as the length is explicitly provided.
 
 **Availability**: Base runtime and Unit runtime.

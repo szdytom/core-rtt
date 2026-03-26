@@ -1,0 +1,48 @@
+{
+	"version": 1,
+	"name": "ecall fmt_str behavior and logf test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"program": [
+		{
+			"base": "fmt_str_behavior",
+			"unit": "@dummy"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"equals": "[LOGF] d=-7 x=2a s=ok %"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"equals": "[PASS] fmt_str behavior matches expected output\n"
+				}
+			}
+		}
+	]
+}

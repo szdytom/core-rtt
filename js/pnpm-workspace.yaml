@@ -1,3 +1,4 @@
 packages:
   - corereplay
+  - core-autotest
   - replay-cli

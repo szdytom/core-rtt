@@ -1,0 +1,22 @@
+{
+	"name": "@corertt/core-autotest",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "CLI integration autotest runner for core-rtt",
+	"bin": {
+		"corertt-core-autotest": "./dist/main.js"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@corertt/corereplay": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.0",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.1"
+	}
+}

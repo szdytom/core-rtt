@@ -61,7 +61,7 @@ export interface InternalDecoder {
 	push(input: ReplayInput): void;
 	read(): InternalReadResult;
 	state(): ReplayDecoderState;
-	finalize(): void;
+	finalize(): ReplayEndMarker;
 	position(): number;
 }
 

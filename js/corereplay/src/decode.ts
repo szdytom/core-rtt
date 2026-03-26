@@ -3,6 +3,7 @@ import { ReplayDecoderCore } from './decoder_core.js';
 import { ReplayDecodeError } from './errors.js';
 import { decodeReplayStream } from './stream.js';
 import type { ReplayData, ReplayInput } from './types.js';
+import assert from 'assert';
 
 export function decodeReplay(
 	input: ReplayInput,
@@ -12,7 +13,6 @@ export function decodeReplay(
 	decoder.push(input);
 
 	let header: ReplayData['header'] | undefined;
-	let end_marker: ReplayData['endMarker'] | undefined;
 	const ticks: ReplayData['ticks'] = [];
 
 	while (true) {
@@ -28,23 +28,11 @@ export function decodeReplay(
 			ticks.push(result.tick);
 			continue;
 		}
-		end_marker = result.endMarker;
 		break;
 	}
 
-	decoder.finalize();
-	if (end_marker === undefined) {
-		end_marker = decoder.state().endMarker;
-	}
-
-	if (header === undefined) {
-		throw new ReplayDecodeError('MISSING_HEADER', decoder.position());
-	}
-
-	if (end_marker === undefined) {
-		throw new ReplayDecodeError('MISSING_END_MARKER', decoder.position());
-	}
-
+	const end_marker = decoder.finalize();
+	assert(header !== undefined, 'Header should have been parsed if finalize() succeeded');
 	return {
 		header,
 		ticks,
@@ -73,13 +61,8 @@ export async function decodeReplayFromStream(
 	}
 
 	// decodeReplayStream calls decoder.finalize() which throws if header or end marker is missing.
-	// These checks are defensive guards that should not normally be reached.
-	if (header === undefined) {
-		throw new ReplayDecodeError('MISSING_HEADER', 0);
-	}
-	if (end_marker === undefined) {
-		throw new ReplayDecodeError('MISSING_END_MARKER', 0);
-	}
+	assert(header !== undefined, 'Header should have been parsed from stream');
+	assert(end_marker !== undefined, 'End marker should have been parsed from stream');
 
 	return {
 		header,

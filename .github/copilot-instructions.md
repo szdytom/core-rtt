@@ -12,4 +12,5 @@ C++ Specific Instructions:
 - Use `scripts/format-c.sh` to format all C/C++ source files (it detects which files automatically, no need to specify file paths).
 
 JavaScript/TypeScript Specific Instructions:
+- Use `pnpm` as the package manager, all JavaScript/TypeScript related things should be placed in the `js` directory (monorepo style).
 - Use the latest ECMAScript features whenever applicable.

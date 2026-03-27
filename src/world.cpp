@@ -53,11 +53,9 @@ void Player::step(World &world) noexcept {
 	if (!_base_machine) {
 		auto machine_or_error = createMachineFromELF(base_elf);
 		if (!machine_or_error) {
-			world.appendLog(
-				ReplayLogEntry::executionExceptionLog(
-					world.currentTick(), id, 0, machine_or_error.error()
-				)
-			);
+			world.appendLog(ReplayLogEntry::executionExceptionLog(
+				world.currentTick(), id, 0, machine_or_error.error()
+			));
 			return; // Skip simulation if base program failed to load
 		}
 		_base_machine = std::move(machine_or_error.value());
@@ -66,11 +64,9 @@ void Player::step(World &world) noexcept {
 
 	_base_ecall_ctx.simulate(world, *this, nullptr, *_base_machine);
 	if (_base_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
-		world.appendLog(
-			ReplayLogEntry::executionExceptionLog(
-				world.currentTick(), id, 0, _base_ecall_ctx.stop_reason
-			)
-		);
+		world.appendLog(ReplayLogEntry::executionExceptionLog(
+			world.currentTick(), id, 0, _base_ecall_ctx.stop_reason
+		));
 		_base_machine.reset();
 	}
 }
@@ -250,11 +246,9 @@ void World::_processUnitMovement() noexcept {
 			continue;
 		}
 
-		appendLog(
-			ReplayLogEntry::unitDestructionLog(
-				currentTick(), unit->player_id, unit->id
-			)
-		);
+		appendLog(ReplayLogEntry::unitDestructionLog(
+			currentTick(), unit->player_id, unit->id
+		));
 		_players[unit->player_id - 1].units[unit->id - 1] = nullptr;
 
 		auto &tile = _tilemap.tileOf(unit->x, unit->y);
@@ -599,8 +593,7 @@ void World::_spawnUnit(
 	tile.occupied_state = Tile::OCCUPIED_BY_UNIT;
 
 	_players[player_id - 1].units[unit_id - 1] = new_unit.get();
-	appendLog(
-		ReplayLogEntry::unitCreationLog(currentTick(), player_id, unit_id)
+	appendLog(ReplayLogEntry::unitCreationLog(currentTick(), player_id, unit_id)
 	);
 	_units.push_back(std::move(new_unit));
 }

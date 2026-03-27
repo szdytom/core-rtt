@@ -42,9 +42,8 @@ private:
 		using value_type = std::remove_cvref_t<T>;
 		if constexpr (std::is_enum_v<value_type>) {
 			writeOne(std::to_underlying(value));
-		} else if constexpr (
-			std::same_as<value_type, std::span<const std::byte>>
-		) {
+		} else if constexpr (std::same_as<
+								 value_type, std::span<const std::byte>>) {
 			writeBytes(value);
 		} else if constexpr (std::same_as<value_type, std::span<std::byte>>) {
 			writeBytes(std::span<const std::byte>(value));

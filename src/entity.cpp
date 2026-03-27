@@ -107,11 +107,9 @@ void Unit::step(World &world, Player &player) noexcept {
 	if (!_machine) {
 		auto machine_or_error = createMachineFromELF(player.unit_elf);
 		if (!machine_or_error) {
-			world.appendLog(
-				ReplayLogEntry::executionExceptionLog(
-					world.currentTick(), player_id, id, machine_or_error.error()
-				)
-			);
+			world.appendLog(ReplayLogEntry::executionExceptionLog(
+				world.currentTick(), player_id, id, machine_or_error.error()
+			));
 			return; // Skip simulation if unit program failed to load
 		}
 		_machine = std::move(machine_or_error.value());
@@ -120,11 +118,9 @@ void Unit::step(World &world, Player &player) noexcept {
 
 	_ecall_ctx.simulate(world, player, this, *_machine);
 	if (_ecall_ctx.stop_reason != StoppedReason::NOT_STOPPED) {
-		world.appendLog(
-			ReplayLogEntry::executionExceptionLog(
-				world.currentTick(), player_id, id, _ecall_ctx.stop_reason
-			)
-		);
+		world.appendLog(ReplayLogEntry::executionExceptionLog(
+			world.currentTick(), player_id, id, _ecall_ctx.stop_reason
+		));
 		_machine.reset();
 	}
 }

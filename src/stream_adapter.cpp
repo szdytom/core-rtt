@@ -7,8 +7,7 @@
 
 namespace cr {
 
-MemoryStreamAdapter::MemoryStreamAdapter(
-	std::span<const std::byte> bytes
+MemoryStreamAdapter::MemoryStreamAdapter(std::span<const std::byte> bytes
 ) noexcept
 	: _bytes(bytes) {}
 

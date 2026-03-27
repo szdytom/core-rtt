@@ -32,9 +32,8 @@ public:
 	 * @param persistence How much each octave contributes
 	 * @return Noise value between 0.0 and 1.0
 	 */
-	double octave_noise(
-		double x, double y, int octaves, double persistence
-	) const noexcept;
+	double octave_noise(double x, double y, int octaves, double persistence)
+		const noexcept;
 
 private:
 	std::vector<int> _permutation;

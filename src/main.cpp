@@ -39,8 +39,7 @@ std::string computeTilemapSourceLabel(const cr::ProgramOptions &options) {
 	return "seed: (unknown)";
 }
 
-std::string computePlaybackTilemapSourceLabel(
-	const cr::ProgramOptions &options
+std::string computePlaybackTilemapSourceLabel(const cr::ProgramOptions &options
 ) {
 	return std::format(
 		"replay: {}",
@@ -64,22 +63,17 @@ int runPlaybackMode(
 	try {
 		std::ifstream input(options.play_replay, std::ios::binary);
 		if (!input.is_open()) {
-			throw std::runtime_error(
-				std::format(
-					"Failed to open replay file for playback: {}",
-					options.play_replay
-				)
-			);
+			throw std::runtime_error(std::format(
+				"Failed to open replay file for playback: {}",
+				options.play_replay
+			));
 		}
 
 		cr::ReplayStreamDecoder decoder(input);
 		if (!decoder.canReadHeader()) {
-			ui.publishError(
-				std::format(
-					"Header decode error: {}",
-					cr::DecodeErrorCode::MissingHeader
-				)
-			);
+			ui.publishError(std::format(
+				"Header decode error: {}", cr::DecodeErrorCode::MissingHeader
+			));
 			ui.wait();
 			return 1;
 		}
@@ -126,21 +120,17 @@ int runPlaybackMode(
 					break;
 				}
 			} else if (input.eof()) {
-				ui.publishError(
-					std::format(
-						"Tick decode error: {}",
-						cr::DecodeErrorCode::MissingEndMarker
-					)
-				);
+				ui.publishError(std::format(
+					"Tick decode error: {}",
+					cr::DecodeErrorCode::MissingEndMarker
+				));
 				exit_code = 1;
 				break;
 			} else if (!input.good()) {
-				ui.publishError(
-					std::format(
-						"I/O error while reading replay file: {}",
-						options.play_replay
-					)
-				);
+				ui.publishError(std::format(
+					"I/O error while reading replay file: {}",
+					options.play_replay
+				));
 				exit_code = 1;
 				break;
 			}

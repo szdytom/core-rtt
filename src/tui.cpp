@@ -36,8 +36,8 @@ constexpr char glyph_obstacle = '#';
 constexpr char glyph_water = '~';
 
 constexpr std::string_view map_title_format = "Map {}x{}  Tick {}";
-constexpr std::string_view
-	waiting_for_stream = "(waiting for replay stream...)";
+constexpr std::string_view waiting_for_stream
+	= "(waiting for replay stream...)";
 constexpr std::string_view no_logs_yet = "(no logs yet)";
 constexpr std::string_view controls_line_1 = "W/A/S/D or arrow keys: move view";
 constexpr std::string_view controls_line_2 = "Q/Esc: quit";
@@ -306,11 +306,9 @@ ftxui::Element renderGameStatusLine(const PlaybackState &playback_state) {
 	if (playback_state.progress.phase == ReplayParsePhase::End) {
 		const auto &end_marker = playback_state.progress.end_marker;
 		if (end_marker.termination == ReplayTermination::Completed) {
-			auto winner = text(
-							  std::format(
-								  "P{} wins", end_marker.winner_player_id
-							  )
-						  )
+			auto winner = text(std::format(
+							  "P{} wins", end_marker.winner_player_id
+						  ))
 				| color(UIConst::color_win) | bold;
 			return hbox({text("Game over: "), winner});
 		}
@@ -360,13 +358,11 @@ ftxui::Element renderInfoPanel(
 			text(std::format("Current tick: {}", playback_state.currentTick())),
 			text(playback_state.tilemap_source),
 			renderGameStatusLine(playback_state),
-			text(
-				std::format(
-					"View origin: ({}, {}) - ({}, {})", camera.x, camera.y,
-					camera.x + camera.viewport_size - 1,
-					camera.y + camera.viewport_size - 1
-				)
-			),
+			text(std::format(
+				"View origin: ({}, {}) - ({}, {})", camera.x, camera.y,
+				camera.x + camera.viewport_size - 1,
+				camera.y + camera.viewport_size - 1
+			)),
 		})
 	);
 
@@ -416,14 +412,11 @@ ftxui::Element renderMapPanel(
 		rows.push_back(hbox(std::move(columns)));
 	}
 
-	const auto title = text(
-		std::format(
-			UIConst::map_title_format,
-			playback_state.progress.header.tilemap.width,
-			playback_state.progress.header.tilemap.height,
-			playback_state.currentTick()
-		)
-	);
+	const auto title = text(std::format(
+		UIConst::map_title_format, playback_state.progress.header.tilemap.width,
+		playback_state.progress.header.tilemap.height,
+		playback_state.currentTick()
+	));
 
 	Element body = vbox(std::move(rows))
 		| size(WIDTH, EQUAL, camera.viewport_size * 2 - 1)
@@ -548,8 +541,8 @@ void TuiRunner::runUIThread(std::stop_token stop_token) {
 			if (_replay.progress.phase != playback_state.progress.phase) {
 				playback_state.progress = _replay.progress;
 			} else if (_replay.progress.phase != ReplayParsePhase::Header) {
-				playback_state.progress
-					.current_tick = _replay.progress.current_tick;
+				playback_state.progress.current_tick = _replay.progress
+														   .current_tick;
 			}
 
 			if (_replay.last_error.size() > 0) {

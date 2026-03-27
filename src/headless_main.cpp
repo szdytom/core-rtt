@@ -22,8 +22,7 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	cr::World world = cr::createWorldFromOptions(options);
 	auto replay_file_stream = cr::openReplayFile(options.replay_file);
 	if (!replay_file_stream) {
-		throw std::runtime_error(
-			"Replay file path is required in headless mode"
+		throw std::runtime_error("Replay file path is required in headless mode"
 		);
 	}
 

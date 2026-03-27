@@ -23,7 +23,7 @@ typedef int32_t intptr_t;
 #define true 1
 #define __bool_true_false_are_defined 1
 
-#define offsetof(type, member) ((size_t)&(((type *)0)->member))
+#define offsetof(type, member) ((size_t) & (((type *)0)->member))
 #define typeof __builtin_typeof
 
 #define alignas _Alignas
@@ -362,11 +362,11 @@ int turn(void);
 int read_sensor(struct SensorData data[]);
 
 struct DeviceInfo {
-	uint8_t id : 5; /**< 0 = base, 1-15 = unit id */
-	uint8_t upgrades
-		: 3;         /**< bit0=capacity, bit1=vision, bit2=damage; units only */
-	uint8_t health;  /**< current health; always 0 for base */
-	uint16_t energy; /**< current energy carried */
+	uint8_t id : 5;       /**< 0 = base, 1-15 = unit id */
+	uint8_t upgrades : 3; /**< bit0=capacity, bit1=vision, bit2=damage; units
+	                         only */
+	uint8_t health;       /**< current health; always 0 for base */
+	uint16_t energy;      /**< current energy carried */
 };
 
 /**

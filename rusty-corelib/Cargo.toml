@@ -8,6 +8,7 @@ license = "MIT"
 [lib]
 name = "rusty_corelib"
 path = "src/lib.rs"
+test = false
 
 [features]
 default = ["runtime", "allocator"]

@@ -1,10 +1,10 @@
-#[cfg(all(feature = "allocator", target_os = "none", not(test)))]
+#[cfg(all(feature = "allocator", target_os = "none"))]
 use core::alloc::{GlobalAlloc, Layout};
 
-#[cfg(all(feature = "allocator", target_os = "none", not(test)))]
+#[cfg(all(feature = "allocator", target_os = "none"))]
 struct EcallAllocator;
 
-#[cfg(all(feature = "allocator", target_os = "none", not(test)))]
+#[cfg(all(feature = "allocator", target_os = "none"))]
 unsafe impl GlobalAlloc for EcallAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // SAFETY: Runtime allocator validates size and returns a managed pointer.
@@ -27,6 +27,6 @@ unsafe impl GlobalAlloc for EcallAllocator {
     }
 }
 
-#[cfg(all(feature = "allocator", target_os = "none", not(test)))]
+#[cfg(all(feature = "allocator", target_os = "none"))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: EcallAllocator = EcallAllocator;

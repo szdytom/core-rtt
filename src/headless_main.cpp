@@ -2,8 +2,10 @@
 #include "corertt/replay.h"
 #include <atomic>
 #include <csignal>
+#include <cstdio>
 #include <iostream>
 #include <limits>
+#include <print>
 
 #if defined(__linux__) || defined(__unix__)                                  \
 	|| (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)     \
@@ -12,6 +14,7 @@
 #include <unistd.h>
 #else
 #ifdef _WIN32
+#include <fcntl.h>
 #include <io.h>
 #define isatty _isatty
 #define fileno _fileno
@@ -40,11 +43,17 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 
 	auto replay_file_stream = cr::openReplayFile(options.replay_file);
 	if (!replay_file_stream && isStdoutTTY()) {
-		std::println(
-			std::cerr, "Cannot write replay to stdout because it is a TTY."
+		throw std::runtime_error(
+			"Nowhere to write replay file (stdout is a TTY)"
 		);
-		throw std::runtime_error("Nowhere to write replay file");
 	}
+
+#ifdef _WIN32
+	// Set stdout to binary mode on Windows to avoid newline translation
+	if (!replay_file_stream) {
+		_setmode(_fileno(stdout), _O_BINARY);
+	}
+#endif
 
 	std::ostream &replay_stream = replay_file_stream
 		? *replay_file_stream

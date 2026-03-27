@@ -1,0 +1,9 @@
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[target.riscv32imac-unknown-none-elf]
+linker = "rust-lld"
+rustflags = [
+  "-C", "link-arg=-Tlink.ld",
+  "-C", "target-feature=+zba,+zbb,+zbc,+zbs",
+]

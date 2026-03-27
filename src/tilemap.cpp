@@ -8,6 +8,7 @@
 #include <array>
 #include <cctype>
 #include <iterator>
+#include <limits>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -229,10 +230,11 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 	std::istringstream iss(text_data);
 	int width, height;
 	iss >> width >> height;
+	iss.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 	Tilemap tilemap(width, height);
 	// #: obstacle, .: empty, ~: water, $: resource(empty), B: base(empty)
 	std::string line;
-	for (int i = 0; i < height; ++i) {
+	for (int y = 0; y < height; ++y) {
 		std::getline(iss, line);
 		// Filter out whitespace
 		line.erase(
@@ -241,15 +243,15 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 		if (line.size() != static_cast<size_t>(width)) {
 			throw std::runtime_error(
 				std::format(
-					"Line {} has incorrect width: expected {}, got {}", i + 2,
+					"Line {} has incorrect width: expected {}, got {}", y + 2,
 					width, line.size()
 				)
 			);
 		}
 
-		for (int j = 0; j < width; ++j) {
-			Tile &tile = tilemap.tileOf(i, j);
-			switch (line[j]) {
+		for (int x = 0; x < width; ++x) {
+			Tile &tile = tilemap.tileOf(x, y);
+			switch (line[x]) {
 			case '#':
 				tile.terrain = Tile::OBSTACLE;
 				break;
@@ -270,8 +272,8 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 			default:
 				throw std::runtime_error(
 					std::format(
-						"Invalid terrain character '{}' at ({}, {})", line[j],
-						i, j
+						"Invalid terrain character '{}' at ({}, {})", line[x],
+						x, y
 					)
 				);
 			}
@@ -283,9 +285,9 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 
 	int common_base_size = 0;
 	int base_found = 0;
-	for (int i = 0; i < height; ++i) {
-		for (int j = 0; j < width; ++j) {
-			Tile &tile = tilemap.tileOf(i, j);
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			Tile &tile = tilemap.tileOf(x, y);
 			if (!tile.is_base || tile.side != 0) {
 				continue;
 			}
@@ -294,15 +296,15 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 			if (base_found > 2) {
 				throw std::runtime_error(
 					std::format(
-						"More than 2 bases found, extra base at ({}, {})", i, j
+						"More than 2 bases found, extra base at ({}, {})", x, y
 					)
 				);
 			}
 
-			// Found a base tile, determine its size
+			// Found a base tile, determine its size by scanning right (+x)
 			int base_size = 1;
-			while (j + base_size < width
-			       && tilemap.tileOf(i, j + base_size).is_base) {
+			while (x + base_size < width
+			       && tilemap.tileOf(x + base_size, y).is_base) {
 				base_size++;
 			}
 
@@ -313,20 +315,20 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 					std::format(
 						"Base at ({}, {}) has different size {} than previous "
 						"base size {}",
-						i, j, base_size, common_base_size
+						x, y, base_size, common_base_size
 					)
 				);
 			}
 
 			// Mark the entire base area and assign side
-			for (int x = i; x < i + base_size; ++x) {
-				for (int y = j; y < j + base_size; ++y) {
-					Tile &base_tile = tilemap.tileOf(x, y);
+			for (int bx = x; bx < x + base_size; ++bx) {
+				for (int by = y; by < y + base_size; ++by) {
+					Tile &base_tile = tilemap.tileOf(bx, by);
 					if (!base_tile.is_base) {
 						throw std::runtime_error(
 							std::format(
 								"Base at ({}, {}) is not a square of size {}",
-								i, j, base_size
+								x, y, base_size
 							)
 						);
 					}
@@ -462,10 +464,10 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	constexpr double water_threshold = 0.2;
 
 	Tilemap tilemap(config.width, config.height);
-	for (int i = 0; i < config.height; ++i) {
-		for (int j = 0; j < config.width; ++j) {
-			double value = noise.uniform_noise(i, j);
-			Tile &tile = tilemap.tileOf(i, j);
+	for (int y = 0; y < config.height; ++y) {
+		for (int x = 0; x < config.width; ++x) {
+			double value = noise.uniform_noise(y, x);
+			Tile &tile = tilemap.tileOf(x, y);
 			if (value > obstacle_threshold) {
 				tile.terrain = Tile::OBSTACLE;
 			} else if (value < water_threshold) {
@@ -480,8 +482,8 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	// Remove small holes and connect larger holes using MST
 
 	// Place bases. For simplicity, we place them in the corners, for now.
-	const int base_x[] = {0, config.height - config.base_size};
-	const int base_y[] = {0, config.width - config.base_size};
+	const int base_x[] = {0, config.width - config.base_size};
+	const int base_y[] = {0, config.height - config.base_size};
 	tilemap._base_size = config.base_size;
 	for (int i = 0; i < 2; ++i) {
 		int x = base_x[i];

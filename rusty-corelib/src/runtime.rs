@@ -79,7 +79,7 @@ pub extern "C" fn _start() -> ! {
     unsafe { call_app_main() }
 }
 
-#[cfg(all(feature = "runtime", target_os = "none", not(test)))]
+#[cfg(all(feature = "runtime", target_os = "none"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
     crate::abort()

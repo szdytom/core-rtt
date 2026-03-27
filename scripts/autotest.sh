@@ -19,12 +19,12 @@ if [ ! -f "./corelib/libcorelib.a" ]; then
 	exit 1
 fi
 
-# Build the autotesting framework
-pnpm -C "./js" --filter='@corertt/core-autotest' run typecheck
-pnpm -C "./js" --filter='@corertt/core-autotest' run build
+cd ./js
 
-# Test the autotesting framework itself
-pnpm -C "./js" --filter='@corertt/core-autotest' run test
+# Build the project, run typecheck and run tests
+pnpm run build
+pnpm run typecheck
+pnpm run test
 
 # Run the autotests
-pnpm -C "./js" --filter='@corertt/core-autotest' exec node dist/main.js
+pnpm --filter='@corertt/core-autotest' exec node dist/main.js

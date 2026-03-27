@@ -35,7 +35,7 @@ constexpr char glyph_resource = '$';
 constexpr char glyph_obstacle = '#';
 constexpr char glyph_water = '~';
 
-constexpr std::string_view map_title_format = "Map {}x{}  Tick {}";
+constexpr std::string_view map_title_format = "Map {}x{}  Tick {:04}";
 constexpr std::string_view
 	waiting_for_stream = "(waiting for replay stream...)";
 constexpr std::string_view no_logs_yet = "(no logs yet)";
@@ -59,7 +59,13 @@ const ftxui::Color color_terminated = ftxui::Color::RGB(237, 189, 86);
 struct CameraState {
 	int x = 0;
 	int y = 0;
-	int viewport_size = 1;
+	int viewport_width = 1;
+	int viewport_height = 1;
+};
+
+struct ViewportSize {
+	int width = 1;
+	int height = 1;
 };
 
 struct RenderedLogLine {
@@ -211,18 +217,19 @@ void clampCamera(
 	if (!playback_state.hasHeader()) {
 		camera.x = 0;
 		camera.y = 0;
-		camera.viewport_size = 1;
+		camera.viewport_width = 1;
+		camera.viewport_height = 1;
 		return;
 	}
 
 	const auto &tilemap = playback_state.progress.header.tilemap;
-	const int max_x = std::max(0, tilemap.width - camera.viewport_size);
-	const int max_y = std::max(0, tilemap.height - camera.viewport_size);
+	const int max_x = std::max(0, tilemap.width - camera.viewport_width);
+	const int max_y = std::max(0, tilemap.height - camera.viewport_height);
 	camera.x = std::clamp(camera.x, 0, max_x);
 	camera.y = std::clamp(camera.y, 0, max_y);
 }
 
-int computeViewportSize(const PlaybackState &playback_state) noexcept {
+ViewportSize computeViewportSize(const PlaybackState &playback_state) noexcept {
 	const auto terminal_size = ftxui::Terminal::Size();
 	const int terminal_cols = std::max(1, terminal_size.dimx);
 	const int terminal_rows = std::max(1, terminal_size.dimy);
@@ -242,17 +249,22 @@ int computeViewportSize(const PlaybackState &playback_state) noexcept {
 	const int map_content_max_cols = std::max(1, (map_outer_max_width - 1) / 2);
 
 	if (!playback_state.hasHeader()) {
-		return 1;
+		return {};
 	}
 
 	const auto &tilemap = playback_state.progress.header.tilemap;
-	return std::max(
-		1,
-		std::min(
-			{static_cast<int>(tilemap.width), static_cast<int>(tilemap.height),
-	         map_content_max_rows, map_content_max_cols}
-		)
+	const int max_width = std::max(
+		1, std::min(static_cast<int>(tilemap.width), map_content_max_cols)
 	);
+	const int max_height = std::max(
+		1, std::min(static_cast<int>(tilemap.height), map_content_max_rows)
+	);
+
+	const int square_size = std::max(1, std::min(max_width, max_height));
+	return {
+		.width = std::max(square_size, max_width),
+		.height = std::max(square_size, max_height),
+	};
 }
 
 void appendRenderedLogLines(
@@ -357,14 +369,16 @@ ftxui::Element renderInfoPanel(
 			text(std::string(UIConst::controls_line_1)),
 			text(std::string(UIConst::controls_line_2)),
 			separator(),
-			text(std::format("Current tick: {}", playback_state.currentTick())),
+			text(
+				std::format("Current tick: {:04}", playback_state.currentTick())
+			),
 			text(playback_state.tilemap_source),
 			renderGameStatusLine(playback_state),
 			text(
 				std::format(
 					"View origin: ({}, {}) - ({}, {})", camera.x, camera.y,
-					camera.x + camera.viewport_size - 1,
-					camera.y + camera.viewport_size - 1
+					camera.x + camera.viewport_width - 1,
+					camera.y + camera.viewport_height - 1
 				)
 			),
 		})
@@ -401,11 +415,11 @@ ftxui::Element renderMapPanel(
 	}
 
 	std::vector<Element> rows;
-	rows.reserve(camera.viewport_size);
-	for (int dy = 0; dy < camera.viewport_size; ++dy) {
+	rows.reserve(camera.viewport_height);
+	for (int dy = 0; dy < camera.viewport_height; ++dy) {
 		std::vector<Element> columns;
-		columns.reserve(camera.viewport_size * 2 - 1);
-		for (int dx = 0; dx < camera.viewport_size; ++dx) {
+		columns.reserve(camera.viewport_width * 2 - 1);
+		for (int dx = 0; dx < camera.viewport_width; ++dx) {
 			if (dx > 0) {
 				columns.push_back(text(" "));
 			}
@@ -426,8 +440,8 @@ ftxui::Element renderMapPanel(
 	);
 
 	Element body = vbox(std::move(rows))
-		| size(WIDTH, EQUAL, camera.viewport_size * 2 - 1)
-		| size(HEIGHT, EQUAL, camera.viewport_size);
+		| size(WIDTH, EQUAL, camera.viewport_width * 2 - 1)
+		| size(HEIGHT, EQUAL, camera.viewport_height);
 	return window(title, body);
 }
 
@@ -525,7 +539,9 @@ void TuiRunner::runUIThread(std::stop_token stop_token) {
 	PlaybackState playback_state;
 
 	auto root = Renderer([&] {
-		camera.viewport_size = computeViewportSize(playback_state);
+		const auto viewport_size = computeViewportSize(playback_state);
+		camera.viewport_width = viewport_size.width;
+		camera.viewport_height = viewport_size.height;
 		clampCamera(playback_state, camera);
 
 		Element map_panel = renderMapPanel(playback_state, camera);

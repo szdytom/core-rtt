@@ -82,10 +82,15 @@ export async function runHeadlessOnce(
 
 	const decode_result_promise = decodeReplayLogsFromStdout(child.stdout)
 		.then((all_logs) => ({ ok: true as const, all_logs }))
-		.catch((error: unknown) => ({
-			ok: false as const,
-			message: error instanceof Error ? error.message : String(error),
-		}));
+		.catch((error: unknown) => {
+			if (!child.killed) {
+				child.kill('SIGKILL');
+			}
+			return {
+				ok: false as const,
+				message: error instanceof Error ? error.message : String(error),
+			};
+		});
 
 	const timeout_handle = setTimeout(() => {
 		timed_out = true;

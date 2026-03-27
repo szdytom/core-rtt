@@ -7,7 +7,7 @@
 	"program": [
 		{
 			"base": "@dummy",
-			"unit": "deposit_withdraw"
+			"unit": "c::deposit_withdraw"
 		},
 		{
 			"base": "@dummy",

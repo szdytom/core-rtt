@@ -1,12 +1,12 @@
 {
 	"version": 1,
-	"name": "ecall fmt_str behavior and logf test",
+	"name": "rust ecall log simple test",
 	"runs": 1,
 	"timeLimitMs": 2000,
 	"maxTicks": 10,
 	"program": [
 		{
-			"base": "c::fmt_str_behavior",
+			"base": "rusty::log_simple",
 			"unit": "@dummy"
 		},
 		{
@@ -31,7 +31,7 @@
 				"source": "Player",
 				"type": "Custom",
 				"payload": {
-					"equals": "[LOGF] d=-7 x=2a s=ok %"
+					"regex": "^first message"
 				}
 			}
 		},
@@ -40,7 +40,25 @@
 				"source": "Player",
 				"type": "Custom",
 				"payload": {
-					"equals": "[PASS] fmt_str behavior matches expected output\n"
+					"regex": "^second message"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^third message"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] rust log simple test"
 				}
 			}
 		}

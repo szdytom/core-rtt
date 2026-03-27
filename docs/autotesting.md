@@ -5,8 +5,12 @@
 The autotest pipeline validates integration across three layers:
 
 - `corelib` test program behavior (`.c` -> `.elf`)
-- `corertt_headless` engine execution and replay output
-- `@corertt/corereplay` replay decoding and assertion checks
+- `corertt_headless` engine execution and replay output (streamed on `stdout`)
+- `@corertt/corereplay` stream decoding and assertion checks
+
+`@corertt/core-autotest` does not require temporary replay files now. It runs
+`corertt_headless` with `stdout` piped and decodes replay chunks incrementally
+via `decodeReplayStream`.
 
 ## Workflow for New Cases
 

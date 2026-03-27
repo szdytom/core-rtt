@@ -9,6 +9,7 @@ on:
       - 'include/**'
       - 'js/core-autotest/**'
       - 'js/corereplay/**'
+      - '.github/workflows/autotest.yml'
   pull_request:
     paths:
       - 'corelib/**'
@@ -16,6 +17,7 @@ on:
       - 'include/**'
       - 'js/core-autotest/**'
       - 'js/corereplay/**'
+      - '.github/workflows/autotest.yml'
   workflow_dispatch:
 
 jobs:

@@ -162,7 +162,7 @@ If you remove `expectFailure: true`, the same case must fail, demonstrating the 
 Rust has an equivalent counterexample:
 
 - `rusty-corelib/examples/abort_immediately.rs`
-- `rusty-corelib/autotest/rust_forbidden_log_counterexample.json`
+- `rusty-corelib/autotest/forbidden_log_counterexample.json`
 
 Run it explicitly:
 
@@ -174,4 +174,4 @@ pnpm -C js --filter='@corertt/core-autotest' exec node dist/main.js \
 There is also a positive Rust log case:
 
 - `rusty-corelib/examples/log_simple.rs`
-- `rusty-corelib/autotest/rust_log_simple.json`
+- `rusty-corelib/autotest/log_simple.json`

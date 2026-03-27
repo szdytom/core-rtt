@@ -9,7 +9,7 @@ export const usage = [
 	'',
 	'Options:',
 	'  --repo-root <path>      repository root (auto-detected when omitted)',
-	'  --autotest-dir <path>   autotest directory (default: <repo>/corelib/autotest)',
+	'  --autotest-dir <path>   autotest directory (repeatable, default: <repo>/corelib/autotest + <repo>/rusty-corelib/autotest)',
 	'  --headless <path>       corertt_headless binary path (default: <repo>/build/corertt_headless)',
 	'  --case <name>           only run case by exact "name" field',
 	'  --fail-fast             stop after first failed case',
@@ -22,7 +22,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
 		args: argv,
 		options: {
 			'repo-root': { type: 'string', default: '' },
-			'autotest-dir': { type: 'string', default: '' },
+			'autotest-dir': { type: 'string', multiple: true },
 			headless: { type: 'string', default: '' },
 			case: { type: 'string', default: '' },
 			'fail-fast': { type: 'boolean', default: false },
@@ -41,16 +41,20 @@ export function parseCliArgs(argv: string[]): CliOptions {
 	const repo_root = typeof parsed.values['repo-root'] === 'string' && parsed.values['repo-root'].length > 0
 		? path.resolve(parsed.values['repo-root'])
 		: findRepoRoot(process.cwd());
-	const autotest_dir = typeof parsed.values['autotest-dir'] === 'string' && parsed.values['autotest-dir'].length > 0
-		? path.resolve(parsed.values['autotest-dir'])
-		: path.join(repo_root, 'corelib', 'autotest');
+	const autotest_dirs_raw = parsed.values['autotest-dir'];
+	const autotest_dirs = Array.isArray(autotest_dirs_raw) && autotest_dirs_raw.length > 0
+		? autotest_dirs_raw.map((dir_path) => path.resolve(dir_path))
+		: [
+			path.join(repo_root, 'corelib', 'autotest'),
+			path.join(repo_root, 'rusty-corelib', 'autotest'),
+		];
 	const headless_path = typeof parsed.values.headless === 'string' && parsed.values.headless.length > 0
 		? path.resolve(parsed.values.headless)
 		: path.join(repo_root, 'build', 'corertt_headless');
 
 	return {
 		repo_root,
-		autotest_dir,
+		autotest_dirs,
 		headless_path,
 		case_name: String(parsed.values.case ?? ''),
 		fail_fast: Boolean(parsed.values['fail-fast']),

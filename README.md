@@ -49,6 +49,18 @@ Please refer to
 - [Corelib Example Programs](corelib/example) for some example programs written using the corelib.
 - [Corelib Test Programs](corelib/test) for some example programs written using the corelib.
 
+## Project Structure / Contributing
+
+The project is structured as follows:
+
+- `include/`: header files for the game engine and runtime.
+- `src/`: the source code of the game engine and runtime.
+- `CMakeLists.txt`: the CMake build configuration for the game engine and runtime.
+- `corelib/`: the C library for user programs, with its own Makefile.
+- `corelib/autotest/`: a set of test cases for the corelib, which can be tested automatically. Refer to `docs/autotesting.md` for details.
+- `js/`: where all the JavaScript/TypeScript related code lives.
+- `docs/`: documentation files for the game rules and development.
+
 ## License
 
 The game itself and the corelib are both open sourced under the MIT License. See the LICENSE file for details.

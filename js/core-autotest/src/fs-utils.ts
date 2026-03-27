@@ -22,3 +22,8 @@ export async function discoverCaseFiles(autotest_dir: string): Promise<string[]>
 		.map((entry) => path.join(autotest_dir, entry.name))
 		.sort((a, b) => a.localeCompare(b));
 }
+
+export async function discoverCaseFilesFromDirs(autotest_dirs: string[]): Promise<string[]> {
+	const all_files = await Promise.all(autotest_dirs.map((dir_path) => discoverCaseFiles(dir_path)));
+	return all_files.flat().sort((a, b) => a.localeCompare(b));
+}

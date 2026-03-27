@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'corelib/**'
+      - 'rusty-corelib/**'
       - 'src/**'
       - 'include/**'
       - 'js/core-autotest/**'
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - 'corelib/**'
+      - 'rusty-corelib/**'
       - 'src/**'
       - 'include/**'
       - 'js/core-autotest/**'
@@ -48,6 +50,12 @@ jobs:
       - name: Build Corelib and Tests
         run: |
           make -C corelib CLANG=1 -j$(nproc)
+
+      - name: rustup toolchain install
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+          targets: riscv32imac-unknown-none-elf
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

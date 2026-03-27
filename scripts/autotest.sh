@@ -9,6 +9,7 @@ if [ ! -f "./build/corertt_headless" ]; then
 	echo "Refer to README.md for more information."
 	exit 1
 fi
+echo "Found corertt_headless"
 
 # Check if corelib is built, we'll assume that if corelib/libcorelib.a exists, then corelib is built along with all the tests.
 # This is not solid, maybe someone will invoke `make libcorelib.a` directly, but it's good enough for now.
@@ -18,6 +19,19 @@ if [ ! -f "./corelib/libcorelib.a" ]; then
 	echo "Refer to README.md for more information."
 	exit 1
 fi
+echo "Corelib is built"
+
+# Build rusty-corelib examples for Rust autotest cases.
+if ! command -v cargo >/dev/null 2>&1; then
+	echo "Error: cargo is not available in PATH."
+	echo "Please install Rust toolchain before running autotest.sh."
+	exit 1
+fi
+echo "Found cargo"
+
+cd ./rusty-corelib
+cargo build --release --examples
+cd ..
 
 cd ./js
 
@@ -28,3 +42,4 @@ pnpm run test
 
 # Run the autotests
 pnpm --filter='@corertt/core-autotest' exec node dist/main.js
+echo "Autotests completed"

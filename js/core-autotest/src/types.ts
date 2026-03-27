@@ -2,7 +2,7 @@ import type { ReplayLogEntry } from '@corertt/corereplay';
 
 export interface CliOptions {
 	repo_root: string;
-	autotest_dir: string;
+	autotest_dirs: string[];
 	headless_path: string;
 	case_name: string;
 	fail_fast: boolean;

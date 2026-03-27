@@ -74,11 +74,13 @@ async function run(argv: string[]): Promise<number> {
 	if (!(await pathExists(options.headless_path))) {
 		throw new Error(`corertt_headless not found: ${options.headless_path}`);
 	}
-	if (!(await pathExists(options.autotest_dir))) {
-		throw new Error(`autotest directory not found: ${options.autotest_dir}`);
+	for (const autotest_dir of options.autotest_dirs) {
+		if (!(await pathExists(autotest_dir))) {
+			throw new Error(`autotest directory not found: ${autotest_dir}`);
+		}
 	}
 
-	const cases = await loadCases(options.autotest_dir, options.case_name);
+	const cases = await loadCases(options.autotest_dirs, options.case_name);
 	if (cases.length === 0) {
 		process.stdout.write('Summary: total=0 passed=0 failed=1\n');
 		process.stdout.write('  - No test case found\n');

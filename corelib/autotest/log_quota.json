@@ -6,7 +6,7 @@
 	"maxTicks": 10,
 	"program": [
 		{
-			"base": "log_quota",
+			"base": "c::log_quota",
 			"unit": "@dummy"
 		},
 		{

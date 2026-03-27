@@ -6,7 +6,7 @@ import type {
 	LogFilter,
 	TestCase,
 } from './types.js';
-import { discoverCaseFiles } from './fs-utils.js';
+import { discoverCaseFilesFromDirs } from './fs-utils.js';
 
 function assertObject(value: unknown, path_name: string): asserts value is Record<string, unknown> {
 	if (value == null || typeof value !== 'object' || Array.isArray(value)) {
@@ -179,8 +179,8 @@ export function parseCaseSpec(raw_data: unknown, file_path: string): CaseSpec {
 	};
 }
 
-export async function loadCases(autotest_dir: string, case_name: string): Promise<TestCase[]> {
-	const files = await discoverCaseFiles(autotest_dir);
+export async function loadCases(autotest_dirs: string[], case_name: string): Promise<TestCase[]> {
+	const files = await discoverCaseFilesFromDirs(autotest_dirs);
 	const cases: TestCase[] = [];
 	for (const file_path of files) {
 		const text = await readFile(file_path, 'utf8');

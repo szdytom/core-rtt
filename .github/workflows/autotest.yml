@@ -3,7 +3,19 @@ name: Build and run autotests
 on:
   push:
     branches: [main]
+    paths:
+      - 'corelib/**'
+      - 'src/**'
+      - 'include/**'
+      - 'js/core-autotest/**'
+      - 'js/corereplay/**'
   pull_request:
+    paths:
+      - 'corelib/**'
+      - 'src/**'
+      - 'include/**'
+      - 'js/core-autotest/**'
+      - 'js/corereplay/**'
   workflow_dispatch:
 
 jobs:

@@ -455,7 +455,7 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	}
 
 	Xoroshiro128PP rng(config.seed);
-	UniformPerlinNoise noise(rng.jump_96());
+	UniformPerlinNoise noise(rng.jump96());
 	noise.calibrate(
 		config.noise_scale, config.noise_octaves, config.noise_persistence
 	);

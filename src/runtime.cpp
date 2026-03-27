@@ -541,7 +541,7 @@ std::expected<std::unique_ptr<RVMachine>, StoppedReason> createMachineFromELF(
 }
 
 void RuntimeECallContext::bind(RVMachine &machine) noexcept {
-	rng = Xoroshiro128PP{Seed::device_random()};
+	rng = Xoroshiro128PP{Seed::deviceRandom()};
 	stop_reason = StoppedReason::NOT_STOPPED;
 	machine.set_userdata(this);
 	machine.cpu.reg(riscv::REG_SP) = 0;

@@ -33,7 +33,7 @@ std::string computeTilemapSourceLabel(const cr::ProgramOptions &options) {
 	}
 
 	if (options.seed.has_value()) {
-		return std::format("seed: {}", options.seed->to_string());
+		return std::format("seed: {}", options.seed->toString());
 	}
 
 	return "seed: (unknown)";

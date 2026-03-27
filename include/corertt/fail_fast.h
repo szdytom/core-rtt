@@ -15,6 +15,8 @@
 
 #ifndef NDEBUG
 
+// Lightweight assertion, should be used for checking simple conditions like a <
+// b with no side effects and no expensive computations.
 #define CR_FAIL_FAST_ASSERT_LIGHT(cond, err_message) \
 	do {                                             \
 		if (!(cond)) {                               \
@@ -22,6 +24,9 @@
 		}                                            \
 	} while (false)
 
+// Heavyweight assertion, should be used for checking complex conditions that
+// may involve side effects or expensive computations. The condition will only
+// be evaluated in debug builds.
 #define CR_FAIL_FAST_ASSERT_HEAVY(cond, err_message) \
 	do {                                             \
 		if (!(cond)) {                               \

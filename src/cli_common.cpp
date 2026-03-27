@@ -113,7 +113,7 @@ ProgramOptions parseOptions(
 	options.p2_unit = program.get<std::string>("--p2-unit");
 	options.map_file = program.get<std::string>("--map");
 	if (program.is_used("--seed")) {
-		options.seed = Seed::from_string(program.get<std::string>("--seed"));
+		options.seed = Seed::fromString(program.get<std::string>("--seed"));
 	}
 	options.replay_file = program.get<std::string>("--replay-file");
 	if (mode == CliMode::Headless) {
@@ -157,7 +157,7 @@ ProgramOptions parseOptions(
 	}
 
 	if (options.map_file.empty() && !options.seed.has_value()) {
-		options.seed = Seed::device_random();
+		options.seed = Seed::deviceRandom();
 	}
 
 	return options;
@@ -206,7 +206,7 @@ Tilemap generateTilemap(const ProgramOptions &options) {
 	if (options.seed.has_value()) {
 		config.seed = *options.seed;
 	} else {
-		config.seed = Seed::device_random();
+		config.seed = Seed::deviceRandom();
 	}
 
 	return Tilemap::generate(config);

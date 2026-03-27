@@ -39,7 +39,7 @@ std::uint64_t parse_hex_u64_16(std::string_view text) noexcept {
 
 } // namespace
 
-Seed Seed::from_string(std::string_view str) noexcept {
+Seed Seed::fromString(std::string_view str) noexcept {
 	if (is_raw_seed_format(str)) {
 		return Seed{
 			.s = {
@@ -61,11 +61,11 @@ Seed Seed::from_string(std::string_view str) noexcept {
 	return res;
 }
 
-std::string Seed::to_string() const {
+std::string Seed::toString() const {
 	return std::format("{:016x}{:016x}", s[0], s[1]);
 }
 
-Seed Seed::device_random() {
+Seed Seed::deviceRandom() {
 	Seed seed;
 	std::random_device rd;
 	std::uniform_int_distribution<std::uint64_t> dist(
@@ -91,7 +91,7 @@ std::uint64_t Xoroshiro128PP::next() noexcept {
 	return result;
 }
 
-Xoroshiro128PP Xoroshiro128PP::jump_64() const noexcept {
+Xoroshiro128PP Xoroshiro128PP::jump64() const noexcept {
 	constexpr std::uint64_t JUMP_64[] = {
 		0x180ec6d33cfd0aba, 0xd5a61266f0c9392c
 	};
@@ -111,7 +111,7 @@ Xoroshiro128PP Xoroshiro128PP::jump_64() const noexcept {
 	return res;
 }
 
-Xoroshiro128PP Xoroshiro128PP::jump_96() const noexcept {
+Xoroshiro128PP Xoroshiro128PP::jump96() const noexcept {
 	constexpr std::uint64_t JUMP_96[] = {
 		0x360fd5f2cf8d5d99, 0x9c6e6877736c46e3
 	};
@@ -132,7 +132,7 @@ Xoroshiro128PP Xoroshiro128PP::jump_96() const noexcept {
 }
 
 Xoroshiro128PP &Xoroshiro128PP::globalInstance() noexcept {
-	static Xoroshiro128PP instance(Seed::device_random());
+	static Xoroshiro128PP instance(Seed::deviceRandom());
 	return instance;
 }
 

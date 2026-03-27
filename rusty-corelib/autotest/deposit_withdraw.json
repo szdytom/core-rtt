@@ -1,0 +1,39 @@
+{
+	"version": 1,
+	"name": "rust deposit withdraw ecall assert test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 20,
+	"program": [
+		{
+			"base": "@dummy",
+			"unit": "rusty::deposit_withdraw"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] deposit/withdraw ecall behavior is correct\\.$"
+				}
+			}
+		}
+	]
+}

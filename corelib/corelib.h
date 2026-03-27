@@ -23,7 +23,7 @@ typedef int32_t intptr_t;
 #define true 1
 #define __bool_true_false_are_defined 1
 
-#define offsetof(type, member) ((size_t) & (((type *)0)->member))
+#define offsetof(type, member) ((size_t)&(((type *)0)->member))
 #define typeof __builtin_typeof
 
 #define alignas _Alignas

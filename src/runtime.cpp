@@ -72,7 +72,8 @@ void ecall_meta(RVMachine &machine) {
 	GameInfo info{};
 	info.map_width = static_cast<std::uint8_t>(ctx->world->width());
 	info.map_height = static_cast<std::uint8_t>(ctx->world->height());
-	info.base_size = static_cast<std::uint8_t>(ctx->world->tilemap().baseSize()
+	info.base_size = static_cast<std::uint8_t>(
+		ctx->world->tilemap().baseSize()
 	);
 	try {
 		auto [ptr] = machine.sysargs<RVMachine::address_t>();
@@ -491,7 +492,8 @@ void ecall_rand(RVMachine &machine) {
 
 namespace {
 
-StoppedReason machineExceptionToStoppedReason(const riscv::MachineException &e
+StoppedReason machineExceptionToStoppedReason(
+	const riscv::MachineException &e
 ) noexcept {
 	switch (e.type()) {
 	case riscv::INVALID_PROGRAM:

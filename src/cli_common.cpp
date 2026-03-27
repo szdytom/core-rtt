@@ -65,8 +65,10 @@ ProgramOptions parseOptions(
 		.default_value(std::string(""))
 		.help("path to tilemap file (text or binary)");
 	program.add_argument("-s", "--seed")
-		.help("seed for map generation: either any string, or 32 hex chars "
-	          "(omitted means device-random)");
+		.help(
+			"seed for map generation: either any string, or 32 hex chars "
+			"(omitted means device-random)"
+		);
 	if (mode == CliMode::Headless) {
 		program.add_argument("--replay-file")
 			.required()
@@ -74,8 +76,10 @@ ProgramOptions parseOptions(
 		program.add_argument("--max-ticks")
 			.default_value(0u)
 			.scan<'u', unsigned int>()
-			.help("maximum number of ticks to simulate before auto draw "
-		          "(0=unlimited)");
+			.help(
+				"maximum number of ticks to simulate before auto draw "
+				"(0=unlimited)"
+			);
 	} else if (mode == CliMode::Interactive) {
 		program.add_argument("--step-interval-ms")
 			.default_value(200)

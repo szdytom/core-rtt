@@ -284,7 +284,8 @@ enum class ReplayParsePhase {
 
 class ReplayStreamDecoder {
 public:
-	explicit ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream
+	explicit ReplayStreamDecoder(
+		std::unique_ptr<StreamAdapter> stream
 	) noexcept;
 	explicit ReplayStreamDecoder(std::istream &stream);
 

@@ -30,8 +30,9 @@ public:
 
 	bool has(std::size_t size) override;
 	std::span<const std::byte> peek(std::size_t size) override;
-	std::span<const std::byte> peek(std::size_t left, std::size_t right)
-		override;
+	std::span<const std::byte> peek(
+		std::size_t left, std::size_t right
+	) override;
 	void take(std::size_t size, std::span<std::byte> out) override;
 	void skip(std::size_t size) override;
 	std::size_t position() const noexcept override;
@@ -48,8 +49,9 @@ public:
 
 	bool has(std::size_t size) override;
 	std::span<const std::byte> peek(std::size_t size) override;
-	std::span<const std::byte> peek(std::size_t left, std::size_t right)
-		override;
+	std::span<const std::byte> peek(
+		std::size_t left, std::size_t right
+	) override;
 	void take(std::size_t size, std::span<std::byte> out) override;
 	void skip(std::size_t size) override;
 	std::size_t position() const noexcept override;

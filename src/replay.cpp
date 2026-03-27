@@ -81,8 +81,9 @@ DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 	}
 	const auto count = tileCount(tilemap);
 	if (!reader.has(count)) {
-		return std::unexpected(formatError(DecodeErrorCode::TilemapDataTruncated
-		));
+		return std::unexpected(
+			formatError(DecodeErrorCode::TilemapDataTruncated)
+		);
 	}
 	tilemap.tiles.reserve(count);
 	for (std::size_t i = 0; i < count; ++i) {
@@ -127,7 +128,8 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 
 	const auto raw_type = reader.readU8();
 	if (raw_type > std::to_underlying(ReplayLogEntry::Type::BaseCaptured)) {
-		return std::unexpected(formatError(DecodeErrorCode::InvalidLogTypeValue)
+		return std::unexpected(
+			formatError(DecodeErrorCode::InvalidLogTypeValue)
 		);
 	}
 	entry.type = static_cast<ReplayLogEntry::Type>(raw_type);
@@ -333,7 +335,8 @@ void encodeReplayEndMarker(
 DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 	ReplayEndMarker end_marker;
 	if (!reader.has(2)) {
-		return std::unexpected(formatError(DecodeErrorCode::TruncatedEndMarker)
+		return std::unexpected(
+			formatError(DecodeErrorCode::TruncatedEndMarker)
 		);
 	}
 	const auto raw_termination = reader.readU8();
@@ -384,7 +387,8 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	header.version = reader.readU16();
 	const auto header_size = reader.readU16();
 	if (header.version != replay_version) {
-		return std::unexpected(formatError(DecodeErrorCode::UnsupportedVersion)
+		return std::unexpected(
+			formatError(DecodeErrorCode::UnsupportedVersion)
 		);
 	}
 
@@ -500,7 +504,8 @@ ReplayLogEntry ReplayLogEntry::baseCapturedLog(
 	};
 }
 
-FormatReplayLogEntryLines::FormatReplayLogEntryLines(const ReplayLogEntry &entry
+FormatReplayLogEntryLines::FormatReplayLogEntryLines(
+	const ReplayLogEntry &entry
 )
 	: _entry(entry), _prefix(computePrefix(entry)) {}
 
@@ -555,7 +560,8 @@ FormatReplayLogEntryLines::iterator::operator++(int) {
 	return temp;
 }
 
-bool FormatReplayLogEntryLines::iterator::operator==(const iterator &other
+bool FormatReplayLogEntryLines::iterator::operator==(
+	const iterator &other
 ) const noexcept {
 	if (_done && other._done) {
 		return true;
@@ -567,7 +573,8 @@ bool FormatReplayLogEntryLines::iterator::operator==(const iterator &other
 		&& _is_first_line == other._is_first_line;
 }
 
-bool FormatReplayLogEntryLines::iterator::operator!=(const iterator &other
+bool FormatReplayLogEntryLines::iterator::operator!=(
+	const iterator &other
 ) const noexcept {
 	return !(*this == other);
 }
@@ -581,7 +588,8 @@ void FormatReplayLogEntryLines::iterator::buildCurrentLine() {
 	}
 
 	while (_payload_pos < _entry->payload.size()) {
-		const auto ch = static_cast<unsigned char>(_entry->payload[_payload_pos]
+		const auto ch = static_cast<unsigned char>(
+			_entry->payload[_payload_pos]
 		);
 		++_payload_pos;
 
@@ -606,7 +614,8 @@ FormatReplayLogEntryLines::iterator FormatReplayLogEntryLines::end() const {
 	return iterator();
 }
 
-std::string FormatReplayLogEntryLines::computePrefix(const ReplayLogEntry &entry
+std::string FormatReplayLogEntryLines::computePrefix(
+	const ReplayLogEntry &entry
 ) {
 	const std::string dev_name = entry.unit_id == 0
 		? "base"
@@ -715,7 +724,8 @@ ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) noexcept {
 	return ReplayEndMarker::aborted();
 }
 
-ReplayEndMarker ReplayEndMarker::completed(std::uint8_t winner_player_id
+ReplayEndMarker ReplayEndMarker::completed(
+	std::uint8_t winner_player_id
 ) noexcept {
 	CR_FAIL_FAST_ASSERT_LIGHT(
 		winner_player_id == 1 || winner_player_id == 2,
@@ -732,7 +742,8 @@ ReplayEndMarker ReplayEndMarker::aborted() noexcept {
 	return {.termination = ReplayTermination::Aborted, .winner_player_id = 0};
 }
 
-std::vector<std::byte> ReplayEndMarker::encode(const ReplayEndMarker &end_marker
+std::vector<std::byte> ReplayEndMarker::encode(
+	const ReplayEndMarker &end_marker
 ) {
 	WriteBuffer write_buffer;
 	encodeTo(write_buffer, end_marker);
@@ -751,7 +762,8 @@ void encodeTo(WriteBuffer &write_buffer, const ReplayEndMarker &end_marker) {
 	encodeReplayEndMarker(write_buffer, end_marker);
 }
 
-ReplayStreamDecoder::ReplayStreamDecoder(std::unique_ptr<StreamAdapter> stream
+ReplayStreamDecoder::ReplayStreamDecoder(
+	std::unique_ptr<StreamAdapter> stream
 ) noexcept
 	: _stream(std::move(stream)) {
 	CR_FAIL_FAST_ASSERT_LIGHT(

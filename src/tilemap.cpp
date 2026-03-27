@@ -98,10 +98,12 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 
 	const std::size_t tile_count = width * height;
 	if (!reader.has(tile_count)) {
-		throw std::runtime_error(std::format(
-			"Binary tilemap size mismatch: expected at least {} bytes",
-			tile_count
-		));
+		throw std::runtime_error(
+			std::format(
+				"Binary tilemap size mismatch: expected at least {} bytes",
+				tile_count
+			)
+		);
 	}
 
 	Tilemap tilemap(width, height);
@@ -117,9 +119,11 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 
 			if (terrain != Tile::EMPTY && terrain != Tile::WATER
 			    && terrain != Tile::OBSTACLE) {
-				throw std::runtime_error(std::format(
-					"Invalid terrain code {} at ({}, {})", terrain, x, y
-				));
+				throw std::runtime_error(
+					std::format(
+						"Invalid terrain code {} at ({}, {})", terrain, x, y
+					)
+				);
 			}
 
 			if (side > 2) {
@@ -129,9 +133,12 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 			}
 
 			if (!is_base && side != 0) {
-				throw std::runtime_error(std::format(
-					"Non-base tile has nonzero side {} at ({}, {})", side, x, y
-				));
+				throw std::runtime_error(
+					std::format(
+						"Non-base tile has nonzero side {} at ({}, {})", side,
+						x, y
+					)
+				);
 			}
 
 			Tile &tile = tilemap.tileOf(x, y);
@@ -171,9 +178,11 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 			base_y[side - 1] = y;
 
 			if (x + base_size > width || y + base_size > height) {
-				throw std::runtime_error(std::format(
-					"Base for player {} exceeds map bounds", tile.side
-				));
+				throw std::runtime_error(
+					std::format(
+						"Base for player {} exceeds map bounds", tile.side
+					)
+				);
 			}
 
 			for (int dy = 0; dy < base_size; ++dy) {
@@ -183,10 +192,12 @@ Tilemap Tilemap::loadBinary(std::istream &input_stream) {
 
 					const Tile &base_tile = tilemap.tileOf(nx, ny);
 					if (!base_tile.is_base || base_tile.side != side) {
-						throw std::runtime_error(std::format(
-							"Base at ({}, {}) is not a square of size {}", x, y,
-							base_size
-						));
+						throw std::runtime_error(
+							std::format(
+								"Base at ({}, {}) is not a square of size {}",
+								x, y, base_size
+							)
+						);
 					}
 				}
 			}
@@ -230,10 +241,12 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 			std::remove_if(line.begin(), line.end(), ::isspace), line.end()
 		);
 		if (line.size() != static_cast<size_t>(width)) {
-			throw std::runtime_error(std::format(
-				"Line {} has incorrect width: expected {}, got {}", y + 2,
-				width, line.size()
-			));
+			throw std::runtime_error(
+				std::format(
+					"Line {} has incorrect width: expected {}, got {}", y + 2,
+					width, line.size()
+				)
+			);
 		}
 
 		for (int x = 0; x < width; ++x) {
@@ -257,9 +270,12 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 				tile.is_base = true;
 				break;
 			default:
-				throw std::runtime_error(std::format(
-					"Invalid terrain character '{}' at ({}, {})", line[x], x, y
-				));
+				throw std::runtime_error(
+					std::format(
+						"Invalid terrain character '{}' at ({}, {})", line[x],
+						x, y
+					)
+				);
 			}
 		}
 	}
@@ -278,9 +294,11 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 
 			base_found += 1;
 			if (base_found > 2) {
-				throw std::runtime_error(std::format(
-					"More than 2 bases found, extra base at ({}, {})", x, y
-				));
+				throw std::runtime_error(
+					std::format(
+						"More than 2 bases found, extra base at ({}, {})", x, y
+					)
+				);
 			}
 
 			// Found a base tile, determine its size by scanning right (+x)
@@ -293,11 +311,13 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 			if (common_base_size == 0) {
 				common_base_size = base_size;
 			} else if (base_size != common_base_size) {
-				throw std::runtime_error(std::format(
-					"Base at ({}, {}) has different size {} than previous "
-					"base size {}",
-					x, y, base_size, common_base_size
-				));
+				throw std::runtime_error(
+					std::format(
+						"Base at ({}, {}) has different size {} than previous "
+						"base size {}",
+						x, y, base_size, common_base_size
+					)
+				);
 			}
 
 			// Mark the entire base area and assign side
@@ -305,10 +325,12 @@ Tilemap Tilemap::loadText(std::istream &input_stream) {
 				for (int by = y; by < y + base_size; ++by) {
 					Tile &base_tile = tilemap.tileOf(bx, by);
 					if (!base_tile.is_base) {
-						throw std::runtime_error(std::format(
-							"Base at ({}, {}) is not a square of size {}", x, y,
-							base_size
-						));
+						throw std::runtime_error(
+							std::format(
+								"Base at ({}, {}) is not a square of size {}",
+								x, y, base_size
+							)
+						);
 					}
 					base_tile.side = base_found; // Player 1 or 2
 				}
@@ -342,10 +364,12 @@ void Tilemap::saveAsText(std::ostream &os) const {
 					os << '#';
 					break;
 				default:
-					throw std::runtime_error(std::format(
-						"Invalid terrain type {} at ({}, {})", tile.terrain, x,
-						y
-					));
+					throw std::runtime_error(
+						std::format(
+							"Invalid terrain type {} at ({}, {})", tile.terrain,
+							x, y
+						)
+					);
 				}
 			}
 			os << " \n"[x == _width - 1];
@@ -404,24 +428,30 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	constexpr int max_base_size = min_map_size / 2 - 1;
 
 	if (config.width < min_map_size || config.height < min_map_size) {
-		throw std::runtime_error(std::format(
-			"Tilemap size too small: width {} height {}", config.width,
-			config.height
-		));
+		throw std::runtime_error(
+			std::format(
+				"Tilemap size too small: width {} height {}", config.width,
+				config.height
+			)
+		);
 	}
 
 	if (config.width > max_map_size || config.height > max_map_size) {
-		throw std::runtime_error(std::format(
-			"Tilemap size too large: width {} height {}", config.width,
-			config.height
-		));
+		throw std::runtime_error(
+			std::format(
+				"Tilemap size too large: width {} height {}", config.width,
+				config.height
+			)
+		);
 	}
 
 	if (config.base_size <= 0 || config.base_size > max_base_size) {
-		throw std::runtime_error(std::format(
-			"Invalid base size {}: must be between 1 and {}", config.base_size,
-			max_base_size
-		));
+		throw std::runtime_error(
+			std::format(
+				"Invalid base size {}: must be between 1 and {}",
+				config.base_size, max_base_size
+			)
+		);
 	}
 
 	Xoroshiro128PP rng(config.seed);

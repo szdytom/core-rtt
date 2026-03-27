@@ -1,0 +1,45 @@
+name: Build and run autotests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and run autotests on ubuntu-latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++-14 gcc-14 clang lld
+
+      - name: Build Core Engine
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo 
+          cmake --build build --target corertt_headless
+          
+      - name: Build Corelib and Tests
+        run: |
+          make -C corelib CLANG=1 -j$(nproc)
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5.0.0
+
+      - name: Install pnpm dependencies
+        run: |
+          pnpm -C js install
+
+      - name: Run autotests
+        run: |
+          ./scripts/autotest.sh

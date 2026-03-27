@@ -14,6 +14,8 @@ cmake --build build --config RelWithDebInfo
 
 The resulting executable will be located at `build/corertt` (or `build\corertt.exe` on Windows).
 
+### Building Corelib (optional)
+
 The corelib, the support library to provide basic utilities and functions for user programs, is a C library using traditional Makefile as its build system. To build the corelib, you need to have a RISC-V 32-bit cross-compilation toolchain installed.
 
 ```sh
@@ -32,6 +34,16 @@ make CLANG=1
 
 Specify `-j<num-threads>` to speed up the build with parallel compilation, for example, `make CLANG=1 -j$(nproc)` on Linux will use all available CPU cores.
 
+### Building Rusty-corelib (optional)
+
+The `rusty-corelib` is a Rust support library for writing guest programs in Rust, which can serve as an alternative to the C-based `corelib`. It uses Cargo as its build system. To build `rusty-corelib`, you need to have Rust and the RISC-V 32-bit target installed.
+
+```sh
+rustup target add riscv32imac-unknown-none-elf
+cargo build --release
+cargo build --release --examples
+```
+
 ## Runtime Tools
 
 This repository now builds two runtime executables:
@@ -47,7 +59,8 @@ Please refer to
 - [API Specification](docs/api-spec.md) for details on the programming environment and available machine level APIs.
 - [Corelib Documentation](docs/corelib.md) for the C library that provides a wrapper around the machine level APIs, making it easier to write user programs, and more utility functions.
 - [Corelib Example Programs](corelib/example) for some example programs written using the corelib.
-- [Corelib Test Programs](corelib/test) for some example programs written using the corelib.
+- [Rusty-corelib Documentation](docs/rusty-corelib.md) for the Rust support library, which provides similar functionalities as the corelib but with a Rust interface.
+- [Rusty-corelib Example Programs](rusty-corelib/examples) for some example programs written using the rusty-corelib.
 
 ## Project Structure / Contributing
 
@@ -58,6 +71,8 @@ The project is structured as follows:
 - `CMakeLists.txt`: the CMake build configuration for the game engine and runtime.
 - `corelib/`: the C library for user programs, with its own Makefile.
 - `corelib/autotest/`: a set of test cases for the corelib, which can be tested automatically. Refer to `docs/autotesting.md` for details.
+- `rusty-corelib/`: the Rust support library for user programs, with its own Cargo.toml and build configuration.
+- `rusty-corelib/autotest/`: a set of test cases for the rusty-corelib, which can be tested automatically. Refer to `docs/autotesting.md` for details.
 - `js/`: where all the JavaScript/TypeScript related code lives.
 - `docs/`: documentation files for the game rules and development.
 

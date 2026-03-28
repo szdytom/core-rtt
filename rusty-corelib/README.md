@@ -33,3 +33,7 @@ cargo build --release --example unit
 ## Usage
 
 See [rusty-corelib API documentation](../docs/rusty-corelib.md) for details on how to use the library to write Rust guest programs.
+
+## Hints
+
+- In VS Code, the rust-analyzer extension may show a false-positive problem "error[E0463]: can't find crate for `test`". Please set `rust-analyzer.cargo.allTargets` to `false` to resolve this issue.

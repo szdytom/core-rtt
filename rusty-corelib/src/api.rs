@@ -7,17 +7,27 @@ use crate::types::{
 	UpgradeType,
 };
 
+/// Returns the current game turn number.
+///
+/// The first turn is `1` and increments by one each tick.
 #[must_use]
 pub fn turn() -> i32 {
 	// SAFETY: Zero-arg ecall wrapper.
 	unsafe { syscall::turn() }
 }
 
+/// Aborts the current runtime instance immediately.
+///
+/// This call never returns.
 pub fn abort() -> ! {
 	// SAFETY: Runtime contract says abort does not return.
 	unsafe { syscall::abort() }
 }
 
+/// Writes a raw byte slice into the game log.
+///
+/// Returns an error when the runtime rejects the payload (for example, invalid
+/// length, invalid pointer, or exhausted log quota).
 pub fn log_bytes(bytes: &[u8]) -> Result<()> {
 	// SAFETY: Slice pointer/length come from Rust references.
 	let code = unsafe { syscall::log(bytes.as_ptr(), bytes.len()) };
@@ -26,6 +36,9 @@ pub fn log_bytes(bytes: &[u8]) -> Result<()> {
 
 const LOG_MAX_BYTES: usize = 512;
 
+/// Fetches immutable game metadata.
+///
+/// This includes map width/height and base size for the current match.
 pub fn meta() -> Result<GameInfo> {
 	let mut info = GameInfo {
 		map_width: 0,
@@ -39,6 +52,7 @@ pub fn meta() -> Result<GameInfo> {
 	Ok(info)
 }
 
+/// Returns the current device state (base or unit).
 #[must_use]
 pub fn dev_info() -> DeviceInfo {
 	// SAFETY: Raw payload is decoded in pure Rust.
@@ -46,6 +60,9 @@ pub fn dev_info() -> DeviceInfo {
 	DeviceInfo::from_raw(raw)
 }
 
+/// Returns the current device position.
+///
+/// For base runtime, this is the top-left tile of the base area.
 #[must_use]
 pub fn pos() -> PosInfo {
 	// SAFETY: The payload layout is a packed 32-bit PosInfo.
@@ -57,12 +74,18 @@ pub fn pos() -> PosInfo {
 	}
 }
 
+/// Reads raw sensor bytes into `out`.
+///
+/// On success, returns the number of bytes written by the runtime.
 pub fn read_sensor_raw(out: &mut [u8]) -> Result<usize> {
 	// SAFETY: Slice pointer/length come from Rust references.
 	let code = unsafe { syscall::read_sensor(out.as_mut_ptr()) };
 	value(code)
 }
 
+/// Reads sensor tiles into `out`.
+///
+/// On success, returns the number of tiles written by the runtime.
 pub fn read_sensor(out: &mut [SensorTile]) -> Result<usize> {
 	let raw =
         // SAFETY: SensorTile is a single-byte newtype, so the cast preserves layout.
@@ -70,60 +93,88 @@ pub fn read_sensor(out: &mut [SensorTile]) -> Result<usize> {
 	read_sensor_raw(raw)
 }
 
+/// Broadcasts a message to all allied devices.
+///
+/// The payload length must follow runtime limits (`1..=512`).
 pub fn send_msg(data: &[u8]) -> Result<()> {
 	// SAFETY: Slice pointer/length come from Rust references.
 	let code = unsafe { syscall::send_msg(data.as_ptr(), data.len()) };
 	status(code)
 }
 
+/// Receives one message from the incoming queue.
+///
+/// On success, returns the number of bytes copied into `out`.
 pub fn recv_msg(out: &mut [u8]) -> Result<usize> {
 	// SAFETY: Slice pointer/length come from Rust references.
 	let code = unsafe { syscall::recv_msg(out.as_mut_ptr(), out.len()) };
 	value(code)
 }
 
+/// Manufactures a unit with the provided unit `id`.
+///
+/// Available in base runtime only.
 pub fn manufact(id: u8) -> Result<()> {
 	// SAFETY: Runtime validates id and runtime role.
 	let code = unsafe { syscall::manufact(id as i32) };
 	status(code)
 }
 
+/// Repairs a unit with the provided unit `id`.
+///
+/// Available in base runtime only.
 pub fn repair(id: u8) -> Result<()> {
 	// SAFETY: Runtime validates id and runtime role.
 	let code = unsafe { syscall::repair(id as i32) };
 	status(code)
 }
 
+/// Applies an upgrade to the unit `id`.
+///
+/// Available in base runtime only.
 pub fn upgrade(id: u8, upgrade_type: UpgradeType) -> Result<()> {
 	// SAFETY: Runtime validates arguments and runtime role.
 	let code = unsafe { syscall::upgrade(id as i32, upgrade_type as i32) };
 	status(code)
 }
 
+/// Fires a bullet in `direction` with the given `power`.
+///
+/// Available in unit runtime only.
 pub fn fire(direction: Direction, power: u16) -> Result<()> {
 	// SAFETY: Runtime validates arguments and runtime role.
 	let code = unsafe { syscall::fire(direction as i32, i32::from(power)) };
 	status(code)
 }
 
+/// Moves the current unit by one tile in `direction`.
+///
+/// Available in unit runtime only.
 pub fn move_unit(direction: Direction) -> Result<()> {
 	// SAFETY: Runtime validates direction and runtime role.
 	let code = unsafe { syscall::move_unit(direction as i32) };
 	status(code)
 }
 
+/// Deposits up to `amount` energy from the current unit into the base.
+///
+/// Available in unit runtime only.
 pub fn deposit(amount: u16) -> Result<()> {
 	// SAFETY: Runtime validates amount and runtime role.
 	let code = unsafe { syscall::deposit(i32::from(amount)) };
 	status(code)
 }
 
+/// Withdraws up to `amount` energy from the base into the current unit.
+///
+/// Available in unit runtime only.
 pub fn withdraw(amount: u16) -> Result<()> {
 	// SAFETY: Runtime validates amount and runtime role.
 	let code = unsafe { syscall::withdraw(i32::from(amount)) };
 	status(code)
 }
 
+/// Returns sandbox allocator usage statistics.
 pub fn meminfo() -> Result<MemoryInfo> {
 	let mut info = MemoryInfo {
 		bytes_free: 0,
@@ -137,6 +188,7 @@ pub fn meminfo() -> Result<MemoryInfo> {
 	Ok(info)
 }
 
+/// Returns a runtime-provided pseudo-random `u32` value.
 #[must_use]
 pub fn rand_u32() -> u32 {
 	// SAFETY: Zero-arg ecall wrapper.
@@ -184,6 +236,10 @@ impl fmt::Write for LogBuffer {
 	}
 }
 
+/// Formats log content into an internal 512-byte buffer and submits it.
+///
+/// Returns `ErrorCode::OutOfRange` when the formatted payload would exceed the
+/// runtime single-call log limit.
 pub fn log_fmt(args: fmt::Arguments<'_>) -> Result<()> {
 	let mut buffer = LogBuffer::new();
 	fmt::write(&mut buffer, args).map_err(|_| ErrorCode::OutOfRange)?;

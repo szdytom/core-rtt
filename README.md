@@ -61,6 +61,7 @@ Please refer to
 - [Corelib Example Programs](corelib/example) for some example programs written using the corelib.
 - [Rusty-corelib Documentation](docs/rusty-corelib.md) for the Rust support library, which provides similar functionalities as the corelib but with a Rust interface.
 - [Rusty-corelib Example Programs](rusty-corelib/examples) for some example programs written using the rusty-corelib.
+- Rusty-corelib Rust Documentation: Generate these by running `cargo doc --open` in the `rusty-corelib` directory.
 
 ## Project Structure / Contributing
 

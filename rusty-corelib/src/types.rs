@@ -109,6 +109,10 @@ pub struct SensorTile {
 }
 
 impl SensorTile {
+    pub const fn uninitialized() -> Self {
+        Self { raw: 0 }
+    }
+
     pub const fn new(raw: u8) -> Self {
         Self { raw }
     }

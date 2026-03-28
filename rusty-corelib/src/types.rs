@@ -10,6 +10,7 @@ pub enum Direction {
 }
 
 impl Direction {
+	/// Returns the x-axis delta for one tile step in this direction.
 	#[must_use]
 	pub const fn x_offset(self) -> i8 {
 		match self {
@@ -19,6 +20,7 @@ impl Direction {
 		}
 	}
 
+	/// Returns the y-axis delta for one tile step in this direction.
 	#[must_use]
 	pub const fn y_offset(self) -> i8 {
 		match self {
@@ -88,6 +90,7 @@ pub struct DeviceInfo {
 }
 
 impl DeviceInfo {
+	/// Decodes a packed runtime payload into a structured [`DeviceInfo`].
 	#[must_use]
 	pub const fn from_raw(raw: u32) -> Self {
 		let b0 = (raw & 0xFF) as u8;
@@ -109,24 +112,29 @@ pub struct SensorTile {
 }
 
 impl SensorTile {
+	/// Returns an all-zero tile value useful as a placeholder.
 	pub const fn uninitialized() -> Self {
 		Self { raw: 0 }
 	}
 
+	/// Creates a tile from the raw packed byte returned by sensor ecalls.
 	pub const fn new(raw: u8) -> Self {
 		Self { raw }
 	}
 
+	/// Returns the underlying packed tile byte.
 	#[must_use]
 	pub const fn raw(self) -> u8 {
 		self.raw
 	}
 
+	/// Returns whether this tile is visible to the current device.
 	#[must_use]
 	pub const fn visible(self) -> bool {
 		(self.raw & 0b0000_0001) != 0
 	}
 
+	/// Returns the terrain kind, or `None` for reserved bit patterns.
 	#[must_use]
 	pub const fn terrain(self) -> Option<Terrain> {
 		match (self.raw >> 1) & 0b11 {
@@ -137,32 +145,40 @@ impl SensorTile {
 		}
 	}
 
+	/// Returns whether this tile belongs to a base area.
 	#[must_use]
 	pub const fn is_base(self) -> bool {
 		(self.raw & 0b0000_1000) != 0
 	}
 
+	/// Returns whether this tile is part of a resource zone.
 	#[must_use]
 	pub const fn is_resource(self) -> bool {
 		(self.raw & 0b0001_0000) != 0
 	}
 
+	/// Returns whether there is a unit on this tile.
 	#[must_use]
 	pub const fn has_unit(self) -> bool {
 		(self.raw & 0b0010_0000) != 0
 	}
 
+	/// Returns whether there is a bullet on this tile.
 	#[must_use]
 	pub const fn has_bullet(self) -> bool {
 		(self.raw & 0b0100_0000) != 0
 	}
 
+	/// Returns whether the unit on this tile is allied.
+	///
+	/// This is meaningful only when [`Self::has_unit`] is `true`.
 	#[must_use]
 	pub const fn alliance_unit(self) -> bool {
 		(self.raw & 0b1000_0000) != 0
 	}
 }
 
+/// Decodes a raw packed sensor byte into a [`SensorTile`].
 #[must_use]
 pub const fn decode_sensor_tile(raw: u8) -> SensorTile {
 	SensorTile::new(raw)

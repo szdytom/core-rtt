@@ -15,6 +15,9 @@ pub enum ErrorCode {
 pub type Result<T> = core::result::Result<T, ErrorCode>;
 
 impl ErrorCode {
+	/// Converts a raw negative runtime status code into [`ErrorCode`].
+	///
+	/// Unknown values are mapped to [`ErrorCode::Unknown`].
 	#[must_use]
 	pub const fn from_raw(code: i32) -> Self {
 		match code {
@@ -31,6 +34,7 @@ impl ErrorCode {
 	}
 }
 
+/// Interprets a status-style return code where `0` means success.
 #[must_use]
 pub const fn status(code: i32) -> Result<()> {
 	if code == 0 {
@@ -40,6 +44,9 @@ pub const fn status(code: i32) -> Result<()> {
 	}
 }
 
+/// Interprets a value-style return code where non-negative means success.
+///
+/// Successful values are returned as `usize`.
 #[must_use]
 pub const fn value(code: i32) -> Result<usize> {
 	if code >= 0 {

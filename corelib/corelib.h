@@ -321,8 +321,15 @@ int abs(int x);
  */
 long int labs(long int x);
 
-#define __assert_fail(expr, file, line) \
-	(log_str("Assertion failed: " expr ", file " file ", line " #line), abort())
+#define __assert_stringify_impl(x) #x
+#define __assert_stringify(x) __assert_stringify_impl(x)
+
+#define __assert_fail(expr, file, line)        \
+	(log_str(                                  \
+		 "Assertion failed: " expr " in " file \
+		 ":" __assert_stringify(line) "\n"     \
+	 ),                                        \
+	 abort())
 
 #ifndef NDEBUG
 #define assert(expr) \

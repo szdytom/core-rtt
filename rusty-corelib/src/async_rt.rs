@@ -13,7 +13,7 @@ type BoxedTask = Pin<Box<dyn Future<Output = Result<()>> + 'static>>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TaskHandle {
-	id: u64,
+	id: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,7 +90,7 @@ struct TaskSlot {
 
 pub struct Scheduler {
 	tasks: Vec<TaskSlot>,
-	next_id: u64,
+	next_id: u32,
 	last_turn: i32,
 }
 
@@ -159,6 +159,7 @@ impl Scheduler {
 					self.tasks.swap_remove(idx);
 				}
 				Poll::Ready(Err(err)) => {
+					self.tasks.swap_remove(idx);
 					return Err(err);
 				}
 				Poll::Pending => {

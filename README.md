@@ -76,6 +76,8 @@ The project is structured as follows:
 - `js/`: where all the JavaScript/TypeScript related code lives.
 - `docs/`: documentation files for the game rules and development.
 
+The `.clang-format` and `.rustfmt.toml` configures the code formatting. You may also want to read `.github/copilot-instructions.md` for conventions and guidelines to follow when contributing to the codebase (Even though the instructions are originally written for AI Assistants, they are also applicable to human contributors). Not 100% of our codebase strictly follows the instructions in that file, especially the older code, but we are trying to get closer to those guidelines over time (PR welcome if you see some code that can be easily improved to follow those guidelines better).
+
 ## License
 
 The game itself and the corelib are both open sourced under the MIT License. See the LICENSE file for details.

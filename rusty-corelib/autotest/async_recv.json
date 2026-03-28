@@ -1,0 +1,39 @@
+{
+	"version": 1,
+	"name": "rust async recv msg test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 12,
+	"program": [
+		{
+			"base": "@dummy",
+			"unit": "rusty::async_recv"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] async recv_msg behavior is correct\\.$"
+				}
+			}
+		}
+	]
+}

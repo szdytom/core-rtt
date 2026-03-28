@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
 import process from 'node:process';
+import path from 'node:path';
 import { decodeReplayStream } from '@corertt/corereplay';
 import type { CaseSpec, RunResult } from './types.js';
 import { resolveProgramRef } from './program-resolver.js';
 import { evaluateAssertions } from './assertions.js';
+import { pathExists } from './fs-utils.js';
 
 async function decodeReplayLogsFromStdout(stdout_stream: AsyncIterable<Uint8Array>): Promise<import('@corertt/corereplay').ReplayLogEntry[]> {
 	let saw_header = false;
@@ -32,6 +34,31 @@ async function decodeReplayLogsFromStdout(stdout_stream: AsyncIterable<Uint8Arra
 	return all_logs;
 }
 
+export async function resolveCaseMapPath(spec: CaseSpec, repo_root: string): Promise<string | undefined> {
+	if (spec.map == null) {
+		return undefined;
+	}
+
+	if (spec.map.length === 0) {
+		throw new Error('map must be a non-empty string');
+	}
+
+	if (path.isAbsolute(spec.map) || spec.map.includes('/') || spec.map.includes('\\')) {
+		throw new Error(`map must be a filename under corelib/autotest/map: ${spec.map}`);
+	}
+
+	if (spec.map === '.' || spec.map === '..') {
+		throw new Error(`map filename is invalid: ${spec.map}`);
+	}
+
+	const resolvedPath = path.join(repo_root, 'corelib', 'autotest', 'map', spec.map);
+	if (!(await pathExists(resolvedPath))) {
+		throw new Error(`map file not found: ${resolvedPath}`);
+	}
+
+	return resolvedPath;
+}
+
 export async function runHeadlessOnce(
 	spec: CaseSpec,
 	repo_root: string,
@@ -42,6 +69,7 @@ export async function runHeadlessOnce(
 	const p1_unit = await resolveProgramRef(spec.program[0].unit, spec, repo_root);
 	const p2_base = await resolveProgramRef(spec.program[1].base, spec, repo_root);
 	const p2_unit = await resolveProgramRef(spec.program[1].unit, spec, repo_root);
+	const map_path = await resolveCaseMapPath(spec, repo_root);
 
 	const args = [
 		'--p1-base', p1_base,
@@ -50,7 +78,9 @@ export async function runHeadlessOnce(
 		'--p2-unit', p2_unit,
 		'--max-ticks', String(spec.maxTicks),
 	];
-	if (spec.seed != null && spec.seed.length > 0) {
+	if (map_path != null) {
+		args.push('--map', map_path);
+	} else if (spec.seed != null && spec.seed.length > 0) {
 		args.push('--seed', spec.seed);
 	}
 

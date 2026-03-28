@@ -43,4 +43,18 @@ describe('parseCaseSpec', () => {
 		expect(spec.expectedLogs?.[0].atLeast).toBe(2);
 		expect(spec.forbiddenLogs?.[0].maxAllowed).toBe(0);
 	});
+
+	test('parses map field', () => {
+		const raw = validRawCase();
+		raw.map = 'tiny.txt';
+		const spec = parseCaseSpec(raw, 'sample.json');
+		expect(spec.map).toBe('tiny.txt');
+	});
+
+	test('rejects map and seed together', () => {
+		const raw = validRawCase();
+		raw.map = 'tiny.txt';
+		raw.seed = '12345';
+		expect(() => parseCaseSpec(raw, 'sample.json')).toThrow('sample.json.seed and sample.json.map are mutually exclusive');
+	});
 });

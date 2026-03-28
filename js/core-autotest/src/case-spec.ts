@@ -141,6 +141,14 @@ export function parseCaseSpec(raw_data: unknown, file_path: string): CaseSpec {
 	const time_limit_ms = asPositiveInt(raw_data.timeLimitMs, `${file_path}.timeLimitMs`);
 	const max_ticks = asPositiveInt(raw_data.maxTicks, `${file_path}.maxTicks`);
 	const seed = raw_data.seed == null ? undefined : String(raw_data.seed);
+	const map = raw_data.map == null ? undefined : String(raw_data.map);
+
+	if (map != null && map.length === 0) {
+		throw new Error(`${file_path}.map must be a non-empty string`);
+	}
+	if (seed != null && seed.length > 0 && map != null) {
+		throw new Error(`${file_path}.seed and ${file_path}.map are mutually exclusive`);
+	}
 
 	if (!Array.isArray(raw_data.program) || raw_data.program.length !== 2) {
 		throw new Error(`${file_path}.program must be an array with exactly 2 player bindings`);
@@ -172,6 +180,7 @@ export function parseCaseSpec(raw_data: unknown, file_path: string): CaseSpec {
 		timeLimitMs: time_limit_ms,
 		maxTicks: max_ticks,
 		seed,
+		map,
 		aliases,
 		program,
 		expectedLogs: expected_logs,

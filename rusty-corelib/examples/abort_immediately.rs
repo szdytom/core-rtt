@@ -4,7 +4,7 @@
 use rusty_corelib::entry;
 
 fn run() -> ! {
-    rusty_corelib::abort()
+	rusty_corelib::abort()
 }
 
 entry!(run);

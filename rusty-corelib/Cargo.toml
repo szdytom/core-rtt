@@ -11,9 +11,10 @@ path = "src/lib.rs"
 test = false
 
 [features]
-default = ["runtime", "allocator"]
+default = ["runtime", "allocator", "async"]
 runtime = []
 allocator = []
+async = ["allocator"]
 
 [dependencies]
 bitflags = { version = "2.9.4", default-features = false }

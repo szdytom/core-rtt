@@ -21,10 +21,13 @@ fi
 
 cd ./js
 
+# Build corereplay, which is a dependency of core-autotest
+pnpm --filter='@corertt/corereplay' run build
+
 # Build the project, run typecheck and run tests
-pnpm run build
-pnpm run typecheck
-pnpm run test
+pnpm --filter='@corertt/core-autotest' run build
+pnpm --filter='@corertt/core-autotest' run typecheck
+pnpm --filter='@corertt/core-autotest' run test
 
 # Run the autotests
 pnpm --filter='@corertt/core-autotest' exec node dist/main.js

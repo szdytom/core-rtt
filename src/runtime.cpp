@@ -231,7 +231,7 @@ void ecall_recv_msg(RVMachine &machine) {
 void ecall_send_msg(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
 	auto [ptr, len] = machine.sysargs<RVMachine::address_t, int>();
-	if (len < 0 || len > MessagePacket::packet_size) {
+	if (len < 1 || len > MessagePacket::packet_size) {
 		machine.set_result(ActionResult::OUT_OF_RANGE);
 		return;
 	}

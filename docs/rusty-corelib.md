@@ -67,11 +67,48 @@ From `Cargo.toml`:
 - `runtime` (default): startup + panic handler.
 - `allocator` (default): installs `#[global_allocator]` using runtime
   `malloc/calloc/realloc/free` ecalls.
+- `async` (default): enables `async_rt` helpers built on turn-driven polling.
 
 Disable defaults when you need full control:
 
 ```bash
 cargo build --no-default-features
+```
+
+## Async Utilities (`feature = "async"`)
+
+Core RTT does not provide timer interrupts or OS event queues, but turn
+advancement (`turn()`) is a natural async source. The `async_rt` module uses
+that model and polls tasks once per turn.
+
+Key APIs:
+
+```rust
+pub fn block_on<F: Future>(future: F) -> F::Output
+
+pub struct Scheduler;
+impl Scheduler {
+	pub fn new() -> Self
+	pub fn with_capacity(capacity: usize) -> Self
+	pub fn spawn<F>(&mut self, future: F) -> TaskHandle
+	where
+		F: Future<Output = Result<()>> + 'static;
+	pub fn tick(&mut self) -> Result<TaskResult>
+	pub fn run_until_complete(&mut self) -> Result<()>
+}
+```
+
+Example pattern:
+
+```rust
+use rusty_corelib::{Direction, Result, async_rt::move_unit};
+
+pub async fn move_along_path(path: &[Direction]) -> Result<()> {
+	for &dir in path {
+		move_unit(dir).await?;
+	}
+	Ok(())
+}
 ```
 
 ## Error Model

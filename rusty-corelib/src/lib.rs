@@ -11,10 +11,17 @@ pub mod types;
 #[cfg(feature = "runtime")]
 pub mod runtime;
 
+#[cfg(feature = "async")]
+pub mod async_rt;
+
 #[cfg(feature = "allocator")]
 mod alloc_impl;
 
 pub use api::*;
+
+#[cfg(feature = "async")]
+pub use async_rt::{Scheduler, TaskHandle, TaskResult, block_on};
+
 pub use error::{ErrorCode, Result};
 pub use types::*;
 

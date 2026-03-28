@@ -37,10 +37,10 @@ macro_rules! logln {
 
 #[macro_export]
 macro_rules! entry {
-    ($path:path) => {
-        #[unsafe(no_mangle)]
-        pub extern "Rust" fn app_main() -> ! {
-            $path()
-        }
-    };
+	($path:path) => {
+		#[unsafe(no_mangle)]
+		pub extern "Rust" fn app_main() -> ! {
+			$path()
+		}
+	};
 }

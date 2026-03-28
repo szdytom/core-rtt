@@ -1,0 +1,48 @@
+{
+	"version": 1,
+	"name": "rust async scheduler error propagation test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"program": [
+		{
+			"base": "@dummy",
+			"unit": "rusty::async_scheduler_error"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[FAIL\\]"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] async scheduler error propagation is correct\\.$"
+				}
+			}
+		}
+	]
+}

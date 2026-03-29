@@ -2,3 +2,4 @@ packages:
   - corereplay
   - core-autotest
   - replay-cli
+  - worker-codec

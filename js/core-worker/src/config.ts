@@ -1,6 +1,6 @@
-import { parseArgs } from 'node:util';
 import path from 'node:path';
 import process from 'node:process';
+import { config as loadDotenv } from 'dotenv';
 import type { WorkerConfig } from './types.js';
 import { pathExistsSync } from './fs-utils.js';
 
@@ -13,25 +13,27 @@ const DEFAULT_CONCURRENCY = 2;
 const DEFAULT_ERROR_LOG_MAX_BYTES = 64 * 1024;
 
 export const usage = [
-	'Usage: corertt-core-worker [options]',
+	'Usage: corertt-core-worker',
 	'',
-	'Required:',
-	'  --backend-url <url>       backend base url, e.g. http://127.0.0.1:3000',
-	'  --worker-id <id>          worker id',
-	'  --worker-secret <secret>  worker secret',
+	'Configuration is loaded from .env and process environment variables.',
 	'',
-	'Optional:',
-	'  --repo-root <path>            repository root (auto-detected when omitted)',
-	'  --headless-path <path>        corertt_headless path (default: <repo>/build/corertt_headless)',
-	'  --timeout-seconds <n>         process timeout in seconds (default: 1800)',
-	'  --max-ticks <n>               max ticks passed to headless (default: 5000)',
-	'  --elf-cache-dir <path>        ELF cache dir (default: /dev/shm/corertt-elf-cache)',
-	'  --elf-cache-limit <bytes|200M> total ELF cache size limit (default: 200M)',
-	'  --tmp-map-dir <path>          temp map directory (default: /dev/shm/corertt-tmp-map)',
-	'  --concurrency <n>             parallel task count (default: 2)',
-	'  --error-log-max-bytes <n>     stderr cap in TaskResult.errorLog (default: 65536)',
-	'  --download-use-bearer         attach bearer token while downloading ELF',
-	'  -h, --help                    show help',
+	'Required keys:',
+	'  CORERTT_WORKER_BACKEND_URL',
+	'  CORERTT_WORKER_ID',
+	'  CORERTT_WORKER_SECRET',
+	'',
+	'Optional keys:',
+	'  CORERTT_WORKER_REPO_ROOT',
+	'  CORERTT_WORKER_HEADLESS_PATH',
+	'  CORERTT_WORKER_TIMEOUT_SECONDS',
+	'  CORERTT_WORKER_MAX_TICKS',
+	'  CORERTT_WORKER_ELF_CACHE_DIR',
+	'  CORERTT_WORKER_ELF_CACHE_LIMIT',
+	'  CORERTT_WORKER_TMP_MAP_DIR',
+	'  CORERTT_WORKER_CONCURRENCY',
+	'  CORERTT_WORKER_ERROR_LOG_MAX_BYTES',
+	'  CORERTT_WORKER_DOWNLOAD_USE_BEARER',
+	'  CORERTT_WORKER_ENV_PATH',
 ].join('\n');
 
 function parsePositiveInt(raw: string, optionName: string): number {
@@ -73,52 +75,40 @@ export function findRepoRoot(startDir: string): string {
 		}
 		const parentDir = path.dirname(currentDir);
 		if (parentDir === currentDir) {
-			throw new Error('failed to auto-detect repository root, please pass --repo-root');
+			throw new Error('failed to auto-detect repository root, please set CORERTT_WORKER_REPO_ROOT');
 		}
 		currentDir = parentDir;
 	}
 }
 
-export function parseWorkerConfig(argv: string[], env: NodeJS.ProcessEnv = process.env): WorkerConfig {
-	const parsed = parseArgs({
-		args: argv,
-		allowPositionals: false,
-		strict: true,
-		options: {
-			'repo-root': { type: 'string', default: '' },
-			'backend-url': { type: 'string', default: env.CORERTT_WORKER_BACKEND_URL ?? '' },
-			'worker-id': { type: 'string', default: env.CORERTT_WORKER_ID ?? '' },
-			'worker-secret': { type: 'string', default: env.CORERTT_WORKER_SECRET ?? '' },
-			'headless-path': { type: 'string', default: env.CORERTT_WORKER_HEADLESS_PATH ?? '' },
-			'timeout-seconds': { type: 'string', default: env.CORERTT_WORKER_TIMEOUT_SECONDS ?? String(DEFAULT_TIMEOUT_SECONDS) },
-			'max-ticks': { type: 'string', default: env.CORERTT_WORKER_MAX_TICKS ?? String(DEFAULT_MAX_TICKS) },
-			'elf-cache-dir': { type: 'string', default: env.CORERTT_WORKER_ELF_CACHE_DIR ?? DEFAULT_ELF_CACHE_DIR },
-			'elf-cache-limit': { type: 'string', default: env.CORERTT_WORKER_ELF_CACHE_LIMIT ?? String(DEFAULT_ELF_CACHE_LIMIT_BYTES) },
-			'tmp-map-dir': { type: 'string', default: env.CORERTT_WORKER_TMP_MAP_DIR ?? DEFAULT_TMP_MAP_DIR },
-			'concurrency': { type: 'string', default: env.CORERTT_WORKER_CONCURRENCY ?? String(DEFAULT_CONCURRENCY) },
-			'error-log-max-bytes': { type: 'string', default: env.CORERTT_WORKER_ERROR_LOG_MAX_BYTES ?? String(DEFAULT_ERROR_LOG_MAX_BYTES) },
-			'download-use-bearer': { type: 'boolean', default: env.CORERTT_WORKER_DOWNLOAD_USE_BEARER === '1' },
-			help: { type: 'boolean', short: 'h' },
-		},
-	});
-
-	if (parsed.values.help) {
-		process.stdout.write(`${usage}\n`);
-		process.exit(0);
+function loadEnvironmentFile(repoRoot: string): void {
+	const envPath = process.env.CORERTT_WORKER_ENV_PATH != null && process.env.CORERTT_WORKER_ENV_PATH.length > 0
+		? path.resolve(process.env.CORERTT_WORKER_ENV_PATH)
+		: path.join(repoRoot, 'js', 'core-worker', '.env');
+	if (pathExistsSync(envPath)) {
+		loadDotenv({ path: envPath, override: false });
 	}
+}
 
-	const backendUrl = String(parsed.values['backend-url'] ?? '').trim();
-	const workerId = String(parsed.values['worker-id'] ?? '').trim();
-	const workerSecret = String(parsed.values['worker-secret'] ?? '').trim();
-	if (backendUrl.length === 0 || workerId.length === 0 || workerSecret.length === 0) {
-		throw new Error('missing required options: --backend-url, --worker-id, --worker-secret');
-	}
-
-	const repoRoot = String(parsed.values['repo-root']).length > 0
-		? path.resolve(String(parsed.values['repo-root']))
+export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+	const repoRootFromEnv = env.CORERTT_WORKER_REPO_ROOT != null && env.CORERTT_WORKER_REPO_ROOT.length > 0
+		? path.resolve(env.CORERTT_WORKER_REPO_ROOT)
 		: findRepoRoot(process.cwd());
 
-	const headlessPathRaw = String(parsed.values['headless-path'] ?? '').trim();
+	loadEnvironmentFile(repoRootFromEnv);
+
+	const backendUrl = String(process.env.CORERTT_WORKER_BACKEND_URL ?? '').trim();
+	const workerId = String(process.env.CORERTT_WORKER_ID ?? '').trim();
+	const workerSecret = String(process.env.CORERTT_WORKER_SECRET ?? '').trim();
+	if (backendUrl.length === 0 || workerId.length === 0 || workerSecret.length === 0) {
+		throw new Error('missing required env keys: CORERTT_WORKER_BACKEND_URL, CORERTT_WORKER_ID, CORERTT_WORKER_SECRET');
+	}
+
+	const repoRoot = process.env.CORERTT_WORKER_REPO_ROOT != null && process.env.CORERTT_WORKER_REPO_ROOT.length > 0
+		? path.resolve(process.env.CORERTT_WORKER_REPO_ROOT)
+		: repoRootFromEnv;
+
+	const headlessPathRaw = String(process.env.CORERTT_WORKER_HEADLESS_PATH ?? '').trim();
 	const headlessPath = headlessPathRaw.length > 0
 		? path.resolve(headlessPathRaw)
 		: path.join(repoRoot, 'build', 'corertt_headless');
@@ -129,13 +119,13 @@ export function parseWorkerConfig(argv: string[], env: NodeJS.ProcessEnv = proce
 		workerId,
 		workerSecret,
 		headlessPath,
-		timeoutSeconds: parsePositiveInt(String(parsed.values['timeout-seconds']), '--timeout-seconds'),
-		maxTicks: parsePositiveInt(String(parsed.values['max-ticks']), '--max-ticks'),
-		elfCacheDir: path.resolve(String(parsed.values['elf-cache-dir'])),
-		elfCacheLimitBytes: parseByteSize(String(parsed.values['elf-cache-limit'])),
-		tmpMapDir: path.resolve(String(parsed.values['tmp-map-dir'])),
-		concurrency: parsePositiveInt(String(parsed.values.concurrency), '--concurrency'),
-		errorLogMaxBytes: parsePositiveInt(String(parsed.values['error-log-max-bytes']), '--error-log-max-bytes'),
-		downloadUseBearer: Boolean(parsed.values['download-use-bearer']),
+		timeoutSeconds: parsePositiveInt(String(process.env.CORERTT_WORKER_TIMEOUT_SECONDS ?? DEFAULT_TIMEOUT_SECONDS), 'CORERTT_WORKER_TIMEOUT_SECONDS'),
+		maxTicks: parsePositiveInt(String(process.env.CORERTT_WORKER_MAX_TICKS ?? DEFAULT_MAX_TICKS), 'CORERTT_WORKER_MAX_TICKS'),
+		elfCacheDir: path.resolve(String(process.env.CORERTT_WORKER_ELF_CACHE_DIR ?? DEFAULT_ELF_CACHE_DIR)),
+		elfCacheLimitBytes: parseByteSize(String(process.env.CORERTT_WORKER_ELF_CACHE_LIMIT ?? DEFAULT_ELF_CACHE_LIMIT_BYTES)),
+		tmpMapDir: path.resolve(String(process.env.CORERTT_WORKER_TMP_MAP_DIR ?? DEFAULT_TMP_MAP_DIR)),
+		concurrency: parsePositiveInt(String(process.env.CORERTT_WORKER_CONCURRENCY ?? DEFAULT_CONCURRENCY), 'CORERTT_WORKER_CONCURRENCY'),
+		errorLogMaxBytes: parsePositiveInt(String(process.env.CORERTT_WORKER_ERROR_LOG_MAX_BYTES ?? DEFAULT_ERROR_LOG_MAX_BYTES), 'CORERTT_WORKER_ERROR_LOG_MAX_BYTES'),
+		downloadUseBearer: String(process.env.CORERTT_WORKER_DOWNLOAD_USE_BEARER ?? '0') === '1',
 	};
 }

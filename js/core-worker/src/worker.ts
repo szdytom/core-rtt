@@ -73,7 +73,6 @@ export class CoreWorker {
 		this.cache = new ElfCache({
 			cacheDir: config.elfCacheDir,
 			cacheLimitBytes: config.elfCacheLimitBytes,
-			downloadUseBearer: config.downloadUseBearer,
 		});
 	}
 

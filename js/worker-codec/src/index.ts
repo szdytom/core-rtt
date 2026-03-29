@@ -60,9 +60,11 @@ export class TaskAckownledgedPacket {
 	[key: string]: unknown;
 
 	matchId!: number;
+	canAssignMore!: boolean;
 
 	static typedef: Array<{ field: string; type: any }> = [
 		{ field: 'matchId', type: BASIC_TYPES.u32 },
+		{ field: 'canAssignMore', type: BASIC_TYPES.bool },
 	];
 }
 

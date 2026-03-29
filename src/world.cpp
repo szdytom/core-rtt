@@ -30,8 +30,12 @@ std::pair<pos_t, pos_t> getDirectionOffset(Direction dir) noexcept {
 }
 } // namespace
 
-Player::Player(int id) noexcept
-	: id(id), base_energy(0), base_capture_counter(0) {
+Player::Player(std::uint16_t id) noexcept
+	: id(id)
+	, base_energy(0)
+	, base_capture_counter(0)
+	, unit_elf_crash_flag(false)
+	, base_elf_crash_flag(false) {
 	units.fill(nullptr);
 }
 
@@ -58,6 +62,7 @@ void Player::step(World &world) noexcept {
 					world.currentTick(), id, 0, machine_or_error.error()
 				)
 			);
+			base_elf_crash_flag = true;
 			return; // Skip simulation if base program failed to load
 		}
 		_base_machine = std::move(machine_or_error.value());
@@ -72,6 +77,7 @@ void Player::step(World &world) noexcept {
 			)
 		);
 		_base_machine.reset();
+		base_elf_crash_flag = true;
 	}
 }
 

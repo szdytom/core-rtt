@@ -29,12 +29,14 @@ struct MessagePacket {
 };
 
 struct Player {
-	int id;               // 1 or 2
+	std::uint16_t id;     // 1 or 2
 	pos_t base_x, base_y; // top-left corner of the base
 	energy_t base_energy;
 	std::array<Unit *, max_units> units; // 0-indexed, non-owned, nullable
 	int base_capture_counter; // consecutive turns enemy controls base
 
+	bool unit_elf_crash_flag;
+	bool base_elf_crash_flag;
 	std::vector<std::uint8_t> unit_elf; // ELF binary for unit
 	std::vector<std::uint8_t> base_elf; // ELF binary for base
 
@@ -42,7 +44,7 @@ struct Player {
 	std::vector<MessagePacket> outgoing_messages;
 
 	Player() noexcept = default;
-	Player(int id) noexcept;
+	Player(std::uint16_t id) noexcept;
 
 	void step(World &) noexcept;
 

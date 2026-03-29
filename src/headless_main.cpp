@@ -1,3 +1,4 @@
+#include "corertt/build_config.h"
 #include "corertt/cli_common.h"
 #include "corertt/replay.h"
 #include <atomic>
@@ -36,6 +37,13 @@ bool isStdoutTTY() noexcept {
 }
 
 int runHeadlessLiveMode(const cr::ProgramOptions &options) {
+	if (options.worker_mode) {
+		std::println(
+			std::cerr, "{{\"version\": \"{}\", \"commit\": \"{}\"}}",
+			cr::program_version, cr::git_commit_hash
+		);
+	}
+
 	std::signal(SIGTERM, signalHandler);
 	std::signal(SIGINT, signalHandler);
 
@@ -67,6 +75,7 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 		? options.max_ticks
 		: std::numeric_limits<std::uint32_t>::max();
 
+	int exit_code = 0;
 	while (!world.gameOver() && world.currentTick() < tick_limit) {
 		world.step();
 
@@ -75,7 +84,16 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 		cr::writeChunk(replay_stream, tick_bytes);
 
 		if (g_terminateRequested.load(std::memory_order_relaxed)) {
-			std::println(std::cerr, "Termination signal received, quitting...");
+			if (options.worker_mode) {
+				std::println(
+					std::cerr, "{{\"termination_signal_received\": true}}"
+				);
+			} else {
+				std::println(
+					std::cerr, "Termination signal received, quitting..."
+				);
+			}
+			exit_code = 1;
 			break;
 		}
 	}
@@ -84,7 +102,24 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
 	cr::writeChunk(replay_stream, end_bytes);
 
-	return 0;
+	// In worker mode, report game result and crash flags for wrappers to parse
+	if (options.worker_mode) {
+		std::println(
+			std::cerr,
+			"{{\"termination\": \"{}\", \"winner_player_id\": {}, "
+			"\"p1_base_crash\": {}, \"p1_unit_crash\": {}, "
+			"\"p2_base_crash\": {}, \"p2_unit_crash\": {}}}",
+			end_marker.termination == cr::ReplayTermination::Completed
+				? "completed"
+				: "aborted",
+			end_marker.winner_player_id, world.player(1).base_elf_crash_flag,
+			world.player(1).unit_elf_crash_flag,
+			world.player(2).base_elf_crash_flag,
+			world.player(2).unit_elf_crash_flag
+		);
+	}
+
+	return exit_code;
 }
 
 } // namespace

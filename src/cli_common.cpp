@@ -81,6 +81,10 @@ ProgramOptions parseOptions(
 				"maximum number of ticks to simulate before auto draw "
 				"(0=unlimited)"
 			);
+		program.add_argument("--worker-mode")
+			.default_value(false)
+			.implicit_value(true)
+			.help("don't enable this unless you know what it does");
 	} else if (mode == CliMode::Interactive) {
 		program.add_argument("--step-interval-ms")
 			.default_value(200)
@@ -118,6 +122,7 @@ ProgramOptions parseOptions(
 	options.replay_file = program.get<std::string>("--replay-file");
 	if (mode == CliMode::Headless) {
 		options.max_ticks = program.get<unsigned int>("--max-ticks");
+		options.worker_mode = program.get<bool>("--worker-mode");
 	}
 
 	if (mode == CliMode::Interactive) {

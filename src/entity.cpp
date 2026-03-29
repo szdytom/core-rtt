@@ -112,6 +112,7 @@ void Unit::step(World &world, Player &player) noexcept {
 					world.currentTick(), player_id, id, machine_or_error.error()
 				)
 			);
+			player.unit_elf_crash_flag = true;
 			return; // Skip simulation if unit program failed to load
 		}
 		_machine = std::move(machine_or_error.value());
@@ -126,6 +127,7 @@ void Unit::step(World &world, Player &player) noexcept {
 			)
 		);
 		_machine.reset();
+		player.unit_elf_crash_flag = true;
 	}
 }
 

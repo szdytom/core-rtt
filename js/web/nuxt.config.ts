@@ -5,6 +5,10 @@ export default defineNuxtConfig({
     '@nuxt/ui',
   ],
 
+  imports: {
+    dirs: ['types'],
+  },
+
   devtools: {
     enabled: true,
   },

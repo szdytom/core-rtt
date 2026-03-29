@@ -27,7 +27,7 @@ const map = [
 </script>
 
 <template>
-  <UCard variant="subtle">
+  <UCard variant="outline">
     <div
       v-for="row in map"
       :key="row"

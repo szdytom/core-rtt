@@ -1,0 +1,31 @@
+{
+	"name": "@corertt/worker-codec",
+	"version": "1.0.0",
+	"description": "Communication codec between the workers and backend of core-rtt",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"test": "vitest run"
+	},
+	"packageManager": "pnpm@10.8.1",
+	"dependencies": {
+		"structpack": "^1.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.0",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.1"
+	}
+}

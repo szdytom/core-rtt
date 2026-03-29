@@ -3,3 +3,4 @@ packages:
   - core-autotest
   - replay-cli
   - worker-codec
+  - web

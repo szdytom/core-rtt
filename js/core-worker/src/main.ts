@@ -6,8 +6,8 @@ import { parseWorkerConfig, usage } from './config.js';
 import { pathExists } from './fs-utils.js';
 import { CoreWorker } from './worker.js';
 
-async function run(argv: string[]): Promise<number> {
-	const config = parseWorkerConfig(argv);
+async function run(): Promise<number> {
+	const config = parseWorkerConfig();
 	if (!(await pathExists(config.headlessPath))) {
 		throw new Error(`corertt_headless not found: ${config.headlessPath}`);
 	}
@@ -25,11 +25,17 @@ async function run(argv: string[]): Promise<number> {
 
 async function main(): Promise<void> {
 	try {
-		process.exitCode = await run(process.argv.slice(2));
+		if (process.argv.includes('--help') || process.argv.includes('-h')) {
+			process.stdout.write(`${usage}\n`);
+			process.exitCode = 0;
+			return;
+		}
+
+		process.exitCode = await run();
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		process.stderr.write(`${message}\n`);
-		if (message.includes('missing required options') || message.includes('not found')) {
+		if (message.includes('missing required env keys') || message.includes('not found')) {
 			process.stderr.write(`${usage}\n`);
 		}
 		process.exitCode = 1;

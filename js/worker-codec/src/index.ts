@@ -30,11 +30,15 @@ export class StrategyGroupDescriptor {
 	[key: string]: unknown;
 
 	strategyGroupId!: number;
+	baseLastModified!: Date;
+	unitLastModified!: Date;
 	baseStrategyUrl!: string;
 	unitStrategyUrl!: string;
 
 	static typedef: Array<{ field: string; type: any }> = [
 		{ field: 'strategyGroupId', type: BASIC_TYPES.u32 },
+		{ field: 'baseLastModified', type: BASIC_TYPES.DateTime },
+		{ field: 'unitLastModified', type: BASIC_TYPES.DateTime },
 		{ field: 'baseStrategyUrl', type: BASIC_TYPES.str },
 		{ field: 'unitStrategyUrl', type: BASIC_TYPES.str },
 	];

@@ -62,7 +62,6 @@ describe('core-worker integration', () => {
 			tmpMapDir,
 			concurrency: 2,
 			errorLogMaxBytes: 64 * 1024,
-			downloadUseBearer: false,
 		};
 
 		const decodeErrors: string[] = [];

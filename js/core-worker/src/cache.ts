@@ -48,7 +48,6 @@ export class ElfCache {
 	private readonly cacheLimitBytes: number;
 	private readonly indexPath: string;
 	private readonly entriesByKey = new Map<string, CacheEntry>();
-	private readonly downloadUseBearer: boolean;
 	private currentToken = '';
 	private initialized = false;
 	private inFlight = new Map<string, Promise<string>>();
@@ -56,12 +55,10 @@ export class ElfCache {
 	public constructor(options: {
 		cacheDir: string;
 		cacheLimitBytes: number;
-		downloadUseBearer: boolean;
 	}) {
 		this.cacheDir = options.cacheDir;
 		this.cacheLimitBytes = options.cacheLimitBytes;
 		this.indexPath = path.join(this.cacheDir, 'index.json');
-		this.downloadUseBearer = options.downloadUseBearer;
 	}
 
 	public setBearerToken(token: string): void {
@@ -117,12 +114,7 @@ export class ElfCache {
 			throw new Error(`missing ${kind} strategy download url`);
 		}
 
-		const headers = new Headers();
-		if (this.downloadUseBearer && this.currentToken.length > 0) {
-			headers.set('Authorization', `Bearer ${this.currentToken}`);
-		}
-
-		const response = await fetch(url, { method: 'GET', headers });
+		const response = await fetch(url, { method: 'GET' });
 		if (!response.ok) {
 			throw new Error(`failed to download strategy ${kind}: ${response.status} ${response.statusText}`);
 		}

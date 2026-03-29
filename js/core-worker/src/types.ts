@@ -13,7 +13,6 @@ export interface WorkerConfig {
 	tmpMapDir: string;
 	concurrency: number;
 	errorLogMaxBytes: number;
-	downloadUseBearer: boolean;
 }
 
 export interface StrategyBinaryRefs {

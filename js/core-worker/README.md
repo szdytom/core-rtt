@@ -37,7 +37,6 @@ pnpm -C js --filter @corertt/core-worker exec node dist/main.js
 - `CORERTT_WORKER_TMP_MAP_DIR`: default `/dev/shm/corertt-tmp-map`
 - `CORERTT_WORKER_CONCURRENCY`: default `2`
 - `CORERTT_WORKER_ERROR_LOG_MAX_BYTES`: default `65536`
-- `CORERTT_WORKER_DOWNLOAD_USE_BEARER`: default `0`
 - `CORERTT_WORKER_ENV_PATH`: optional explicit `.env` path
 
 ## Mock backend testing

@@ -32,7 +32,6 @@ export const usage = [
 	'  CORERTT_WORKER_TMP_MAP_DIR',
 	'  CORERTT_WORKER_CONCURRENCY',
 	'  CORERTT_WORKER_ERROR_LOG_MAX_BYTES',
-	'  CORERTT_WORKER_DOWNLOAD_USE_BEARER',
 	'  CORERTT_WORKER_ENV_PATH',
 ].join('\n');
 
@@ -126,6 +125,5 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
 		tmpMapDir: path.resolve(String(process.env.CORERTT_WORKER_TMP_MAP_DIR ?? DEFAULT_TMP_MAP_DIR)),
 		concurrency: parsePositiveInt(String(process.env.CORERTT_WORKER_CONCURRENCY ?? DEFAULT_CONCURRENCY), 'CORERTT_WORKER_CONCURRENCY'),
 		errorLogMaxBytes: parsePositiveInt(String(process.env.CORERTT_WORKER_ERROR_LOG_MAX_BYTES ?? DEFAULT_ERROR_LOG_MAX_BYTES), 'CORERTT_WORKER_ERROR_LOG_MAX_BYTES'),
-		downloadUseBearer: String(process.env.CORERTT_WORKER_DOWNLOAD_USE_BEARER ?? '0') === '1',
 	};
 }

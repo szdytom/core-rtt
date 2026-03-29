@@ -1,0 +1,26 @@
+{
+	"name": "@corertt/core-worker",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Core RTT worker implementation with headless runner and backend protocol integration",
+	"bin": {
+		"corertt-core-worker": "./dist/main.js"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@corertt/corereplay": "workspace:*",
+		"@corertt/worker-codec": "workspace:*",
+		"@mongodb-js/zstd": "^2.0.1",
+		"ws": "^8.18.3"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.0",
+		"@types/ws": "^8.18.1",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.1"
+	}
+}

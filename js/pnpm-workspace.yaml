@@ -1,6 +1,15 @@
 packages:
   - corereplay
   - core-autotest
+  - core-worker
   - replay-cli
   - worker-codec
   - web
+
+onlyBuiltDependencies:
+  - '@mongodb-js/zstd'
+  - '@parcel/watcher'
+  - esbuild
+  - maplibre-gl
+  - unrs-resolver
+  - vue-demi

@@ -35,6 +35,7 @@ struct ProgramOptions {
 	std::optional<Seed> seed;
 	std::string replay_file;
 	std::string play_replay;
+	bool worker_mode = false;
 	UIMode ui_mode = UIMode::Tui;
 };
 

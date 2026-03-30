@@ -31,7 +31,8 @@ async function maybePrepareMapFile(config: WorkerConfig, mapData: ArrayBuffer): 
 	};
 }
 
-export async function runHeadless(config: WorkerConfig, task: HeadlessTaskInput): Promise<HeadlessRunResult> {
+export async function runHeadless(config: WorkerConfig, task: HeadlessTaskInput, signal?: AbortSignal): Promise<HeadlessRunResult> {
+	signal?.throwIfAborted();
 	const mapTemp = await maybePrepareMapFile(config, task.mapData);
 	const args = [
 		'--p1-base', task.strategies.p1BasePath,
@@ -62,26 +63,35 @@ export async function runHeadless(config: WorkerConfig, task: HeadlessTaskInput)
 		stderrText += chunk.toString('utf8');
 	});
 
-	const timer = setTimeout(() => {
+	const timeoutSignal = AbortSignal.timeout(config.timeoutSeconds * 1000);
+	timeoutSignal.addEventListener('abort', () => {
 		timedOut = true;
+	}, { once: true });
+
+	const combinedSignal = signal == null ? timeoutSignal : AbortSignal.any([signal, timeoutSignal]);
+	const onAbort = () => {
 		child.kill('SIGKILL');
-	}, config.timeoutSeconds * 1000);
-
-	const closeResult = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
-		child.once('error', reject);
-		child.once('close', (code, signal) => resolve({ code, signal }));
-	});
-
-	clearTimeout(timer);
-	await mapTemp.cleanup();
-
-	return {
-		stdout: Buffer.concat(stdoutChunks),
-		stderr: stderrText,
-		timedOut,
-		exitCode: closeResult.code,
-		exitSignal: closeResult.signal,
 	};
+	combinedSignal.addEventListener('abort', onAbort, { once: true });
+
+	try {
+		const closeResult = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
+			child.once('error', reject);
+			child.once('close', (code, closeSignal) => resolve({ code, signal: closeSignal }));
+		});
+
+		return {
+			stdout: Buffer.concat(stdoutChunks),
+			stderr: stderrText,
+			timedOut,
+			exitCode: closeResult.code,
+			exitSignal: closeResult.signal,
+		};
+	} finally {
+		combinedSignal.removeEventListener('abort', onAbort);
+		await mapTemp.cleanup();
+		signal?.throwIfAborted();
+	}
 }
 
 export async function writeTempReplayFile(data: Buffer): Promise<string> {

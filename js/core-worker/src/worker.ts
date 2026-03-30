@@ -1,5 +1,4 @@
 import process from 'node:process';
-import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
 import {
 	decodePacket,
@@ -19,6 +18,27 @@ import type { CoreWorkerEventDetailMap, WorkerConfig } from './types.js';
 
 interface WorkerRuntimeOptions {
 	stopAfterResults?: number;
+}
+
+function createAbortError(signal: AbortSignal): unknown {
+	return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+}
+
+async function sleepWithSignal(ms: number, signal: AbortSignal): Promise<void> {
+	signal.throwIfAborted();
+	await new Promise<void>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			signal.removeEventListener('abort', onAbort);
+			resolve();
+		}, ms);
+
+		const onAbort = () => {
+			clearTimeout(timer);
+			reject(createAbortError(signal));
+		};
+
+		signal.addEventListener('abort', onAbort, { once: true });
+	});
 }
 
 function asArrayBuffer(data: WebSocket.RawData): ArrayBuffer {
@@ -48,8 +68,8 @@ export class CoreWorker extends EventTarget {
 	private readonly cache: ElfCache;
 	private readonly scheduler: TaskScheduler<TaskAssignPacket>;
 	private readonly pendingResults: TaskResultPacket[] = [];
-	private stopped = false;
 	private loopPromise: Promise<void> | null = null;
+	private lifecycleController: AbortController | null = null;
 	private ws: WebSocket | null = null;
 	private token = '';
 	private completedResults = 0;
@@ -65,7 +85,13 @@ export class CoreWorker extends EventTarget {
 		});
 		this.scheduler = new TaskScheduler<TaskAssignPacket>(
 			config.concurrency,
-			async (task: ScheduledTask<TaskAssignPacket>) => await this.executeTask(task.payload),
+			async (task: ScheduledTask<TaskAssignPacket>) => {
+				const signal = this.lifecycleController?.signal;
+				if (signal == null) {
+					return;
+				}
+				await this.executeTask(task.payload, signal);
+			},
 		);
 		this.scheduler.onTaskError = (_task, error: unknown) => {
 			const message = error instanceof Error ? error.message : String(error);
@@ -85,13 +111,14 @@ export class CoreWorker extends EventTarget {
 		if (this.loopPromise != null) {
 			return;
 		}
-		this.stopped = false;
+		const controller = new AbortController();
+		this.lifecycleController = controller;
 		await this.cache.initialize();
-		this.loopPromise = this.runConnectionLoop();
+		this.loopPromise = this.runConnectionLoop(controller.signal);
 	}
 
 	public async stop(): Promise<void> {
-		this.stopped = true;
+		this.lifecycleController?.abort(new Error('worker stopped'));
 		if (this.ws != null) {
 			this.ws.close();
 		}
@@ -99,32 +126,43 @@ export class CoreWorker extends EventTarget {
 			await this.loopPromise;
 		}
 		this.loopPromise = null;
+		this.lifecycleController = null;
+		this.ws = null;
 	}
 
-	private async runConnectionLoop(): Promise<void> {
+	private async runConnectionLoop(signal: AbortSignal): Promise<void> {
 		let retryDelayMs = 1000;
-		while (!this.stopped) {
+		while (!signal.aborted) {
 			try {
-				this.token = await this.authenticate();
-				await this.connectAndServe(this.token);
+				this.token = await this.authenticate(signal);
+				await this.connectAndServe(this.token, signal);
 				retryDelayMs = 1000;
 			} catch (error) {
+				if (signal.aborted) {
+					break;
+				}
 				const message = error instanceof Error ? error.message : String(error);
 				this.emitWorkerEvent('runtime-error', message);
 				process.stderr.write(`worker reconnect: ${message}\n`);
-				if (this.stopped) {
-					break;
+				try {
+					await sleepWithSignal(retryDelayMs, signal);
+				} catch {
+					if (signal.aborted) {
+						break;
+					}
+					throw error;
 				}
-				await sleep(retryDelayMs);
 				retryDelayMs = Math.min(30000, retryDelayMs * 2);
 			}
 		}
 	}
 
-	private async authenticate(): Promise<string> {
+	private async authenticate(signal: AbortSignal): Promise<string> {
+		signal.throwIfAborted();
 		const url = buildEndpoint(this.config.backendUrl, 'api/worker/authenticate', false);
 		const response = await fetch(url, {
 			method: 'POST',
+			signal,
 			headers: {
 				'Content-Type': 'application/json',
 			},
@@ -143,7 +181,8 @@ export class CoreWorker extends EventTarget {
 		return data.token;
 	}
 
-	private async connectAndServe(token: string): Promise<void> {
+	private async connectAndServe(token: string, signal: AbortSignal): Promise<void> {
+		signal.throwIfAborted();
 		const url = buildEndpoint(this.config.backendUrl, 'api/worker/communication', true);
 		const ws = new WebSocket(url, {
 			headers: {
@@ -155,23 +194,72 @@ export class CoreWorker extends EventTarget {
 			void this.handleIncomingMessage(data);
 		});
 
-		await new Promise<void>((resolve, reject) => {
-			ws.once('open', () => resolve());
-			ws.once('error', reject);
-		});
+		const onAbort = () => {
+			ws.close();
+		};
+		signal.addEventListener('abort', onAbort, { once: true });
 
-		this.sendPacket(new HelloPacket());
-		this.replayUnfinishedAcknowledgements();
-		this.flushPendingResults();
-		this.maybeSendIdleAvailability();
+		try {
+			await new Promise<void>((resolve, reject) => {
+				const cleanup = () => {
+					ws.off('open', onOpen);
+					ws.off('error', onError);
+					signal.removeEventListener('abort', onConnectAbort);
+				};
 
-		await new Promise<void>((resolve, reject) => {
-			ws.once('close', () => resolve());
-			ws.once('error', (error) => reject(error));
-		});
+				const onOpen = () => {
+					cleanup();
+					resolve();
+				};
+				const onError = (error: Error) => {
+					cleanup();
+					reject(error);
+				};
+				const onConnectAbort = () => {
+					cleanup();
+					reject(createAbortError(signal));
+				};
 
-		if (this.ws === ws) {
-			this.ws = null;
+				ws.once('open', onOpen);
+				ws.once('error', onError);
+				signal.addEventListener('abort', onConnectAbort, { once: true });
+			});
+
+			this.sendPacket(new HelloPacket());
+			this.replayUnfinishedAcknowledgements();
+			this.flushPendingResults();
+			this.maybeSendIdleAvailability();
+
+			await new Promise<void>((resolve, reject) => {
+				const cleanup = () => {
+					ws.off('close', onClose);
+					ws.off('error', onError);
+					signal.removeEventListener('abort', onWaitAbort);
+				};
+
+				const onClose = () => {
+					cleanup();
+					resolve();
+				};
+				const onError = (error: Error) => {
+					cleanup();
+					reject(error);
+				};
+				const onWaitAbort = () => {
+					cleanup();
+					reject(createAbortError(signal));
+				};
+
+				ws.once('close', onClose);
+				ws.once('error', onError);
+				signal.addEventListener('abort', onWaitAbort, { once: true });
+			});
+		} finally {
+			signal.removeEventListener('abort', onAbort);
+
+			if (this.ws === ws) {
+				this.ws = null;
+			}
 		}
 	}
 
@@ -239,17 +327,18 @@ export class CoreWorker extends EventTarget {
 		this.sendTaskAck(packet.matchId);
 	}
 
-	private async executeTask(packet: TaskAssignPacket): Promise<void> {
+	private async executeTask(packet: TaskAssignPacket, signal: AbortSignal): Promise<void> {
+		signal.throwIfAborted();
 		let resultPacket: TaskResultPacket;
 		let stderrCombined = '';
 		try {
 			const p1Descriptor = packet.strategies[0];
 			const p2Descriptor = packet.strategies[1];
 			const [p1BasePath, p1UnitPath, p2BasePath, p2UnitPath] = await Promise.all([
-				this.cache.getOrDownload(p1Descriptor, 'base'),
-				this.cache.getOrDownload(p1Descriptor, 'unit'),
-				this.cache.getOrDownload(p2Descriptor, 'base'),
-				this.cache.getOrDownload(p2Descriptor, 'unit'),
+				this.cache.getOrDownload(p1Descriptor, 'base', signal),
+				this.cache.getOrDownload(p1Descriptor, 'unit', signal),
+				this.cache.getOrDownload(p2Descriptor, 'base', signal),
+				this.cache.getOrDownload(p2Descriptor, 'unit', signal),
 			]);
 			const strategyPaths = {
 				p1BasePath,
@@ -261,7 +350,7 @@ export class CoreWorker extends EventTarget {
 			const runResult = await runHeadless(this.config, {
 				mapData: packet.mapData,
 				strategies: strategyPaths,
-			});
+			}, signal);
 			stderrCombined = runResult.stderr;
 			if (runResult.timedOut) {
 				stderrCombined += '\nheadless timeout reached';
@@ -283,7 +372,7 @@ export class CoreWorker extends EventTarget {
 			}
 
 			try {
-				await this.uploadReplay(packet.replayUploadUrl, runResult.stdout);
+				await this.uploadReplay(packet.replayUploadUrl, runResult.stdout, signal);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				stderrCombined += `\nfailed to upload replay: ${message}`;
@@ -300,18 +389,24 @@ export class CoreWorker extends EventTarget {
 				resultPacket = buildTaskCoreCrashResult(packet.matchId, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
 			}
 		} catch (error) {
+			if (signal.aborted) {
+				return;
+			}
 			const message = error instanceof Error ? error.message : String(error);
 			stderrCombined += `\nworker execution failure: ${message}`;
 			resultPacket = buildTaskCoreCrashResult(packet.matchId, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
 		}
 
+		signal.throwIfAborted();
 		await this.dispatchTaskResult(resultPacket);
 	}
 
-	private async uploadReplay(url: string, body: Buffer): Promise<void> {
+	private async uploadReplay(url: string, body: Buffer, signal: AbortSignal): Promise<void> {
+		signal.throwIfAborted();
 		const payload = new Uint8Array(body);
 		const response = await fetch(url, {
 			method: 'PUT',
+			signal,
 			headers: {
 				'Content-Type': 'application/zstd',
 			},

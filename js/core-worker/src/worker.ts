@@ -260,11 +260,17 @@ export class CoreWorker {
 		try {
 			const p1Descriptor = packet.strategies[0];
 			const p2Descriptor = packet.strategies[1];
+			const [p1BasePath, p1UnitPath, p2BasePath, p2UnitPath] = await Promise.all([
+				this.cache.getOrDownload(p1Descriptor, 'base'),
+				this.cache.getOrDownload(p1Descriptor, 'unit'),
+				this.cache.getOrDownload(p2Descriptor, 'base'),
+				this.cache.getOrDownload(p2Descriptor, 'unit'),
+			]);
 			const strategyPaths = {
-				p1BasePath: await this.cache.getOrDownload(p1Descriptor, 'base'),
-				p1UnitPath: await this.cache.getOrDownload(p1Descriptor, 'unit'),
-				p2BasePath: await this.cache.getOrDownload(p2Descriptor, 'base'),
-				p2UnitPath: await this.cache.getOrDownload(p2Descriptor, 'unit'),
+				p1BasePath,
+				p1UnitPath,
+				p2BasePath,
+				p2UnitPath,
 			};
 
 			const runResult = await runHeadless(this.config, {

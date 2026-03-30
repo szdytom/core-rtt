@@ -15,6 +15,7 @@
 		"@corertt/worker-codec": "workspace:*",
 		"better-sqlite3": "^12.8.0",
 		"dotenv": "^16.6.1",
+		"pino": "^9.14.0",
 		"ws": "^8.18.3"
 	},
 	"devDependencies": {

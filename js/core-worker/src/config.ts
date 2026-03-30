@@ -96,18 +96,18 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
 
 	loadEnvironmentFile(repoRootFromEnv);
 
-	const backendUrl = String(process.env.CORERTT_WORKER_BACKEND_URL ?? '').trim();
-	const workerId = String(process.env.CORERTT_WORKER_ID ?? '').trim();
-	const workerSecret = String(process.env.CORERTT_WORKER_SECRET ?? '').trim();
+	const backendUrl = String(env.CORERTT_WORKER_BACKEND_URL ?? '').trim();
+	const workerId = String(env.CORERTT_WORKER_ID ?? '').trim();
+	const workerSecret = String(env.CORERTT_WORKER_SECRET ?? '').trim();
 	if (backendUrl.length === 0 || workerId.length === 0 || workerSecret.length === 0) {
 		throw new Error('missing required env keys: CORERTT_WORKER_BACKEND_URL, CORERTT_WORKER_ID, CORERTT_WORKER_SECRET');
 	}
 
-	const repoRoot = process.env.CORERTT_WORKER_REPO_ROOT != null && process.env.CORERTT_WORKER_REPO_ROOT.length > 0
-		? path.resolve(process.env.CORERTT_WORKER_REPO_ROOT)
+	const repoRoot = env.CORERTT_WORKER_REPO_ROOT != null && env.CORERTT_WORKER_REPO_ROOT.length > 0
+		? path.resolve(env.CORERTT_WORKER_REPO_ROOT)
 		: repoRootFromEnv;
 
-	const headlessPathRaw = String(process.env.CORERTT_WORKER_HEADLESS_PATH ?? '').trim();
+	const headlessPathRaw = String(env.CORERTT_WORKER_HEADLESS_PATH ?? '').trim();
 	const headlessPath = headlessPathRaw.length > 0
 		? path.resolve(headlessPathRaw)
 		: path.join(repoRoot, 'build', 'corertt_headless');
@@ -118,12 +118,12 @@ export function parseWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerC
 		workerId,
 		workerSecret,
 		headlessPath,
-		timeoutSeconds: parsePositiveInt(String(process.env.CORERTT_WORKER_TIMEOUT_SECONDS ?? DEFAULT_TIMEOUT_SECONDS), 'CORERTT_WORKER_TIMEOUT_SECONDS'),
-		maxTicks: parsePositiveInt(String(process.env.CORERTT_WORKER_MAX_TICKS ?? DEFAULT_MAX_TICKS), 'CORERTT_WORKER_MAX_TICKS'),
-		elfCacheDir: path.resolve(String(process.env.CORERTT_WORKER_ELF_CACHE_DIR ?? DEFAULT_ELF_CACHE_DIR)),
-		elfCacheLimitBytes: parseByteSize(String(process.env.CORERTT_WORKER_ELF_CACHE_LIMIT ?? DEFAULT_ELF_CACHE_LIMIT_BYTES)),
-		tmpMapDir: path.resolve(String(process.env.CORERTT_WORKER_TMP_MAP_DIR ?? DEFAULT_TMP_MAP_DIR)),
-		concurrency: parsePositiveInt(String(process.env.CORERTT_WORKER_CONCURRENCY ?? DEFAULT_CONCURRENCY), 'CORERTT_WORKER_CONCURRENCY'),
-		errorLogMaxBytes: parsePositiveInt(String(process.env.CORERTT_WORKER_ERROR_LOG_MAX_BYTES ?? DEFAULT_ERROR_LOG_MAX_BYTES), 'CORERTT_WORKER_ERROR_LOG_MAX_BYTES'),
+		timeoutSeconds: parsePositiveInt(String(env.CORERTT_WORKER_TIMEOUT_SECONDS ?? DEFAULT_TIMEOUT_SECONDS), 'CORERTT_WORKER_TIMEOUT_SECONDS'),
+		maxTicks: parsePositiveInt(String(env.CORERTT_WORKER_MAX_TICKS ?? DEFAULT_MAX_TICKS), 'CORERTT_WORKER_MAX_TICKS'),
+		elfCacheDir: path.resolve(String(env.CORERTT_WORKER_ELF_CACHE_DIR ?? DEFAULT_ELF_CACHE_DIR)),
+		elfCacheLimitBytes: parseByteSize(String(env.CORERTT_WORKER_ELF_CACHE_LIMIT ?? DEFAULT_ELF_CACHE_LIMIT_BYTES)),
+		tmpMapDir: path.resolve(String(env.CORERTT_WORKER_TMP_MAP_DIR ?? DEFAULT_TMP_MAP_DIR)),
+		concurrency: parsePositiveInt(String(env.CORERTT_WORKER_CONCURRENCY ?? DEFAULT_CONCURRENCY), 'CORERTT_WORKER_CONCURRENCY'),
+		errorLogMaxBytes: parsePositiveInt(String(env.CORERTT_WORKER_ERROR_LOG_MAX_BYTES ?? DEFAULT_ERROR_LOG_MAX_BYTES), 'CORERTT_WORKER_ERROR_LOG_MAX_BYTES'),
 	};
 }

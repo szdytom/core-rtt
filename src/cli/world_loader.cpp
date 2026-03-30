@@ -9,8 +9,8 @@
 
 namespace cr {
 
-std::vector<std::uint8_t> loadBinary(std::string_view path) {
-	std::ifstream file(path.data(), std::ios::binary);
+std::vector<std::uint8_t> loadBinary(const std::string &path) {
+	std::ifstream file(path, std::ios::binary);
 	if (!file) {
 		throw std::runtime_error(
 			std::format("Failed to open ELF file: {}", path)
@@ -31,8 +31,8 @@ std::vector<std::uint8_t> loadBinary(std::string_view path) {
 	return content;
 }
 
-Tilemap loadTilemap(std::string_view path) {
-	std::ifstream file(path.data(), std::ios::binary);
+Tilemap loadTilemap(const std::string &path) {
+	std::ifstream file(path, std::ios::binary);
 	if (!file) {
 		throw std::runtime_error(
 			std::format("Failed to open tilemap file: {}", path)

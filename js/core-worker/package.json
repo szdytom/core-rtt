@@ -12,9 +12,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@corertt/corereplay": "workspace:*",
 		"@corertt/worker-codec": "workspace:*",
-		"@mongodb-js/zstd": "^2.0.1",
 		"dotenv": "^16.6.1",
 		"ws": "^8.18.3"
 	},

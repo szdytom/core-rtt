@@ -11,7 +11,6 @@ import {
 	type TaskResultPacket,
 } from '@corertt/worker-codec';
 import { ElfCache } from './cache.js';
-import { compressZstd } from './compression.js';
 import { runHeadless } from './headless.js';
 import { buildTaskCoreCrashResult, buildTaskSuccessResult } from './result.js';
 import type { AssignedTask, RunningTask, WorkerConfig, WorkerEvents } from './types.js';
@@ -307,19 +306,8 @@ export class CoreWorker {
 				return;
 			}
 
-			let compressedReplay: Buffer;
 			try {
-				compressedReplay = await compressZstd(runResult.stdout);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				stderrCombined += `\nfailed to compress replay: ${message}`;
-				resultPacket = buildTaskCoreCrashResult(packet.matchId, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
-				await this.dispatchTaskResult(resultPacket);
-				return;
-			}
-
-			try {
-				await this.uploadReplay(packet.replayUploadUrl, compressedReplay);
+				await this.uploadReplay(packet.replayUploadUrl, runResult.stdout);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				stderrCombined += `\nfailed to upload replay: ${message}`;
@@ -329,10 +317,10 @@ export class CoreWorker {
 			}
 
 			try {
-				resultPacket = buildTaskSuccessResult(packet.matchId, runResult.stdout, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
+				resultPacket = buildTaskSuccessResult(packet.matchId, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				stderrCombined += `\nfailed to decode replay: ${message}`;
+				stderrCombined += `\nfailed to parse worker jsonl result: ${message}`;
 				resultPacket = buildTaskCoreCrashResult(packet.matchId, packet.strategies, stderrCombined, this.config.errorLogMaxBytes);
 			}
 		} catch (error) {

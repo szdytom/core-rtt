@@ -38,6 +38,8 @@ export async function runHeadless(config: WorkerConfig, task: HeadlessTaskInput)
 		'--p1-unit', task.strategies.p1UnitPath,
 		'--p2-base', task.strategies.p2BasePath,
 		'--p2-unit', task.strategies.p2UnitPath,
+		'--worker-mode',
+		'-z',
 		'--max-ticks', String(config.maxTicks),
 	];
 	if (mapTemp.mapFilePath != null) {

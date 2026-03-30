@@ -1,18 +1,15 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { readdir, rm, stat, unlink } from 'node:fs/promises';
+import Database from 'better-sqlite3';
 import type { StrategyGroupDescriptor } from '@corertt/worker-codec';
-import { ensureDir, pathExists, readJsonFile, writeFileAtomic } from './fs-utils.js';
+import { ensureDir, pathExists, writeFileAtomic } from './fs-utils.js';
 
 interface CacheEntry {
 	key: string;
 	filePath: string;
 	sizeBytes: number;
 	lastAccessMs: number;
-}
-
-interface CacheIndexData {
-	entries: CacheEntry[];
 }
 
 type StrategyKind = 'base' | 'unit';
@@ -46,11 +43,11 @@ function buildFileName(cacheKey: string, url: string): string {
 export class ElfCache {
 	private readonly cacheDir: string;
 	private readonly cacheLimitBytes: number;
-	private readonly indexPath: string;
-	private readonly entriesByKey = new Map<string, CacheEntry>();
+	private readonly indexDbPath: string;
 	private currentToken = '';
 	private initialized = false;
 	private inFlight = new Map<string, Promise<string>>();
+	private db: Database.Database | null = null;
 
 	public constructor(options: {
 		cacheDir: string;
@@ -58,7 +55,7 @@ export class ElfCache {
 	}) {
 		this.cacheDir = options.cacheDir;
 		this.cacheLimitBytes = options.cacheLimitBytes;
-		this.indexPath = path.join(this.cacheDir, 'index.json');
+		this.indexDbPath = path.join(this.cacheDir, 'index.sqlite3');
 	}
 
 	public setBearerToken(token: string): void {
@@ -70,16 +67,9 @@ export class ElfCache {
 			return;
 		}
 		await ensureDir(this.cacheDir);
-		const data = await readJsonFile<CacheIndexData>(this.indexPath);
-		if (data?.entries != null) {
-			for (const entry of data.entries) {
-				if (await pathExists(entry.filePath)) {
-					this.entriesByKey.set(entry.key, entry);
-				}
-			}
-		}
+		this.openDatabase();
+		this.ensureSchema();
 		await this.reconcileEntries();
-		await this.persistIndex();
 		this.initialized = true;
 	}
 
@@ -101,11 +91,9 @@ export class ElfCache {
 	}
 
 	private async getOrDownloadInternal(descriptor: StrategyGroupDescriptor, kind: StrategyKind, cacheKey: string): Promise<string> {
-		const existing = this.entriesByKey.get(cacheKey);
+		const existing = this.getEntryByKey(cacheKey);
 		if (existing != null && await pathExists(existing.filePath)) {
-			existing.lastAccessMs = Date.now();
-			this.entriesByKey.set(cacheKey, existing);
-			await this.persistIndex();
+			this.updateLastAccess(cacheKey, Date.now());
 			return existing.filePath;
 		}
 
@@ -129,11 +117,10 @@ export class ElfCache {
 			sizeBytes: buffer.byteLength,
 			lastAccessMs: Date.now(),
 		};
-		this.entriesByKey.set(cacheKey, newEntry);
+		this.upsertEntry(newEntry);
 		await this.evictIfNeeded();
-		await this.persistIndex();
 
-		const finalEntry = this.entriesByKey.get(cacheKey);
+		const finalEntry = this.getEntryByKey(cacheKey);
 		if (finalEntry == null) {
 			throw new Error('strategy was evicted immediately due to cache pressure');
 		}
@@ -141,27 +128,24 @@ export class ElfCache {
 	}
 
 	private async reconcileEntries(): Promise<void> {
-		for (const [key, entry] of this.entriesByKey.entries()) {
+		for (const entry of this.listEntries()) {
 			if (!(await pathExists(entry.filePath))) {
-				this.entriesByKey.delete(key);
+				this.deleteEntryByKey(entry.key);
 				continue;
 			}
 			try {
 				const fileStat = await stat(entry.filePath);
-				entry.sizeBytes = fileStat.size;
-				this.entriesByKey.set(key, entry);
+				this.updateEntrySize(entry.key, fileStat.size);
 			} catch {
-				this.entriesByKey.delete(key);
+				this.deleteEntryByKey(entry.key);
 			}
 		}
 	}
 
 	private getCurrentSizeBytes(): number {
-		let sum = 0;
-		for (const entry of this.entriesByKey.values()) {
-			sum += entry.sizeBytes;
-		}
-		return sum;
+		const db = this.getDb();
+		const row = db.prepare('SELECT COALESCE(SUM(size_bytes), 0) AS total FROM cache_entries').get() as { total: number };
+		return Number(row.total);
 	}
 
 	private async evictIfNeeded(): Promise<void> {
@@ -170,13 +154,12 @@ export class ElfCache {
 			return;
 		}
 
-		const entries = Array.from(this.entriesByKey.values())
-			.sort((left, right) => left.lastAccessMs - right.lastAccessMs);
+		const entries = this.listEntriesByLru();
 		for (const entry of entries) {
 			if (total <= this.cacheLimitBytes) {
 				break;
 			}
-			this.entriesByKey.delete(entry.key);
+			this.deleteEntryByKey(entry.key);
 			try {
 				await unlink(entry.filePath);
 			} catch {
@@ -186,18 +169,148 @@ export class ElfCache {
 		}
 	}
 
-	private async persistIndex(): Promise<void> {
-		const payload: CacheIndexData = {
-			entries: Array.from(this.entriesByKey.values()),
+	private openDatabase(): void {
+		if (this.db != null) {
+			return;
+		}
+		this.db = new Database(this.indexDbPath);
+		this.db.pragma('journal_mode = WAL');
+		this.db.pragma('synchronous = NORMAL');
+	}
+
+	private ensureSchema(): void {
+		const db = this.getDb();
+		db.exec(
+			`CREATE TABLE IF NOT EXISTS cache_entries (
+				cache_key TEXT PRIMARY KEY,
+				file_path TEXT NOT NULL,
+				size_bytes INTEGER NOT NULL,
+				last_access_ms INTEGER NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_cache_entries_last_access
+			ON cache_entries(last_access_ms);`,
+		);
+	}
+
+	private getDb(): Database.Database {
+		if (this.db == null) {
+			throw new Error('cache database is not initialized');
+		}
+		return this.db;
+	}
+
+	private getEntryByKey(cacheKey: string): CacheEntry | null {
+		const db = this.getDb();
+		const row = db.prepare(
+			`SELECT cache_key, file_path, size_bytes, last_access_ms
+			 FROM cache_entries
+			 WHERE cache_key = ?`,
+		).get(cacheKey) as {
+			cache_key: string;
+			file_path: string;
+			size_bytes: number;
+			last_access_ms: number;
+		} | undefined;
+		if (row == null) {
+			return null;
+		}
+		return {
+			key: row.cache_key,
+			filePath: row.file_path,
+			sizeBytes: Number(row.size_bytes),
+			lastAccessMs: Number(row.last_access_ms),
 		};
-		await writeFileAtomic(this.indexPath, JSON.stringify(payload, null, 2));
+	}
+
+	private listEntries(): CacheEntry[] {
+		const db = this.getDb();
+		const rows = db.prepare(
+			`SELECT cache_key, file_path, size_bytes, last_access_ms
+			 FROM cache_entries`,
+		).all() as Array<{
+			cache_key: string;
+			file_path: string;
+			size_bytes: number;
+			last_access_ms: number;
+		}>;
+		return rows.map((row) => ({
+			key: row.cache_key,
+			filePath: row.file_path,
+			sizeBytes: Number(row.size_bytes),
+			lastAccessMs: Number(row.last_access_ms),
+		}));
+	}
+
+	private listEntriesByLru(): CacheEntry[] {
+		const db = this.getDb();
+		const rows = db.prepare(
+			`SELECT cache_key, file_path, size_bytes, last_access_ms
+			 FROM cache_entries
+			 ORDER BY last_access_ms ASC`,
+		).all() as Array<{
+			cache_key: string;
+			file_path: string;
+			size_bytes: number;
+			last_access_ms: number;
+		}>;
+		return rows.map((row) => ({
+			key: row.cache_key,
+			filePath: row.file_path,
+			sizeBytes: Number(row.size_bytes),
+			lastAccessMs: Number(row.last_access_ms),
+		}));
+	}
+
+	private upsertEntry(entry: CacheEntry): void {
+		const db = this.getDb();
+		db.prepare(
+			`INSERT INTO cache_entries(cache_key, file_path, size_bytes, last_access_ms)
+			 VALUES (?, ?, ?, ?)
+			 ON CONFLICT(cache_key) DO UPDATE SET
+				file_path = excluded.file_path,
+				size_bytes = excluded.size_bytes,
+				last_access_ms = excluded.last_access_ms`,
+		).run(entry.key, entry.filePath, entry.sizeBytes, entry.lastAccessMs);
+	}
+
+	private updateLastAccess(cacheKey: string, lastAccessMs: number): void {
+		const db = this.getDb();
+		db.prepare(
+			`UPDATE cache_entries
+			 SET last_access_ms = ?
+			 WHERE cache_key = ?`,
+		).run(lastAccessMs, cacheKey);
+	}
+
+	private updateEntrySize(cacheKey: string, sizeBytes: number): void {
+		const db = this.getDb();
+		db.prepare(
+			`UPDATE cache_entries
+			 SET size_bytes = ?
+			 WHERE cache_key = ?`,
+		).run(sizeBytes, cacheKey);
+	}
+
+	private deleteEntryByKey(cacheKey: string): void {
+		const db = this.getDb();
+		db.prepare('DELETE FROM cache_entries WHERE cache_key = ?').run(cacheKey);
+	}
+
+	private closeDatabase(): void {
+		if (this.db == null) {
+			return;
+		}
+		this.db.close();
+		this.db = null;
 	}
 
 	public async clear(): Promise<void> {
+		this.closeDatabase();
 		await rm(this.cacheDir, { recursive: true, force: true });
 		await ensureDir(this.cacheDir);
-		this.entriesByKey.clear();
-		await this.persistIndex();
+		this.inFlight.clear();
+		this.initialized = false;
+		await this.initialize();
 	}
 
 	public async debugListCacheFiles(): Promise<string[]> {

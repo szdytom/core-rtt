@@ -67,10 +67,15 @@ describe('core-worker integration', () => {
 		const decodeErrors: string[] = [];
 		const runtimeErrors: string[] = [];
 		const assignedMatchIds: number[] = [];
-		const worker = new CoreWorker(config, {
-			onDecodeError: (message) => decodeErrors.push(message),
-			onRuntimeError: (message) => runtimeErrors.push(message),
-			onTaskAssigned: (task) => assignedMatchIds.push(task.matchId),
+		const worker = new CoreWorker(config);
+		worker.addEventListener('decode-error', (event) => {
+			decodeErrors.push((event as CustomEvent<string>).detail);
+		});
+		worker.addEventListener('runtime-error', (event) => {
+			runtimeErrors.push((event as CustomEvent<string>).detail);
+		});
+		worker.addEventListener('task-assigned', (event) => {
+			assignedMatchIds.push((event as CustomEvent<{ matchId: number }>).detail.matchId);
 		});
 		await worker.start();
 		let result;

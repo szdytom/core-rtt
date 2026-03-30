@@ -28,13 +28,17 @@ configure_file(
 	@ONLY
 )
 
-# nlohmann_json
+set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
+set(ZSTD_BUILD_PROGRAMS OFF)
 FetchContent_Declare(
-	json
-	URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
-	EXCLUDE_FROM_ALL SYSTEM
+    zstd
+    GIT_REPOSITORY https://github.com/facebook/zstd.git
+    GIT_TAG        v1.5.7
+    GIT_SHALLOW    ON
+	SOURCE_SUBDIR build/cmake
 )
-FetchContent_MakeAvailable(json)
+FetchContent_MakeAvailable(zstd)
 
 # cpptrace
 FetchContent_Declare(
@@ -115,6 +119,11 @@ add_executable(corertt
 	src/tui.cpp
 )
 
+target_include_directories(
+	corertt PRIVATE
+	${zstd_SOURCE_DIR}/lib
+)
+
 target_link_libraries(corertt PRIVATE
 	corertt_core
 	argparse::argparse
@@ -122,6 +131,7 @@ target_link_libraries(corertt PRIVATE
 	ftxui::screen
 	ftxui::dom
 	ftxui::component
+	libzstd_static
 )
 
 add_executable(corertt_headless
@@ -129,8 +139,14 @@ add_executable(corertt_headless
 	src/cli_common.cpp
 )
 
+target_include_directories(
+	corertt_headless PRIVATE
+	${zstd_SOURCE_DIR}/lib
+)
+
 target_link_libraries(corertt_headless PRIVATE
 	corertt_core
 	argparse::argparse
 	cpptrace::cpptrace
+	libzstd_static
 )

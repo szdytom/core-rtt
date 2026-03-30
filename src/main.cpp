@@ -172,11 +172,19 @@ int runLiveMode(
 		std::optional<std::ofstream> replay_file_stream = cr::openReplayFile(
 			options.replay_file
 		);
+		std::unique_ptr<cr::ReplayChunkWriter> replay_writer;
+		if (replay_file_stream.has_value()) {
+			replay_writer = options.output_zstd
+				? cr::createZstdReplayChunkWriter(
+					  *replay_file_stream, options.output_zstd_level
+				  )
+				: cr::createRawReplayChunkWriter(*replay_file_stream);
+		}
 
 		auto header = cr::ReplayHeader::fromWorld(world);
-		if (replay_file_stream.has_value()) {
+		if (replay_writer != nullptr) {
 			auto header_bytes = cr::ReplayHeader::encode(header);
-			cr::writeChunk(*replay_file_stream, header_bytes);
+			replay_writer->writeChunk(header_bytes);
 		}
 
 		ui.publishHeader(header);
@@ -187,9 +195,9 @@ int runLiveMode(
 			world.step();
 
 			auto tick = cr::ReplayTickFrame::fromWorldState(world);
-			if (replay_file_stream) {
+			if (replay_writer != nullptr) {
 				auto tick_bytes = cr::ReplayTickFrame::encode(tick);
-				cr::writeChunk(*replay_file_stream, tick_bytes);
+				replay_writer->writeChunk(tick_bytes);
 			}
 
 			ui.publishTick(tick);
@@ -201,9 +209,10 @@ int runLiveMode(
 		}
 
 		auto end_marker = cr::ReplayEndMarker::fromWorld(world);
-		if (replay_file_stream) {
+		if (replay_writer != nullptr) {
 			auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
-			cr::writeChunk(*replay_file_stream, end_bytes);
+			replay_writer->writeChunk(end_bytes);
+			replay_writer->finish();
 		}
 
 		ui.publishEnd(end_marker);

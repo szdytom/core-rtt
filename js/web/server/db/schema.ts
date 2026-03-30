@@ -47,7 +47,7 @@ export const strategyGroup = sqliteTable('strategy_group', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  elo: integer('elo').default(1500).notNull(),
+  rating: integer('rating').default(1500).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -57,12 +57,12 @@ export const strategyGroup = sqliteTable('strategy_group', {
     .notNull(),
 });
 
-export const eloHistory = sqliteTable('elo_history', {
+export const ratingHistory = sqliteTable('rating_history', {
   id: text('id').primaryKey().$default(() => makeId()),
   strategyGroupId: text('strategy_group_id')
     .notNull()
     .references(() => strategyGroup.id, { onDelete: 'cascade' }),
-  elo: integer('elo').notNull(),
+  rating: integer('rating').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -223,7 +223,7 @@ export const elfFileRelations = relations(elfFile, ({ one }) => ({
   }),
 }));
 
-export const strategyGroupRelations = relations(strategyGroup, ({ one }) => ({
+export const strategyGroupRelations = relations(strategyGroup, ({ one, many }) => ({
   user: one(user, {
     fields: [strategyGroup.userId],
     references: [user.id],
@@ -236,11 +236,12 @@ export const strategyGroupRelations = relations(strategyGroup, ({ one }) => ({
     fields: [strategyGroup.strategyUnitId],
     references: [strategy.id],
   }),
+  ratingHistory: many(ratingHistory),
 }));
 
-export const eloHistoryRelations = relations(eloHistory, ({ one }) => ({
+export const ratingHistoryRelations = relations(ratingHistory, ({ one }) => ({
   strategyGroup: one(strategyGroup, {
-    fields: [eloHistory.strategyGroupId],
+    fields: [ratingHistory.strategyGroupId],
     references: [strategyGroup.id],
   }),
 }));

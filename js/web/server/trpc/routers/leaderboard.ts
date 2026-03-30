@@ -15,12 +15,12 @@ export const leaderboardRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       const leaderboard = await db.query.strategyGroup.findMany({
-        orderBy: [desc(schema.strategyGroup.elo)],
+        orderBy: [desc(schema.strategyGroup.rating)],
         where: eq(schema.strategyGroup.status, 'normal'),
         columns: {
           id: true,
           name: true,
-          elo: true,
+          rating: true,
         },
         with: {
           user: {

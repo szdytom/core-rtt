@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure } from '~~/server/trpc/trpc';
 import * as schema from '~~/server/db/schema';
 
 export const strategiesRouter = createTRPCRouter({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  listMine: protectedProcedure.query(async ({ ctx }) => {
     const strategies = await db.query.strategy.findMany({
       where: eq(schema.strategy.userId, ctx.authSession.user.id),
       with: {

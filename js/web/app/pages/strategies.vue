@@ -6,12 +6,12 @@ const { $trpc } = useNuxtApp();
 const { data: userLimit } = await $trpc.strategyGroup.getLimit.useQuery();
 const totalActiveGroups = computed(() => strategyGroups.value?.filter(g => g.status === 'normal').length || 0);
 
-const { data: strategies } = await $trpc.strategies.list.useQuery();
+const { data: strategies } = await $trpc.strategies.listMine.useQuery();
 const baseStrategies = computed(() => strategies.value?.filter(s => s.type === 'base'));
 const unitStrategies = computed(() => strategies.value?.filter(s => s.type === 'unit'));
 
-const { data: strategyGroups } = await $trpc.strategyGroup.list.useQuery();
-const strategyGroupListQueryKey = getQueryKey($trpc.strategyGroup.list, undefined);
+const { data: strategyGroups } = await $trpc.strategyGroup.listMine.useQuery();
+const strategyGroupListQueryKey = getQueryKey($trpc.strategyGroup.listMine, undefined);
 
 const deleteLoadingIds = ref<string[]>([]);
 const deleteConfirmNames = reactive<Record<string, string>>({});
@@ -85,7 +85,7 @@ async function onToggleActive(strategyGroupId: string) {
                 variant="subtle"
                 class="font-bold mb-2"
               >
-                Rating: {{ strategyGroup.elo }}
+                Rating: {{ strategyGroup.rating }}
               </UBadge>
               <div class="flex gap-2 items-center font-bold">
                 <span class="text-muted">[#{{ index + 1 }}]</span>
@@ -174,7 +174,7 @@ async function onToggleActive(strategyGroupId: string) {
               </div>
             </div>
           </template>
-          <StrategiesEloChart :show-x-axis="false" />
+          <StrategiesRatingChart :show-x-axis="false" />
         </UPageCard>
       </div>
     </div>
@@ -203,7 +203,6 @@ async function onToggleActive(strategyGroupId: string) {
           title="No base strategies yet"
           description="Create a new strategy to get started."
           size="sm"
-          :ui="{ root: 'p-3!' }"
         />
         <div class="grid divide-y divide-default">
           <UPageCard
@@ -232,7 +231,6 @@ async function onToggleActive(strategyGroupId: string) {
           title="No unit strategies yet"
           description="Create a new strategy to get started."
           size="sm"
-          :ui="{ root: 'p-3!' }"
         />
         <div class="grid divide-y divide-default">
           <UPageCard

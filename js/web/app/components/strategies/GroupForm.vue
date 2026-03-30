@@ -3,8 +3,12 @@ import { getQueryKey } from 'trpc-nuxt/client';
 import * as z from 'zod';
 
 const { strategies } = defineProps<{
-  strategies?: RouterOutput['strategies']['list'];
+  strategies?: RouterOutput['strategies']['listMine'];
 }>();
+
+const canCreate = computed(() => {
+  return strategies && strategies.some(s => s.type === 'base') && strategies.some(s => s.type === 'unit');
+});
 
 const modalOpen = ref(false);
 
@@ -22,7 +26,7 @@ const state = reactive<Schema>({
 });
 
 const { $trpc } = useNuxtApp();
-const strategyGroupListQueryKey = getQueryKey($trpc.strategyGroup.list, undefined);
+const strategyGroupListQueryKey = getQueryKey($trpc.strategyGroup.listMine, undefined);
 
 async function onSubmit() {
   try {
@@ -50,13 +54,16 @@ async function onSubmit() {
     v-model:open="modalOpen"
     title="Create Strategy Group"
   >
-    <UButton
-      icon="ri:add-line"
-      size="sm"
-      class="ml-auto"
-    >
-      Create Strategy Group
-    </UButton>
+    <UTooltip :text="!canCreate ? 'Create a base strategy and a unit strategy first' : ''">
+      <UButton
+        icon="ri:add-line"
+        size="sm"
+        class="ml-auto"
+        :disabled="!canCreate"
+      >
+        Create Strategy Group
+      </UButton>
+    </UTooltip>
 
     <template #body>
       <UForm

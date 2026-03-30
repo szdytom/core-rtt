@@ -8,13 +8,13 @@ const pageSize = 20;
 
 const { data: total } = await $trpc.leaderboard.getTotal.useQuery();
 
-const leaderboard = ref<RouterOutput['leaderboard']['get']>([]);
+const leaderboardPage = ref<RouterOutput['leaderboard']['get']>([]);
 watch(page, async (newPage) => {
   const { data } = await $trpc.leaderboard.get.useQuery({
     page: newPage,
     pageSize,
   });
-  leaderboard.value = data.value || [];
+  leaderboardPage.value = data.value || [];
 }, {
   immediate: true,
 });
@@ -34,7 +34,7 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
     },
   },
   {
-    accessorKey: 'elo',
+    accessorKey: 'rating',
     header: 'Rating',
   },
   {
@@ -88,9 +88,9 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
   <div class="border-x border-default">
     <UTable
       ref="table"
-      :data="leaderboard"
+      :data="leaderboardPage"
       :columns="columns"
-      :loading="!leaderboard"
+      :loading="!leaderboardPage"
       class="border-default border-b"
       :ui="{
         base: 'font-medium',
@@ -98,7 +98,7 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
       }"
     >
       <template #expanded="{ row }">
-        <StrategiesEloChart
+        <StrategiesRatingChart
           show-x-axis
           no-animation
         />

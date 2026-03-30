@@ -11,13 +11,13 @@ export const strategyGroupRouter = createTRPCRouter({
       where: eq(schema.user.id, ctx.authSession.user.id),
       columns: { strategyGroupLimit: true },
     });
-    if (!user) {
+    if (!user)
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'User not found.' });
-    }
+
     return user.strategyGroupLimit;
   }),
 
-  list: protectedProcedure.query(async ({ ctx }) => {
+  listMine: protectedProcedure.query(async ({ ctx }) => {
     const strategyGroups = await db.query.strategyGroup.findMany({
       where: and(
         eq(schema.strategyGroup.userId, ctx.authSession.user.id),
@@ -27,7 +27,7 @@ export const strategyGroupRouter = createTRPCRouter({
         strategyBase: true,
         strategyUnit: true,
       },
-      orderBy: [desc(schema.strategyGroup.elo)],
+      orderBy: [desc(schema.strategyGroup.rating)],
     });
 
     return strategyGroups;
@@ -43,6 +43,23 @@ export const strategyGroupRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       return await db.transaction(async (tx) => {
+        const strategyBase = await tx.query.strategy.findFirst({
+          where: eq(schema.strategy.id, input.strategyBaseId),
+        });
+        const strategyUnit = await tx.query.strategy.findFirst({
+          where: eq(schema.strategy.id, input.strategyUnitId),
+        });
+
+        if (!strategyBase || !strategyUnit)
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Base or unit strategy not found.' });
+
+        if (strategyBase.type !== 'base' || strategyUnit.type !== 'unit')
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selected strategy is not of the correct type.' });
+
+        // Ensure the strategies belong to the authenticated user
+        if (strategyBase.userId !== ctx.authSession.user.id || strategyUnit.userId !== ctx.authSession.user.id)
+          throw new TRPCError({ code: 'UNAUTHORIZED', message: 'You do not own the selected strategies.' });
+
         const existingGroups = await tx.query.strategyGroup.findMany({
           where: and(
             eq(schema.strategyGroup.userId, ctx.authSession.user.id),
@@ -62,6 +79,7 @@ export const strategyGroupRouter = createTRPCRouter({
         if (!userLimit) {
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'User not found.' });
         }
+
         // Check if the user has reached the limit of active strategy groups
         if (existingGroups.filter(x => x.status === 'normal').length >= userLimit.strategyGroupLimit) {
           return await tx.insert(schema.strategyGroup).values({

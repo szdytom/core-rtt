@@ -1,5 +1,5 @@
 #include "corertt/build_config.h"
-#include "corertt/cli_common.h"
+#include "corertt/cli.h"
 #include "corertt/replay.h"
 #include <atomic>
 #include <csignal>
@@ -60,7 +60,6 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	}
 
 #ifdef _WIN32
-	// Set stdout to binary mode on Windows to avoid newline translation
 	if (!replay_file_stream) {
 		_setmode(_fileno(stdout), _O_BINARY);
 	}
@@ -111,7 +110,6 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	replay_writer->writeChunk(end_bytes);
 	replay_writer->finish();
 
-	// In worker mode, report game result and crash flags for wrappers to parse
 	if (options.worker_mode) {
 		std::println(
 			std::cerr,

@@ -13,7 +13,9 @@ import {
 import { ElfCache } from './cache.js';
 import { runHeadless } from './headless.js';
 import { buildTaskCoreCrashResult, buildTaskSuccessResult } from './result.js';
-import type { AssignedTask, RunningTask, WorkerConfig, WorkerEvents } from './types.js';
+import { TaskScheduler } from './scheduler.js';
+import type { ScheduledTask } from './scheduler.js';
+import type { WorkerConfig, WorkerEvents } from './types.js';
 
 interface WorkerRuntimeOptions {
 	stopAfterResults?: number;
@@ -55,8 +57,7 @@ export class CoreWorker {
 	private readonly events: WorkerEvents;
 	private readonly runtimeOptions: WorkerRuntimeOptions;
 	private readonly cache: ElfCache;
-	private readonly queue: AssignedTask[] = [];
-	private readonly running = new Map<number, RunningTask>();
+	private readonly scheduler: TaskScheduler<TaskAssignPacket>;
 	private readonly pendingResults: TaskResultPacket[] = [];
 	private stopped = false;
 	private loopPromise: Promise<void> | null = null;
@@ -73,6 +74,18 @@ export class CoreWorker {
 			cacheDir: config.elfCacheDir,
 			cacheLimitBytes: config.elfCacheLimitBytes,
 		});
+		this.scheduler = new TaskScheduler<TaskAssignPacket>(
+			config.concurrency,
+			async (task: ScheduledTask<TaskAssignPacket>) => await this.executeTask(task.payload),
+		);
+		this.scheduler.onTaskError = (_task, error: unknown) => {
+			const message = error instanceof Error ? error.message : String(error);
+			this.events.onRuntimeError?.(`scheduler handler failure: ${message}`);
+			process.stderr.write(`worker scheduler handler failure: ${message}\n`);
+		};
+		this.scheduler.onIdle = () => {
+			this.maybeSendIdleAvailability();
+		};
 	}
 
 	public async start(): Promise<void> {
@@ -186,7 +199,7 @@ export class CoreWorker {
 	}
 
 	private computeCanAssignMore(): boolean {
-		return this.running.size + this.queue.length < this.config.concurrency;
+		return this.scheduler.canAcceptMore();
 	}
 
 	private sendTaskAck(matchId: number): void {
@@ -197,11 +210,8 @@ export class CoreWorker {
 	}
 
 	private replayUnfinishedAcknowledgements(): void {
-		for (const task of this.queue) {
-			this.sendTaskAck(task.packet.matchId);
-		}
-		for (const runningTask of this.running.values()) {
-			this.sendTaskAck(runningTask.task.packet.matchId);
+		for (const matchId of this.scheduler.getUnfinishedMatchIds()) {
+			this.sendTaskAck(matchId);
 		}
 	}
 
@@ -209,7 +219,8 @@ export class CoreWorker {
 		if (this.idleAvailabilitySent) {
 			return;
 		}
-		if (this.running.size > 0 || this.queue.length > 0) {
+		const snapshot = this.scheduler.snapshot();
+		if (snapshot.runningCount > 0 || snapshot.queuedCount > 0) {
 			return;
 		}
 		const packet = new TaskAckownledgedPacket();
@@ -239,37 +250,11 @@ export class CoreWorker {
 
 		this.events.onTaskAssigned?.(packet);
 		this.idleAvailabilitySent = false;
-		const task: AssignedTask = {
-			packet,
-			enqueuedAtMs: Date.now(),
-		};
-		this.queue.push(task);
+		this.scheduler.push(packet.matchId, packet);
 		this.sendTaskAck(packet.matchId);
-		this.maybeStartTasks();
 	}
 
-	private maybeStartTasks(): void {
-		while (this.running.size < this.config.concurrency && this.queue.length > 0) {
-			const task = this.queue.shift();
-			if (task == null) {
-				break;
-			}
-			const runningTask: RunningTask = {
-				task,
-				startedAtMs: Date.now(),
-			};
-			this.running.set(task.packet.matchId, runningTask);
-			void this.executeTask(runningTask)
-				.finally(() => {
-					this.running.delete(task.packet.matchId);
-					this.maybeStartTasks();
-					this.maybeSendIdleAvailability();
-				});
-		}
-	}
-
-	private async executeTask(runningTask: RunningTask): Promise<void> {
-		const packet = runningTask.task.packet;
+	private async executeTask(packet: TaskAssignPacket): Promise<void> {
 		let resultPacket: TaskResultPacket;
 		let stderrCombined = '';
 		try {

@@ -30,16 +30,6 @@ export interface HeadlessRunResult {
 	exitSignal: NodeJS.Signals | null;
 }
 
-export interface AssignedTask {
-	packet: TaskAssignPacket;
-	enqueuedAtMs: number;
-}
-
-export interface RunningTask {
-	task: AssignedTask;
-	startedAtMs: number;
-}
-
 export interface WorkerEvents {
 	onTaskResult?: (result: TaskResultPacket) => void;
 	onTaskAssigned?: (task: TaskAssignPacket) => void;

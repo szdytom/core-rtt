@@ -9,9 +9,8 @@ A TypeScript worker implementation for Core RTT backend tasks.
 - Receives `TaskAssignPacket`, sends `TaskAckownledgedPacket`, and executes tasks concurrently.
 - Downloads strategy ELF files and stores them in an LRU cache.
 - Runs `corertt_headless` with timeout and optional map temporary file.
-- Captures `stdout` and `stderr`.
-- Compresses replay bytes with zstd (native module preferred, `zstd` CLI fallback).
-- Uploads compressed replay by direct `PUT` to backend URL.
+- Captures `stdout` and `stderr` (expects replay bytes on `stdout` to be zstd-compressed when `-z/--output-zstd` is used).
+- Uploads replay bytes by direct `PUT` to backend URL (no additional compression layer in the worker).
 - Sends `TaskResultPacket` back with `errorLog` truncation.
 
 ## CLI usage

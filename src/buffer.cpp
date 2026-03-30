@@ -75,8 +75,9 @@ void ReadBuffer::require(std::size_t size) {
 std::uint8_t ReadBuffer::readU8() {
 	require(1);
 	const auto bytes = _stream.peek(1);
+	const auto value = std::to_integer<std::uint8_t>(bytes[0]);
 	_stream.skip(1);
-	return std::to_integer<std::uint8_t>(bytes[0]);
+	return value;
 }
 
 std::int8_t ReadBuffer::readI8() {
@@ -86,10 +87,11 @@ std::int8_t ReadBuffer::readI8() {
 std::uint16_t ReadBuffer::readU16() {
 	require(2);
 	const auto bytes = _stream.peek(2);
-	_stream.skip(2);
 	const auto b0 = std::to_integer<std::uint16_t>(bytes[0]);
 	const auto b1 = std::to_integer<std::uint16_t>(bytes[1]);
-	return static_cast<std::uint16_t>(b0 | (b1 << 8));
+	const auto value = static_cast<std::uint16_t>(b0 | (b1 << 8));
+	_stream.skip(2);
+	return value;
 }
 
 std::int16_t ReadBuffer::readI16() {
@@ -99,12 +101,13 @@ std::int16_t ReadBuffer::readI16() {
 std::uint32_t ReadBuffer::readU32() {
 	require(4);
 	const auto bytes = _stream.peek(4);
-	_stream.skip(4);
 	const auto b0 = std::to_integer<std::uint32_t>(bytes[0]);
 	const auto b1 = std::to_integer<std::uint32_t>(bytes[1]);
 	const auto b2 = std::to_integer<std::uint32_t>(bytes[2]);
 	const auto b3 = std::to_integer<std::uint32_t>(bytes[3]);
-	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+	const auto value = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+	_stream.skip(4);
+	return value;
 }
 
 std::int32_t ReadBuffer::readI32() {

@@ -113,8 +113,10 @@ target_link_libraries(corertt_core PUBLIC
 )
 
 add_executable(corertt
-	src/main.cpp
-	src/cli_common.cpp
+	src/cli/main.cpp
+	src/cli/parser.cpp
+	src/cli/world_loader.cpp
+	src/cli/replay_writer.cpp
 	src/plain_ui.cpp
 	src/tui.cpp
 )
@@ -135,8 +137,10 @@ target_link_libraries(corertt PRIVATE
 )
 
 add_executable(corertt_headless
-	src/headless_main.cpp
-	src/cli_common.cpp
+	src/cli/headless_main.cpp
+	src/cli/parser.cpp
+	src/cli/world_loader.cpp
+	src/cli/replay_writer.cpp
 )
 
 target_include_directories(

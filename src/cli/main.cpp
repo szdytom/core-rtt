@@ -1,4 +1,4 @@
-#include "corertt/cli_common.h"
+#include "corertt/cli.h"
 #include "corertt/plain_ui.h"
 #include "corertt/replay.h"
 #include "corertt/tui.h"

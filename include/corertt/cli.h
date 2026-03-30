@@ -1,5 +1,5 @@
-#ifndef CORERTT_CLI_COMMON_H
-#define CORERTT_CLI_COMMON_H
+#ifndef CORERTT_CLI_H
+#define CORERTT_CLI_H
 
 #include "corertt/tilemap.h"
 #include "corertt/ui.h"
@@ -38,7 +38,7 @@ struct ProgramOptions {
 	std::string replay_file;
 	std::string play_replay;
 	bool output_zstd = false;
-	int output_zstd_level = 3;
+	int output_zstd_level = 12;
 	bool worker_mode = false;
 	UIMode ui_mode = UIMode::Tui;
 };
@@ -69,4 +69,4 @@ std::unique_ptr<ReplayChunkWriter> createZstdReplayChunkWriter(
 
 } // namespace cr
 
-#endif // CORERTT_CLI_COMMON_H
+#endif // CORERTT_CLI_H

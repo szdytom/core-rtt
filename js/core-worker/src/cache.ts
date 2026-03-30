@@ -44,7 +44,6 @@ export class ElfCache {
 	private readonly cacheDir: string;
 	private readonly cacheLimitBytes: number;
 	private readonly indexDbPath: string;
-	private currentToken = '';
 	private initialized = false;
 	private inFlight = new Map<string, Promise<string>>();
 	private db: Database.Database | null = null;
@@ -56,10 +55,6 @@ export class ElfCache {
 		this.cacheDir = options.cacheDir;
 		this.cacheLimitBytes = options.cacheLimitBytes;
 		this.indexDbPath = path.join(this.cacheDir, 'index.sqlite3');
-	}
-
-	public setBearerToken(token: string): void {
-		this.currentToken = token;
 	}
 
 	public async initialize(): Promise<void> {

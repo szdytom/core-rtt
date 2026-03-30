@@ -30,9 +30,9 @@ export interface HeadlessRunResult {
 	exitSignal: NodeJS.Signals | null;
 }
 
-export interface WorkerEvents {
-	onTaskResult?: (result: TaskResultPacket) => void;
-	onTaskAssigned?: (task: TaskAssignPacket) => void;
-	onDecodeError?: (message: string) => void;
-	onRuntimeError?: (message: string) => void;
+export interface CoreWorkerEventDetailMap {
+	'task-assigned': TaskAssignPacket;
+	'task-result': TaskResultPacket;
+	'decode-error': string;
+	'runtime-error': string;
 }

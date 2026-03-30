@@ -15,7 +15,7 @@ import { runHeadless } from './headless.js';
 import { buildTaskCoreCrashResult, buildTaskSuccessResult } from './result.js';
 import { TaskScheduler } from './scheduler.js';
 import type { ScheduledTask } from './scheduler.js';
-import type { WorkerConfig, WorkerEvents } from './types.js';
+import type { CoreWorkerEventDetailMap, WorkerConfig } from './types.js';
 
 interface WorkerRuntimeOptions {
 	stopAfterResults?: number;
@@ -42,9 +42,8 @@ function buildEndpoint(baseUrl: string, endpointPath: string, websocket = false)
 	return url.toString();
 }
 
-export class CoreWorker {
+export class CoreWorker extends EventTarget {
 	private readonly config: WorkerConfig;
-	private readonly events: WorkerEvents;
 	private readonly runtimeOptions: WorkerRuntimeOptions;
 	private readonly cache: ElfCache;
 	private readonly scheduler: TaskScheduler<TaskAssignPacket>;
@@ -56,9 +55,9 @@ export class CoreWorker {
 	private completedResults = 0;
 	private idleAvailabilitySent = false;
 
-	public constructor(config: WorkerConfig, events: WorkerEvents = {}, runtimeOptions: WorkerRuntimeOptions = {}) {
+	public constructor(config: WorkerConfig, runtimeOptions: WorkerRuntimeOptions = {}) {
+		super();
 		this.config = config;
-		this.events = events;
 		this.runtimeOptions = runtimeOptions;
 		this.cache = new ElfCache({
 			cacheDir: config.elfCacheDir,
@@ -70,12 +69,16 @@ export class CoreWorker {
 		);
 		this.scheduler.onTaskError = (_task, error: unknown) => {
 			const message = error instanceof Error ? error.message : String(error);
-			this.events.onRuntimeError?.(`scheduler handler failure: ${message}`);
+			this.emitWorkerEvent('runtime-error', `scheduler handler failure: ${message}`);
 			process.stderr.write(`worker scheduler handler failure: ${message}\n`);
 		};
 		this.scheduler.onIdle = () => {
 			this.maybeSendIdleAvailability();
 		};
+	}
+
+	private emitWorkerEvent<T extends keyof CoreWorkerEventDetailMap>(type: T, detail: CoreWorkerEventDetailMap[T]): void {
+		this.dispatchEvent(new CustomEvent<CoreWorkerEventDetailMap[T]>(type, { detail }));
 	}
 
 	public async start(): Promise<void> {
@@ -107,7 +110,7 @@ export class CoreWorker {
 				retryDelayMs = 1000;
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				this.events.onRuntimeError?.(message);
+				this.emitWorkerEvent('runtime-error', message);
 				process.stderr.write(`worker reconnect: ${message}\n`);
 				if (this.stopped) {
 					break;
@@ -218,7 +221,7 @@ export class CoreWorker {
 			packet = decodePacket(asArrayBuffer(rawData));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.events.onDecodeError?.(message);
+			this.emitWorkerEvent('decode-error', message);
 			process.stderr.write(`worker decode error: ${message}\n`);
 			if (this.ws != null) {
 				this.ws.close();
@@ -230,7 +233,7 @@ export class CoreWorker {
 			return;
 		}
 
-		this.events.onTaskAssigned?.(packet);
+		this.emitWorkerEvent('task-assigned', packet);
 		this.idleAvailabilitySent = false;
 		this.scheduler.push(packet.matchId, packet);
 		this.sendTaskAck(packet.matchId);
@@ -320,7 +323,7 @@ export class CoreWorker {
 	}
 
 	private async dispatchTaskResult(packet: TaskResultPacket): Promise<void> {
-		this.events.onTaskResult?.(packet);
+		this.emitWorkerEvent('task-result', packet);
 		if (this.ws == null || this.ws.readyState !== WebSocket.OPEN) {
 			this.pendingResults.push(packet);
 		} else {

@@ -10,6 +10,8 @@ report.svg
 *.d
 *.log
 *.dat
+*.bin
+*.zst
 
 node_modules
 dist

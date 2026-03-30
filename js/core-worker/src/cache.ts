@@ -68,15 +68,16 @@ export class ElfCache {
 		this.initialized = true;
 	}
 
-	public async getOrDownload(descriptor: StrategyGroupDescriptor, kind: StrategyKind): Promise<string> {
+	public async getOrDownload(descriptor: StrategyGroupDescriptor, kind: StrategyKind, signal?: AbortSignal): Promise<string> {
+		signal?.throwIfAborted();
 		await this.initialize();
 		const cacheKey = buildCacheKey(descriptor, kind);
 		const inFlight = this.inFlight.get(cacheKey);
 		if (inFlight != null) {
-			return inFlight;
+			return await inFlight;
 		}
 
-		const pending = this.getOrDownloadInternal(descriptor, kind, cacheKey);
+		const pending = this.getOrDownloadInternal(descriptor, kind, cacheKey, signal);
 		this.inFlight.set(cacheKey, pending);
 		try {
 			return await pending;
@@ -85,7 +86,8 @@ export class ElfCache {
 		}
 	}
 
-	private async getOrDownloadInternal(descriptor: StrategyGroupDescriptor, kind: StrategyKind, cacheKey: string): Promise<string> {
+	private async getOrDownloadInternal(descriptor: StrategyGroupDescriptor, kind: StrategyKind, cacheKey: string, signal?: AbortSignal): Promise<string> {
+		signal?.throwIfAborted();
 		const existing = this.getEntryByKey(cacheKey);
 		if (existing != null && await pathExists(existing.filePath)) {
 			this.updateLastAccess(cacheKey, Date.now());
@@ -97,7 +99,10 @@ export class ElfCache {
 			throw new Error(`missing ${kind} strategy download url`);
 		}
 
-		const response = await fetch(url, { method: 'GET' });
+		const response = await fetch(url, {
+			method: 'GET',
+			signal,
+		});
 		if (!response.ok) {
 			throw new Error(`failed to download strategy ${kind}: ${response.status} ${response.statusText}`);
 		}

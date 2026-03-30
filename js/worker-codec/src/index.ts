@@ -131,7 +131,7 @@ export class TaskResultPacket {
 	];
 }
 
-class HelloPacket {
+export class HelloPacket {
 	[key: string]: unknown;
 
 	static typedef = [];

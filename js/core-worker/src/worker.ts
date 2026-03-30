@@ -4,8 +4,8 @@ import WebSocket from 'ws';
 import {
 	decodePacket,
 	encodePacket,
-	CODEC_VERSION,
-	PROTOCOL_MAGIC,
+	HelloPacket,
+	Packet,
 	TaskAckownledgedPacket,
 	TaskAssignPacket,
 	type TaskResultPacket,
@@ -19,16 +19,6 @@ import type { WorkerConfig, WorkerEvents } from './types.js';
 
 interface WorkerRuntimeOptions {
 	stopAfterResults?: number;
-}
-
-function encodeHelloPacket(): Buffer {
-	const buffer = new ArrayBuffer(8);
-	const view = new DataView(buffer);
-	view.setUint16(0, PROTOCOL_MAGIC, true);
-	view.setUint8(2, CODEC_VERSION);
-	view.setUint8(3, 1);
-	view.setUint32(4, 0, true);
-	return Buffer.from(buffer);
 }
 
 function asArrayBuffer(data: WebSocket.RawData): ArrayBuffer {
@@ -168,7 +158,7 @@ export class CoreWorker {
 			ws.once('error', reject);
 		});
 
-		this.sendHello();
+		this.sendPacket(new HelloPacket());
 		this.replayUnfinishedAcknowledgements();
 		this.flushPendingResults();
 		this.maybeSendIdleAvailability();
@@ -183,19 +173,12 @@ export class CoreWorker {
 		}
 	}
 
-	private sendPacket(packet: TaskAckownledgedPacket | TaskResultPacket): void {
+	private sendPacket(packet: Packet): void {
 		if (this.ws == null || this.ws.readyState !== WebSocket.OPEN) {
 			return;
 		}
 		const encoded = encodePacket(packet);
 		this.ws.send(Buffer.from(encoded));
-	}
-
-	private sendHello(): void {
-		if (this.ws == null || this.ws.readyState !== WebSocket.OPEN) {
-			return;
-		}
-		this.ws.send(encodeHelloPacket());
 	}
 
 	private computeCanAssignMore(): boolean {
@@ -260,17 +243,11 @@ export class CoreWorker {
 		try {
 			const p1Descriptor = packet.strategies[0];
 			const p2Descriptor = packet.strategies[1];
-			const [p1BasePath, p1UnitPath, p2BasePath, p2UnitPath] = await Promise.all([
-				this.cache.getOrDownload(p1Descriptor, 'base'),
-				this.cache.getOrDownload(p1Descriptor, 'unit'),
-				this.cache.getOrDownload(p2Descriptor, 'base'),
-				this.cache.getOrDownload(p2Descriptor, 'unit'),
-			]);
 			const strategyPaths = {
-				p1BasePath,
-				p1UnitPath,
-				p2BasePath,
-				p2UnitPath,
+				p1BasePath: await this.cache.getOrDownload(p1Descriptor, 'base'),
+				p1UnitPath: await this.cache.getOrDownload(p1Descriptor, 'unit'),
+				p2BasePath: await this.cache.getOrDownload(p2Descriptor, 'base'),
+				p2UnitPath: await this.cache.getOrDownload(p2Descriptor, 'unit'),
 			};
 
 			const runResult = await runHeadless(this.config, {

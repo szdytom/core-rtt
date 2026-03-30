@@ -21,6 +21,7 @@ async function onSubmit() {
   <UModal title="Create Strategy">
     <UButton
       icon="ri:add-line"
+      size="sm"
       class="ml-auto"
     >
       Create Strategy

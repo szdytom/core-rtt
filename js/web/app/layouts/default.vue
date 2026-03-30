@@ -68,6 +68,7 @@ const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
       onSelect: () => {
         try {
           authClient.signOut();
+          navigateTo('/');
         } catch (error) {
           const toast = useToast();
           toast.add({ title: 'Logout failed', description: (error as Error).message, color: 'error' });
@@ -83,7 +84,7 @@ const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
     <UHeader>
       <template #left>
         <NuxtLink to="/">
-          <span class="text-lg font-bold pl-8">Core RTT</span>
+          <span class="text-lg font-bold p-6">Core RTT</span>
         </NuxtLink>
       </template>
 
@@ -111,7 +112,8 @@ const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
       </UContainer>
     </UMain>
 
-    <USeparator />
+    <!-- -mt-px to prevent overlap with bottom border in the page content -->
+    <USeparator class="-mt-px!" />
 
     <UFooter>
       <template #left>

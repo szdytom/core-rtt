@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { VisXYContainer, VisLine, VisArea, VisCrosshair, VisTooltip } from '@unovis/vue';
+import { VisXYContainer, VisLine, VisArea, VisCrosshair, VisTooltip, VisAxis } from '@unovis/vue';
+
+const {
+  showXAxis = false,
+  noAnimation = false,
+} = defineProps<{
+  showXAxis?: boolean;
+  noAnimation?: boolean;
+}>();
 
 type DataRecord = { x: number; y: number };
 const data = ref<DataRecord[]>(Array.from({ length: 70 }, (_, i) => ({ x: i, y: Math.random() * 1000 + 1000 })));
@@ -18,32 +26,45 @@ const template = (d: DataRecord) => `${d.x}: ${d.y}`;
 </script>
 
 <template>
-  <VisXYContainer
-    :svg-defs="svgDefs"
-    :data="data"
-    :y-domain="[dataMin - 40, dataMax]"
-    class="h-30"
-  >
-    <VisLine
-      :x="(d: any) => d.x"
-      :y="(d: any) => d.y"
-      color="var(--ui-primary)"
-      :line-width="1"
-    />
+  <ClientOnly>
+    <VisXYContainer
+      :svg-defs="svgDefs"
+      :data="data"
+      :y-domain="[dataMin - 40, dataMax]"
+      class="h-30"
+    >
+      <VisLine
+        :x="(d: any) => d.x"
+        :y="(d: any) => d.y"
+        color="var(--ui-primary)"
+        :line-width="1"
+        :duration="noAnimation ? 0 : 600"
+      />
 
-    <VisArea
-      :x="(d: any) => d.x"
-      :y="(d: any) => d.y"
-      color="url(#gradient)"
-    />
+      <VisArea
+        :x="(d: any) => d.x"
+        :y="(d: any) => d.y"
+        color="url(#gradient)"
+        :duration="noAnimation ? 0 : 600"
+      />
 
-    <VisCrosshair
-      color="var(--ui-primary)"
-      :template="template"
-    />
+      <VisAxis
+        v-if="showXAxis"
+        type="x"
+      />
 
-    <VisTooltip />
-  </VisXYContainer>
+      <VisCrosshair
+        color="var(--ui-primary)"
+        :template="template"
+      />
+
+      <VisTooltip />
+    </VisXYContainer>
+
+    <template #fallback>
+      <div class="h-30" />
+    </template>
+  </ClientOnly>
 </template>
 
 <style scoped>

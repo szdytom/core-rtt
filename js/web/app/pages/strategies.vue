@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import EloChart from '~/components/strategies/EloChart.vue';
 import { getQueryKey } from 'trpc-nuxt/client';
 
 const { $trpc } = useNuxtApp();
@@ -58,7 +57,7 @@ async function onToggleActive(strategyGroupId: string) {
 
 <template>
   <div class="border-x border-default">
-    <div class="flex items-center border-b border-default p-8">
+    <div class="flex items-center border-b border-default p-6">
       <h2 class="font-black text-lg underline underline-offset-8">
         Strategy Groups
       </h2>
@@ -81,7 +80,7 @@ async function onToggleActive(strategyGroupId: string) {
           variant="naked"
         >
           <template #body>
-            <div class="px-8 pt-8">
+            <div class="px-6 pt-6 pb-2">
               <UBadge
                 variant="subtle"
                 class="font-bold mb-2"
@@ -108,7 +107,7 @@ async function onToggleActive(strategyGroupId: string) {
                   {{ strategyGroup.strategyUnit.name }}
                 </div>
               </div>
-              <div class="absolute top-8 right-8 flex items-center gap-3">
+              <div class="absolute top-6 right-6 flex items-center gap-3">
                 <UTooltip text="Toggle Active">
                   <USwitch
                     :model-value="strategyGroup.status === 'normal'"
@@ -175,12 +174,12 @@ async function onToggleActive(strategyGroupId: string) {
               </div>
             </div>
           </template>
-          <EloChart />
+          <StrategiesEloChart :show-x-axis="false" />
         </UPageCard>
       </div>
     </div>
 
-    <div class="flex items-center border-y border-default p-8">
+    <div class="flex items-center border-y border-default p-6">
       <h2 class="font-black text-lg underline underline-offset-8">
         Strategies
       </h2>
@@ -189,7 +188,7 @@ async function onToggleActive(strategyGroupId: string) {
 
     <div class="grid md:grid-cols-2 divide-y md:divide-x md:divide-y-0 divide-default border-default border-b">
       <div>
-        <div class="px-8 py-6 flex items-center gap-4 border-b border-default bg-muted">
+        <div class="p-6 flex items-center gap-4 border-b border-default bg-muted">
           <Icon
             name="ri:base-station-line"
             size="18"
@@ -213,12 +212,12 @@ async function onToggleActive(strategyGroupId: string) {
             :title="strategy.name"
             :description="strategy.elfFile?.filename"
             variant="naked"
-            class="px-8 py-6"
+            class="p-6"
           />
         </div>
       </div>
       <div>
-        <div class="px-8 py-6 flex items-center gap-4 border-b border-default bg-muted">
+        <div class="p-6 flex items-center gap-4 border-b border-default bg-muted">
           <Icon
             name="ri:crosshair-2-line"
             size="18"

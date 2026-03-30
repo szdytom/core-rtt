@@ -52,6 +52,7 @@ async function onSubmit() {
   >
     <UButton
       icon="ri:add-line"
+      size="sm"
       class="ml-auto"
     >
       Create Strategy Group

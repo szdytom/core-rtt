@@ -6,7 +6,9 @@
 #include <cstdio>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <print>
+#include <zstd.h>
 
 #if defined(__linux__) || defined(__unix__)                                  \
 	|| (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)     \
@@ -39,8 +41,9 @@ bool isStdoutTTY() noexcept {
 int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	if (options.worker_mode) {
 		std::println(
-			std::cerr, "{{\"version\": \"{}\", \"commit\": \"{}\"}}",
-			cr::program_version, cr::git_commit_hash
+			std::cerr,
+			"{{\"version\": \"{}\", \"commit\": \"{}\", \"zstd_version\": {}}}",
+			cr::program_version, cr::git_commit_hash, ZSTD_versionNumber()
 		);
 	}
 
@@ -66,10 +69,15 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 	std::ostream &replay_stream = replay_file_stream
 		? *replay_file_stream
 		: std::cout;
+	std::unique_ptr<cr::ReplayChunkWriter> replay_writer = options.output_zstd
+		? cr::createZstdReplayChunkWriter(
+			  replay_stream, options.output_zstd_level
+		  )
+		: cr::createRawReplayChunkWriter(replay_stream);
 
 	auto header = cr::ReplayHeader::fromWorld(world);
 	auto header_bytes = cr::ReplayHeader::encode(header);
-	cr::writeChunk(replay_stream, header_bytes);
+	replay_writer->writeChunk(header_bytes);
 
 	std::uint32_t tick_limit = options.max_ticks > 0
 		? options.max_ticks
@@ -81,7 +89,7 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 
 		auto tick = cr::ReplayTickFrame::fromWorldState(world);
 		auto tick_bytes = cr::ReplayTickFrame::encode(tick);
-		cr::writeChunk(replay_stream, tick_bytes);
+		replay_writer->writeChunk(tick_bytes);
 
 		if (g_terminateRequested.load(std::memory_order_relaxed)) {
 			if (options.worker_mode) {
@@ -100,7 +108,8 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 
 	auto end_marker = cr::ReplayEndMarker::fromWorld(world);
 	auto end_bytes = cr::ReplayEndMarker::encode(end_marker);
-	cr::writeChunk(replay_stream, end_bytes);
+	replay_writer->writeChunk(end_bytes);
+	replay_writer->finish();
 
 	// In worker mode, report game result and crash flags for wrappers to parse
 	if (options.worker_mode) {

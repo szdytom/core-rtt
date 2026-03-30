@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <iosfwd>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -35,8 +37,17 @@ struct ProgramOptions {
 	std::optional<Seed> seed;
 	std::string replay_file;
 	std::string play_replay;
+	bool output_zstd = false;
+	int output_zstd_level = 3;
 	bool worker_mode = false;
 	UIMode ui_mode = UIMode::Tui;
+};
+
+class ReplayChunkWriter {
+public:
+	virtual ~ReplayChunkWriter() = default;
+	virtual void writeChunk(std::span<const std::byte> chunk) = 0;
+	virtual void finish() = 0;
 };
 
 ProgramOptions parseOptions(
@@ -49,7 +60,12 @@ Tilemap generateTilemap(const ProgramOptions &options);
 World createWorldFromOptions(const ProgramOptions &options);
 
 std::optional<std::ofstream> openReplayFile(const std::string &path);
-void writeChunk(std::ostream &stream, std::span<const std::byte> chunk);
+std::unique_ptr<ReplayChunkWriter> createRawReplayChunkWriter(
+	std::ostream &stream
+);
+std::unique_ptr<ReplayChunkWriter> createZstdReplayChunkWriter(
+	std::ostream &stream, int compression_level
+);
 
 } // namespace cr
 

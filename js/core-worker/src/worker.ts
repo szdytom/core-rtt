@@ -1,4 +1,3 @@
-import process from 'node:process';
 import WebSocket from 'ws';
 import {
 	decodePacket,
@@ -11,6 +10,7 @@ import {
 } from '@corertt/worker-codec';
 import { ElfCache } from './cache.js';
 import { runHeadless } from './headless.js';
+import { logger } from './logger.js';
 import { buildTaskCoreCrashResult, buildTaskSuccessResult } from './result.js';
 import { TaskScheduler } from './scheduler.js';
 import type { ScheduledTask } from './scheduler.js';
@@ -19,6 +19,8 @@ import type { CoreWorkerEventDetailMap, WorkerConfig } from './types.js';
 interface WorkerRuntimeOptions {
 	stopAfterResults?: number;
 }
+
+const workerLogger = logger.child({ component: 'worker' });
 
 function createAbortError(signal: AbortSignal): unknown {
 	return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
@@ -96,7 +98,7 @@ export class CoreWorker extends EventTarget {
 		this.scheduler.onTaskError = (_task, error: unknown) => {
 			const message = error instanceof Error ? error.message : String(error);
 			this.emitWorkerEvent('runtime-error', `scheduler handler failure: ${message}`);
-			process.stderr.write(`worker scheduler handler failure: ${message}\n`);
+			workerLogger.error({ error: message }, 'scheduler handler failure');
 		};
 		this.scheduler.onIdle = () => {
 			this.maybeSendIdleAvailability();
@@ -143,7 +145,7 @@ export class CoreWorker extends EventTarget {
 				}
 				const message = error instanceof Error ? error.message : String(error);
 				this.emitWorkerEvent('runtime-error', message);
-				process.stderr.write(`worker reconnect: ${message}\n`);
+				workerLogger.error({ error: message }, 'worker reconnect');
 				try {
 					await sleepWithSignal(retryDelayMs, signal);
 				} catch {
@@ -310,7 +312,7 @@ export class CoreWorker extends EventTarget {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.emitWorkerEvent('decode-error', message);
-			process.stderr.write(`worker decode error: ${message}\n`);
+			workerLogger.error({ error: message }, 'decode error');
 			if (this.ws != null) {
 				this.ws.close();
 			}

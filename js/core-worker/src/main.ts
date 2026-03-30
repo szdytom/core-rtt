@@ -4,10 +4,12 @@ import { pathToFileURL } from 'node:url';
 import process from 'node:process';
 import { parseWorkerConfig, usage } from './config.js';
 import { pathExists } from './fs-utils.js';
+import { logger, refreshLoggerLevel } from './logger.js';
 import { CoreWorker } from './worker.js';
 
 async function run(): Promise<number> {
 	const config = parseWorkerConfig();
+	refreshLoggerLevel();
 	if (!(await pathExists(config.headlessPath))) {
 		throw new Error(`corertt_headless not found: ${config.headlessPath}`);
 	}
@@ -33,10 +35,11 @@ async function main(): Promise<void> {
 
 		process.exitCode = await run();
 	} catch (error) {
+		refreshLoggerLevel();
 		const message = error instanceof Error ? error.message : String(error);
-		process.stderr.write(`${message}\n`);
+		logger.error({ error: message }, 'worker startup failed');
 		if (message.includes('missing required env keys') || message.includes('not found')) {
-			process.stderr.write(`${usage}\n`);
+			logger.error({ usage }, 'worker usage');
 		}
 		process.exitCode = 1;
 	}

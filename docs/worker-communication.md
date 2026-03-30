@@ -87,3 +87,7 @@ The backend should consider a connected worker as available for task assignment 
 If the worker has received a `TaskAssignmentPacket` but it is at capacity and cannot accept the task immediately, it should still send a `TaskAcknowledgedPacket` with `canAssignMore` set to `false` to inform the backend of its current status. Furthermore, the worker should queue the task instead of rejecting or discarding it. Diagnostic logging is suggested in this case to help with debugging the backend's task scheduling and assignment logic.
 
 If the worker has no task in progress for a reasonable amount of time, it can send a `TaskAcknowledgedPacket` with `matchId` set to `0` and `canAssignMore` set to `true` to proactively inform the backend of its availability for new tasks. However, after sending such packet, the worker should not send further `TaskAcknowledgedPacket` to save bandwidth.
+
+## Storage Access
+
+In the protocol, the worker may need to access storage resources such as downloading player's strategy files and uploading replay files. The authentication of these storage access should be fully transparent to the worker. The backend will provide pre-signed URLs for the worker to directly access the storage resources without needing to handle authentication tokens or credentials.

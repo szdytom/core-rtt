@@ -9,4 +9,4 @@ if ! clang-format --version | grep -q "version 2[2-9]"; then
 	exit 1
 fi
 
-find . -type d -name build -prune -o -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \) -print0 | xargs -0 clang-format -i
+clang-format -i src/**/*.cpp include/**/*.h corelib/*.c corelib/*.h corelib/**/*.c src/*.cpp

@@ -7,7 +7,6 @@ packages:
   - web
 
 onlyBuiltDependencies:
-  - '@mongodb-js/zstd'
   - '@parcel/watcher'
   - esbuild
   - maplibre-gl

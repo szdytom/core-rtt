@@ -103,7 +103,6 @@ export class CoreWorker {
 		while (!this.stopped) {
 			try {
 				this.token = await this.authenticate();
-				this.cache.setBearerToken(this.token);
 				await this.connectAndServe(this.token);
 				retryDelayMs = 1000;
 			} catch (error) {

@@ -58,7 +58,7 @@ export const strategyGroupRouter = createTRPCRouter({
 
         // Ensure the strategies belong to the authenticated user
         if (strategyBase.userId !== ctx.authSession.user.id || strategyUnit.userId !== ctx.authSession.user.id)
-          throw new TRPCError({ code: 'UNAUTHORIZED', message: 'You do not own the selected strategies.' });
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Selected strategies not found.' });
 
         const existingGroups = await tx.query.strategyGroup.findMany({
           where: and(

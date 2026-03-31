@@ -1,5 +1,7 @@
+import type { SnowflakeId } from '@corertt/worker-codec';
+
 export interface ScheduledTask<T> {
-	matchId: number;
+	matchId: SnowflakeId;
 	payload: T;
 	enqueuedAtMs: number;
 }
@@ -7,13 +9,13 @@ export interface ScheduledTask<T> {
 export interface SchedulerSnapshot {
 	runningCount: number;
 	queuedCount: number;
-	unfinishedMatchIds: number[];
+	unfinishedMatchIds: SnowflakeId[];
 }
 
 export class TaskScheduler<T> {
 	private readonly concurrency: number;
 	private readonly queue: ScheduledTask<T>[] = [];
-	private readonly runningTasks = new Map<number, ScheduledTask<T>>();
+	private readonly runningTasks = new Map<SnowflakeId, ScheduledTask<T>>();
 	private readonly taskHandler: (task: ScheduledTask<T>) => Promise<void>;
 
 	public onTaskError?: (task: ScheduledTask<T>, error: unknown) => void;
@@ -27,7 +29,7 @@ export class TaskScheduler<T> {
 		this.taskHandler = taskHandler;
 	}
 
-	public push(matchId: number, payload: T): void {
+	public push(matchId: SnowflakeId, payload: T): void {
 		this.queue.push({
 			matchId,
 			payload,
@@ -40,7 +42,7 @@ export class TaskScheduler<T> {
 		return this.runningTasks.size + this.queue.length < this.concurrency;
 	}
 
-	public getUnfinishedMatchIds(): number[] {
+	public getUnfinishedMatchIds(): SnowflakeId[] {
 		const queuedIds = this.queue.map((task) => task.matchId);
 		const runningIds = Array.from(this.runningTasks.keys());
 		return [...queuedIds, ...runningIds];

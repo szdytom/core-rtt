@@ -7,6 +7,8 @@ import {
 	PROTOCOL_MAGIC,
 	decodePacket,
 	encodePacket,
+	isSnowflakeId,
+	type SnowflakeId,
 	TaskAssignPacket,
 	TaskAckownledgedPacket,
 	TaskResultPacket,
@@ -23,7 +25,7 @@ interface MockServerOptions {
 		p2Base: string;
 		p2Unit: string;
 	};
-	taskMatchId: number;
+	taskMatchId: SnowflakeId;
 	mapData?: ArrayBuffer;
 }
 
@@ -53,7 +55,7 @@ export class MockWorkerBackend {
 	private readonly options: MockServerOptions;
 	private readonly server = createServer(this.handleHttpRequest.bind(this));
 	private readonly wsServer = new WebSocketServer({ noServer: true });
-	private readonly uploads = new Map<number, Buffer>();
+	private readonly uploads = new Map<SnowflakeId, Buffer>();
 	private readonly acknowledgements: TaskAckownledgedPacket[] = [];
 	private readonly results: TaskResultPacket[] = [];
 	private readonly token = 'mock-token';
@@ -126,7 +128,7 @@ export class MockWorkerBackend {
 		return [...this.acknowledgements];
 	}
 
-	public getUploadedReplay(matchId: number): Buffer | null {
+	public getUploadedReplay(matchId: SnowflakeId): Buffer | null {
 		return this.uploads.get(matchId) ?? null;
 	}
 
@@ -200,9 +202,8 @@ export class MockWorkerBackend {
 	}
 
 	private async handleReplayUpload(pathname: string, request: IncomingMessage, response: ServerResponse): Promise<void> {
-		const matchIdText = pathname.split('/').pop() ?? '';
-		const matchId = Number.parseInt(matchIdText, 10);
-		if (!Number.isInteger(matchId)) {
+		const matchId = pathname.split('/').pop() ?? '';
+		if (!isSnowflakeId(matchId)) {
 			response.statusCode = 400;
 			response.end('invalid match id');
 			return;
@@ -226,8 +227,8 @@ export class MockWorkerBackend {
 			packet.matchId = this.options.taskMatchId;
 			packet.mapData = this.options.mapData ?? new ArrayBuffer(0);
 			packet.strategies = [
-				this.createStrategy(1, `${this.baseUrl}/api/mock/strategy/p1_base`, `${this.baseUrl}/api/mock/strategy/p1_unit`),
-				this.createStrategy(2, `${this.baseUrl}/api/mock/strategy/p2_base`, `${this.baseUrl}/api/mock/strategy/p2_unit`),
+				this.createStrategy('100000000001', `${this.baseUrl}/api/mock/strategy/p1_base`, `${this.baseUrl}/api/mock/strategy/p1_unit`),
+				this.createStrategy('100000000002', `${this.baseUrl}/api/mock/strategy/p2_base`, `${this.baseUrl}/api/mock/strategy/p2_unit`),
 			];
 			packet.replayUploadUrl = `${this.baseUrl}/api/mock/replay/${packet.matchId}`;
 			try {
@@ -254,7 +255,7 @@ export class MockWorkerBackend {
 		});
 	}
 
-	private createStrategy(groupId: number, baseUrl: string, unitUrl: string): StrategyGroupDescriptor {
+	private createStrategy(groupId: SnowflakeId, baseUrl: string, unitUrl: string): StrategyGroupDescriptor {
 		const descriptor = new StrategyGroupDescriptor();
 		descriptor.strategyGroupId = groupId;
 		descriptor.baseLastModified = new Date('2026-01-01T00:00:00.000Z');

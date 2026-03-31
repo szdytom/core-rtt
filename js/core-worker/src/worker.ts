@@ -4,6 +4,7 @@ import {
 	encodePacket,
 	HelloPacket,
 	Packet,
+	type SnowflakeId,
 	TaskAckownledgedPacket,
 	TaskAssignPacket,
 	type TaskResultPacket,
@@ -21,6 +22,7 @@ interface WorkerRuntimeOptions {
 }
 
 const workerLogger = logger.child({ component: 'worker' });
+const IDLE_MATCH_ID: SnowflakeId = '000000000000';
 
 function createAbortError(signal: AbortSignal): unknown {
 	return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
@@ -277,7 +279,7 @@ export class CoreWorker extends EventTarget {
 		return this.scheduler.canAcceptMore();
 	}
 
-	private sendTaskAck(matchId: number): void {
+	private sendTaskAck(matchId: SnowflakeId): void {
 		const packet = new TaskAckownledgedPacket();
 		packet.matchId = matchId;
 		packet.canAssignMore = this.computeCanAssignMore();
@@ -299,7 +301,7 @@ export class CoreWorker extends EventTarget {
 			return;
 		}
 		const packet = new TaskAckownledgedPacket();
-		packet.matchId = 0;
+		packet.matchId = IDLE_MATCH_ID;
 		packet.canAssignMore = true;
 		this.sendPacket(packet);
 		this.idleAvailabilitySent = true;

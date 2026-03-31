@@ -18,8 +18,8 @@ async function flushMicrotasks(): Promise<void> {
 
 describe('TaskScheduler', () => {
 	test('enforces concurrency and backfills when a task completes', async () => {
-		const gates = new Map<number, { resolve: () => void }>();
-		const started: number[] = [];
+		const gates = new Map<string, { resolve: () => void }>();
+		const started: string[] = [];
 		const scheduler = new TaskScheduler<number>(2, async (task) => {
 			started.push(task.matchId);
 			const gate = defer();
@@ -27,20 +27,20 @@ describe('TaskScheduler', () => {
 			await gate.promise;
 		});
 
-		scheduler.push(1, 100);
-		scheduler.push(2, 200);
-		scheduler.push(3, 300);
+		scheduler.push('123456789001', 100);
+		scheduler.push('123456789002', 200);
+		scheduler.push('123456789003', 300);
 		await flushMicrotasks();
 
-		expect(started).toEqual([1, 2]);
+		expect(started).toEqual(['123456789001', '123456789002']);
 		expect(scheduler.canAcceptMore()).toBe(false);
 
-		gates.get(2)?.resolve();
+		gates.get('123456789002')?.resolve();
 		await flushMicrotasks();
-		expect(started).toEqual([1, 2, 3]);
+		expect(started).toEqual(['123456789001', '123456789002', '123456789003']);
 
-		gates.get(1)?.resolve();
-		gates.get(3)?.resolve();
+		gates.get('123456789001')?.resolve();
+		gates.get('123456789003')?.resolve();
 		await flushMicrotasks();
 		expect(scheduler.snapshot().runningCount).toBe(0);
 		expect(scheduler.snapshot().queuedCount).toBe(0);
@@ -53,13 +53,13 @@ describe('TaskScheduler', () => {
 			await gate.promise;
 		});
 
-		scheduler.push(11, 'a');
-		scheduler.push(22, 'b');
-		scheduler.push(33, 'c');
+		scheduler.push('123456789011', 'a');
+		scheduler.push('123456789022', 'b');
+		scheduler.push('123456789033', 'c');
 		await flushMicrotasks();
 
 		const unfinished = scheduler.getUnfinishedMatchIds();
-		expect(new Set(unfinished)).toEqual(new Set([11, 22, 33]));
+		expect(new Set(unfinished)).toEqual(new Set(['123456789011', '123456789022', '123456789033']));
 
 		gate.resolve();
 		await flushMicrotasks();
@@ -79,18 +79,18 @@ describe('TaskScheduler', () => {
 			resolveIdle();
 		};
 
-		scheduler.push(1, 1);
-		scheduler.push(2, 2);
+		scheduler.push('123456789001', 1);
+		scheduler.push('123456789002', 2);
 		await idlePromise;
 
 		expect(idleCount).toBe(1);
 	});
 
 	test('recovers from rejected handler and continues scheduling', async () => {
-		const finished: number[] = [];
-		const taskErrors: number[] = [];
+		const finished: string[] = [];
+		const taskErrors: string[] = [];
 		const scheduler = new TaskScheduler<number>(1, async (task) => {
-			if (task.matchId === 1) {
+			if (task.matchId === '123456789001') {
 				throw new Error('boom');
 			}
 			finished.push(task.matchId);
@@ -99,13 +99,13 @@ describe('TaskScheduler', () => {
 			taskErrors.push(task.matchId);
 		};
 
-		scheduler.push(1, 1);
-		scheduler.push(2, 2);
+		scheduler.push('123456789001', 1);
+		scheduler.push('123456789002', 2);
 		await flushMicrotasks();
 		await flushMicrotasks();
 
-		expect(taskErrors).toEqual([1]);
-		expect(finished).toEqual([2]);
+		expect(taskErrors).toEqual(['123456789001']);
+		expect(finished).toEqual(['123456789002']);
 		expect(scheduler.snapshot().runningCount).toBe(0);
 		expect(scheduler.snapshot().queuedCount).toBe(0);
 	});

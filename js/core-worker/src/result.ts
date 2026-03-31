@@ -1,4 +1,4 @@
-import { MatchResult, StrategyExecutionCrashInfo, TaskResultPacket, TaskStatus } from '@corertt/worker-codec';
+import { MatchResult, type SnowflakeId, StrategyExecutionCrashInfo, TaskResultPacket, TaskStatus } from '@corertt/worker-codec';
 import type { StrategyGroupDescriptor } from '@corertt/worker-codec';
 
 interface WorkerTerminationPayload {
@@ -111,7 +111,7 @@ function matchResultFromPayload(payload: WorkerTerminationPayload): MatchResult 
 	throw new Error('invalid worker termination payload: completed result must have winner_player_id 1 or 2');
 }
 
-export function buildTaskSuccessResult(matchId: number, strategies: [StrategyGroupDescriptor, StrategyGroupDescriptor], stderrText: string, errorLogMaxBytes: number): TaskResultPacket {
+export function buildTaskSuccessResult(matchId: SnowflakeId, strategies: [StrategyGroupDescriptor, StrategyGroupDescriptor], stderrText: string, errorLogMaxBytes: number): TaskResultPacket {
 	const payload = parseLastTerminationPayload(stderrText);
 	if (payload == null) {
 		throw new Error('missing worker termination jsonl marker in stderr');
@@ -126,7 +126,7 @@ export function buildTaskSuccessResult(matchId: number, strategies: [StrategyGro
 	return packet;
 }
 
-export function buildTaskCoreCrashResult(matchId: number, strategies: [StrategyGroupDescriptor, StrategyGroupDescriptor], stderrText: string, errorLogMaxBytes: number): TaskResultPacket {
+export function buildTaskCoreCrashResult(matchId: SnowflakeId, strategies: [StrategyGroupDescriptor, StrategyGroupDescriptor], stderrText: string, errorLogMaxBytes: number): TaskResultPacket {
 	const payload = parseLastTerminationPayload(stderrText);
 	const packet = new TaskResultPacket();
 	packet.matchId = matchId;

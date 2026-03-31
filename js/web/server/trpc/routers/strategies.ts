@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, count, eq, ne, or } from 'drizzle-orm';
 import { db } from '~~/server/db/db';
 import { createTRPCRouter, protectedProcedure } from '~~/server/trpc/trpc';
 import * as schema from '~~/server/db/schema';
@@ -29,6 +29,7 @@ export const strategiesRouter = createTRPCRouter({
       // This can be outside the transaction since it's just a read operation, and doesn't introduce race conditions for the subsequent operations
       const elfFile = await db.query.elfFile.findFirst({
         where: eq(schema.elfFile.id, input.elfFileId),
+        columns: { userId: true, s3FileId: true },
       });
 
       // Check if the ELF file exists and belongs to the authenticated user
@@ -37,9 +38,12 @@ export const strategiesRouter = createTRPCRouter({
 
       try {
         await db.transaction(async (tx) => {
-          const existingStrategies = await tx.query.strategy.findMany({
-            where: eq(schema.strategy.userId, ctx.authSession.user.id),
-          });
+          const [existingStrategies] = await tx
+            .select({ count: count() })
+            .from(schema.strategy)
+            .where(eq(schema.strategy.userId, ctx.authSession.user.id));
+          if (!existingStrategies)
+            throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to count existing strategies.' });
 
           const userLimit = await tx.query.user.findFirst({
             where: eq(schema.user.id, ctx.authSession.user.id),
@@ -48,7 +52,7 @@ export const strategiesRouter = createTRPCRouter({
           if (!userLimit)
             throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'User not found.' });
           // Check if the user has reached the limit of strategies they can create
-          if (existingStrategies.length >= userLimit.strategyLimit)
+          if (existingStrategies.count >= userLimit.strategyLimit)
             throw new TRPCError({ code: 'BAD_REQUEST', message: 'You have reached the limit of strategies you can create.' });
 
           const [strategy] = await tx.insert(schema.strategy).values({
@@ -82,5 +86,49 @@ export const strategiesRouter = createTRPCRouter({
 
         throw error;
       }
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const strategy = await db.query.strategy.findFirst({
+        where: eq(schema.strategy.id, input.id),
+        columns: { userId: true },
+        with: {
+          elfFile: {
+            columns: { s3FileId: true, id: true },
+          },
+        },
+      });
+
+      if (!strategy || strategy.userId !== ctx.authSession.user.id)
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Strategy not found' });
+
+      const relatedStrategyGroups = await db.query.strategyGroup.findFirst({
+        where: and(
+          or(
+            eq(schema.strategyGroup.strategyBaseId, input.id),
+            eq(schema.strategyGroup.strategyUnitId, input.id),
+          ),
+          ne(schema.strategyGroup.status, 'deleted'),
+        ),
+        columns: { id: true },
+      });
+
+      if (relatedStrategyGroups)
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot delete strategy that is part of a strategy group. Please remove it from the group first.' });
+
+      await db.transaction(async (tx) => {
+        // If the strategy has an associated ELF file, delete it from S3 and the database
+        if (strategy.elfFile) {
+          await deleteFile(strategy.elfFile.s3FileId);
+          await tx.delete(schema.elfFile).where(eq(schema.elfFile.id, strategy.elfFile.id));
+        }
+
+        // Delete the strategy
+        await tx.delete(schema.strategy).where(eq(schema.strategy.id, input.id));
+      });
     }),
 });

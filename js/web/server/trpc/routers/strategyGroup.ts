@@ -45,9 +45,11 @@ export const strategyGroupRouter = createTRPCRouter({
       return await db.transaction(async (tx) => {
         const strategyBase = await tx.query.strategy.findFirst({
           where: eq(schema.strategy.id, input.strategyBaseId),
+          columns: { userId: true, type: true },
         });
         const strategyUnit = await tx.query.strategy.findFirst({
           where: eq(schema.strategy.id, input.strategyUnitId),
+          columns: { userId: true, type: true },
         });
 
         if (!strategyBase || !strategyUnit)
@@ -65,6 +67,7 @@ export const strategyGroupRouter = createTRPCRouter({
             eq(schema.strategyGroup.userId, ctx.authSession.user.id),
             ne(schema.strategyGroup.status, 'deleted'),
           ),
+          columns: { strategyBaseId: true, strategyUnitId: true, status: true },
         });
 
         // Check if a strategy group with the same base and unit strategies already exists for the user

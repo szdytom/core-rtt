@@ -28,17 +28,17 @@ import {
 } from '@corertt/worker-codec';
 
 const crashA = new StrategyExecutionCrashInfo();
-crashA.strategyGroupId = 1;
+crashA.strategyGroupId = '123456789011';
 crashA.baseStrategyCrashed = false;
 crashA.unitStrategyCrashed = false;
 
 const crashB = new StrategyExecutionCrashInfo();
-crashB.strategyGroupId = 2;
+crashB.strategyGroupId = '123456789012';
 crashB.baseStrategyCrashed = true;
 crashB.unitStrategyCrashed = false;
 
 const packet = new TaskResultPacket();
-packet.matchId = 42;
+packet.matchId = '123456789010';
 packet.result = MatchResult.P1Win;
 packet.status = TaskStatus.Success;
 packet.errorLog = '';

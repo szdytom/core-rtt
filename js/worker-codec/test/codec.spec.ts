@@ -15,19 +15,21 @@ import {
 } from '../src/index.js';
 
 function createStrategyGroupDescriptor(
-	strategyGroupId: number,
+	strategyGroupId: string,
 	baseStrategyUrl: string,
 	unitStrategyUrl: string,
 ): StrategyGroupDescriptor {
 	const descriptor = new StrategyGroupDescriptor();
 	descriptor.strategyGroupId = strategyGroupId;
+	descriptor.baseLastModified = new Date('2026-03-01T00:00:00.000Z');
+	descriptor.unitLastModified = new Date('2026-03-01T00:00:00.000Z');
 	descriptor.baseStrategyUrl = baseStrategyUrl;
 	descriptor.unitStrategyUrl = unitStrategyUrl;
 	return descriptor;
 }
 
 function createCrashInfo(
-	strategyGroupId: number,
+	strategyGroupId: string,
 	baseStrategyCrashed: boolean,
 	unitStrategyCrashed: boolean,
 ): StrategyExecutionCrashInfo {
@@ -41,11 +43,11 @@ function createCrashInfo(
 describe('worker-codec', () => {
 	test('round-trips TaskAssign packets', () => {
 		const packet = new TaskAssignPacket();
-		packet.matchId = 42;
+		packet.matchId = '123456789012';
 		packet.mapData = new Uint8Array([1, 2, 3, 4]).buffer;
 		packet.strategies = [
-			createStrategyGroupDescriptor(11, 'https://example.com/base/a.ts', 'https://example.com/unit/a.ts'),
-			createStrategyGroupDescriptor(22, 'https://example.com/base/b.ts', 'https://example.com/unit/b.ts'),
+			createStrategyGroupDescriptor('123456789013', 'https://example.com/base/a.ts', 'https://example.com/unit/a.ts'),
+			createStrategyGroupDescriptor('123456789014', 'https://example.com/base/b.ts', 'https://example.com/unit/b.ts'),
 		];
 		packet.replayUploadUrl = 'https://example.com/replays/42';
 
@@ -54,22 +56,22 @@ describe('worker-codec', () => {
 
 		expect(decoded).toBeInstanceOf(TaskAssignPacket);
 		const decodedAssign = decoded as TaskAssignPacket;
-		expect(decodedAssign.matchId).toBe(42);
+		expect(decodedAssign.matchId).toBe('123456789012');
 		expect(Array.from(new Uint8Array(decodedAssign.mapData))).toEqual([1, 2, 3, 4]);
-		expect(decodedAssign.strategies[0].strategyGroupId).toBe(11);
-		expect(decodedAssign.strategies[1].strategyGroupId).toBe(22);
+		expect(decodedAssign.strategies[0].strategyGroupId).toBe('123456789013');
+		expect(decodedAssign.strategies[1].strategyGroupId).toBe('123456789014');
 		expect(decodedAssign.replayUploadUrl).toBe('https://example.com/replays/42');
 	});
 
 	test('round-trips TaskResult packets including errorLog', () => {
 		const packet = new TaskResultPacket();
-		packet.matchId = 9;
+		packet.matchId = '123456789015';
 		packet.result = MatchResult.P2Win;
 		packet.status = TaskStatus.CoreCrash;
 		packet.errorLog = 'segfault in core';
 		packet.crashInfo = [
-			createCrashInfo(1, true, false),
-			createCrashInfo(2, false, true),
+			createCrashInfo('123456789016', true, false),
+			createCrashInfo('123456789017', false, true),
 		];
 		packet.finishedAt = new Date('2026-03-01T12:30:00.000Z');
 
@@ -78,7 +80,7 @@ describe('worker-codec', () => {
 
 		expect(decoded).toBeInstanceOf(TaskResultPacket);
 		const decodedResult = decoded as TaskResultPacket;
-		expect(decodedResult.matchId).toBe(9);
+		expect(decodedResult.matchId).toBe('123456789015');
 		expect(decodedResult.result).toBe(MatchResult.P2Win);
 		expect(decodedResult.status).toBe(TaskStatus.CoreCrash);
 		expect(decodedResult.errorLog).toBe('segfault in core');
@@ -89,7 +91,7 @@ describe('worker-codec', () => {
 
 	test('throws for invalid protocol magic', () => {
 		const packet = new TaskAckownledgedPacket();
-		packet.matchId = 1;
+		packet.matchId = '123456789018';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
 
@@ -100,7 +102,7 @@ describe('worker-codec', () => {
 
 	test('throws for unsupported codec version', () => {
 		const packet = new TaskAckownledgedPacket();
-		packet.matchId = 2;
+		packet.matchId = '123456789019';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
 
@@ -110,11 +112,11 @@ describe('worker-codec', () => {
 
 	test('throws when packet body is truncated', () => {
 		const packet = new TaskAssignPacket();
-		packet.matchId = 7;
+		packet.matchId = '123456789020';
 		packet.mapData = new Uint8Array([7, 7, 7]).buffer;
 		packet.strategies = [
-			createStrategyGroupDescriptor(1, 'a', 'b'),
-			createStrategyGroupDescriptor(2, 'c', 'd'),
+			createStrategyGroupDescriptor('123456789021', 'a', 'b'),
+			createStrategyGroupDescriptor('123456789022', 'c', 'd'),
 		];
 		packet.replayUploadUrl = 'https://example.com/upload';
 		const encoded = encodePacket(packet);
@@ -125,7 +127,7 @@ describe('worker-codec', () => {
 
 	test('throws for unknown message type', () => {
 		const packet = new TaskAckownledgedPacket();
-		packet.matchId = 3;
+		packet.matchId = '123456789023';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
 
@@ -133,6 +135,14 @@ describe('worker-codec', () => {
 		bytes[3] = 255;
 
 		expect(() => decodePacket(bytes.buffer)).toThrowError('Unknown message type');
+	});
+
+	test('throws for invalid snowflake id format', () => {
+		const packet = new TaskAckownledgedPacket();
+		packet.matchId = '42';
+		packet.canAssignMore = true;
+
+		expect(() => encodePacket(packet)).toThrowError('TaskAckownledgedPacket.matchId must be a 12-digit snowflake ID string');
 	});
 
 	test('maps winner index correctly', () => {

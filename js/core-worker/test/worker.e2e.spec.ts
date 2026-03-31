@@ -45,7 +45,7 @@ describe('core-worker integration', () => {
 				p2Base: dummyElf,
 				p2Unit: dummyElf,
 			},
-			taskMatchId: 101,
+			taskMatchId: '123456789012',
 		});
 
 		await server.start();
@@ -66,7 +66,7 @@ describe('core-worker integration', () => {
 
 		const decodeErrors: string[] = [];
 		const runtimeErrors: string[] = [];
-		const assignedMatchIds: number[] = [];
+		const assignedMatchIds: string[] = [];
 		const worker = new CoreWorker(config);
 		worker.addEventListener('decode-error', (event) => {
 			decodeErrors.push((event as CustomEvent<string>).detail);
@@ -75,7 +75,7 @@ describe('core-worker integration', () => {
 			runtimeErrors.push((event as CustomEvent<string>).detail);
 		});
 		worker.addEventListener('task-assigned', (event) => {
-			assignedMatchIds.push((event as CustomEvent<{ matchId: number }>).detail.matchId);
+			assignedMatchIds.push((event as CustomEvent<{ matchId: string }>).detail.matchId);
 		});
 		await worker.start();
 		let result;
@@ -88,16 +88,16 @@ describe('core-worker integration', () => {
 		await worker.stop();
 		await server.stop();
 
-		expect(result.matchId).toBe(101);
+		expect(result.matchId).toBe('123456789012');
 		expect([TaskStatus.Success, TaskStatus.CoreCrash]).toContain(result.status);
 		expect([MatchResult.P1Win, MatchResult.P2Win, MatchResult.Tied, MatchResult.NoResult]).toContain(result.result);
 
-		const replayUpload = server.getUploadedReplay(101);
+		const replayUpload = server.getUploadedReplay('123456789012');
 		expect(replayUpload).not.toBeNull();
 		expect((replayUpload ?? Buffer.alloc(0)).byteLength).toBeGreaterThan(0);
 
 		const acks = server.getReceivedAcks();
-		expect(acks.some((item) => item.matchId === 101)).toBe(true);
+		expect(acks.some((item) => item.matchId === '123456789012')).toBe(true);
 
 		await rm(cacheDir, { recursive: true, force: true });
 		await rm(tmpMapDir, { recursive: true, force: true });

@@ -4,14 +4,14 @@ import { buildTaskCoreCrashResult, buildTaskSuccessResult } from '../src/result.
 
 function createStrategies(): [StrategyGroupDescriptor, StrategyGroupDescriptor] {
 	const p1 = new StrategyGroupDescriptor();
-	p1.strategyGroupId = 101;
+	p1.strategyGroupId = '100000000101';
 	p1.baseLastModified = new Date('2026-01-01T00:00:00.000Z');
 	p1.unitLastModified = new Date('2026-01-01T00:00:00.000Z');
 	p1.baseStrategyUrl = 'https://example.invalid/p1/base';
 	p1.unitStrategyUrl = 'https://example.invalid/p1/unit';
 
 	const p2 = new StrategyGroupDescriptor();
-	p2.strategyGroupId = 202;
+	p2.strategyGroupId = '100000000202';
 	p2.baseLastModified = new Date('2026-01-01T00:00:00.000Z');
 	p2.unitLastModified = new Date('2026-01-01T00:00:00.000Z');
 	p2.baseStrategyUrl = 'https://example.invalid/p2/base';
@@ -27,9 +27,9 @@ describe('result builders', () => {
 			'{"termination":"completed","winner_player_id":2,"p1_base_crash":true,"p1_unit_crash":false,"p2_base_crash":false,"p2_unit_crash":true}',
 		].join('\n');
 
-		const packet = buildTaskSuccessResult(42, createStrategies(), stderrText, 64 * 1024);
+		const packet = buildTaskSuccessResult('123456789042', createStrategies(), stderrText, 64 * 1024);
 
-		expect(packet.matchId).toBe(42);
+		expect(packet.matchId).toBe('123456789042');
 		expect(packet.status).toBe(TaskStatus.Success);
 		expect(packet.result).toBe(MatchResult.P2Win);
 		expect(packet.errorLog).toBe(stderrText);
@@ -42,14 +42,14 @@ describe('result builders', () => {
 	test('buildTaskSuccessResult maps aborted termination to tied result', () => {
 		const stderrText = '{"termination":"aborted","winner_player_id":0,"p1_base_crash":false,"p1_unit_crash":false,"p2_base_crash":false,"p2_unit_crash":false}';
 
-		const packet = buildTaskSuccessResult(77, createStrategies(), stderrText, 64 * 1024);
+		const packet = buildTaskSuccessResult('123456789077', createStrategies(), stderrText, 64 * 1024);
 
 		expect(packet.status).toBe(TaskStatus.Success);
 		expect(packet.result).toBe(MatchResult.Tied);
 	});
 
 	test('buildTaskSuccessResult throws when termination jsonl is missing', () => {
-		expect(() => buildTaskSuccessResult(99, createStrategies(), 'segmentation fault\nstacktrace...', 64 * 1024)).toThrow(/missing worker termination jsonl marker/);
+		expect(() => buildTaskSuccessResult('123456789099', createStrategies(), 'segmentation fault\nstacktrace...', 64 * 1024)).toThrow(/missing worker termination jsonl marker/);
 	});
 
 	test('buildTaskCoreCrashResult keeps raw stderr and still extracts crash flags when available', () => {
@@ -59,7 +59,7 @@ describe('result builders', () => {
 			'core dumped',
 		].join('\n');
 
-		const packet = buildTaskCoreCrashResult(55, createStrategies(), stderrText, 64 * 1024);
+		const packet = buildTaskCoreCrashResult('123456789055', createStrategies(), stderrText, 64 * 1024);
 
 		expect(packet.status).toBe(TaskStatus.CoreCrash);
 		expect(packet.result).toBe(MatchResult.NoResult);

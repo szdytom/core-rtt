@@ -9,6 +9,19 @@ export enum MessageType {
 
 export const CODEC_VERSION = 1;
 export const PROTOCOL_MAGIC = 0x4354;
+export const SNOWFLAKE_ID_LENGTH = 12;
+
+export type SnowflakeId = string;
+
+export function isSnowflakeId(value: unknown): value is SnowflakeId {
+	return typeof value === 'string' && value.length === SNOWFLAKE_ID_LENGTH;
+}
+
+function assertSnowflakeId(value: unknown, fieldName: string): asserts value is SnowflakeId {
+	if (!isSnowflakeId(value)) {
+		throw new Error(`${fieldName} must be a ${SNOWFLAKE_ID_LENGTH}-digit snowflake ID string`);
+	}
+}
 
 export class PacketHeader {
 	[key: string]: unknown;
@@ -29,14 +42,14 @@ export class PacketHeader {
 export class StrategyGroupDescriptor {
 	[key: string]: unknown;
 
-	strategyGroupId!: number;
+	strategyGroupId!: SnowflakeId;
 	baseLastModified!: Date;
 	unitLastModified!: Date;
 	baseStrategyUrl!: string;
 	unitStrategyUrl!: string;
 
 	static typedef: Array<{ field: string; type: any }> = [
-		{ field: 'strategyGroupId', type: BASIC_TYPES.u32 },
+		{ field: 'strategyGroupId', type: BASIC_TYPES.str },
 		{ field: 'baseLastModified', type: BASIC_TYPES.DateTime },
 		{ field: 'unitLastModified', type: BASIC_TYPES.DateTime },
 		{ field: 'baseStrategyUrl', type: BASIC_TYPES.str },
@@ -47,13 +60,13 @@ export class StrategyGroupDescriptor {
 export class TaskAssignPacket {
 	[key: string]: unknown;
 
-	matchId!: number;
+	matchId!: SnowflakeId;
 	mapData!: ArrayBuffer;
 	strategies!: [StrategyGroupDescriptor, StrategyGroupDescriptor];
 	replayUploadUrl!: string;
 
 	static typedef: Array<{ field: string; type: any }> = [
-		{ field: 'matchId', type: BASIC_TYPES.u32 },
+		{ field: 'matchId', type: BASIC_TYPES.str },
 		{ field: 'mapData', type: BASIC_TYPES.arrayBuffer },
 		{ field: 'strategies', type: BASIC_TYPES.FixedArray(2, StrategyGroupDescriptor) },
 		{ field: 'replayUploadUrl', type: BASIC_TYPES.str },
@@ -63,11 +76,11 @@ export class TaskAssignPacket {
 export class TaskAckownledgedPacket {
 	[key: string]: unknown;
 
-	matchId!: number;
+	matchId!: SnowflakeId;
 	canAssignMore!: boolean;
 
 	static typedef: Array<{ field: string; type: any }> = [
-		{ field: 'matchId', type: BASIC_TYPES.u32 },
+		{ field: 'matchId', type: BASIC_TYPES.str },
 		{ field: 'canAssignMore', type: BASIC_TYPES.bool },
 	];
 }
@@ -100,12 +113,12 @@ export enum TaskStatus {
 export class StrategyExecutionCrashInfo {
 	[key: string]: unknown;
 
-	strategyGroupId!: number;
+	strategyGroupId!: SnowflakeId;
 	baseStrategyCrashed!: boolean;
 	unitStrategyCrashed!: boolean;
 
 	static typedef: Array<{ field: string; type: any }> = [
-		{ field: 'strategyGroupId', type: BASIC_TYPES.u32 },
+		{ field: 'strategyGroupId', type: BASIC_TYPES.str },
 		{ field: 'baseStrategyCrashed', type: BASIC_TYPES.bool },
 		{ field: 'unitStrategyCrashed', type: BASIC_TYPES.bool },
 	];
@@ -114,7 +127,7 @@ export class StrategyExecutionCrashInfo {
 export class TaskResultPacket {
 	[key: string]: unknown;
 
-	matchId!: number;
+	matchId!: SnowflakeId;
 	result!: MatchResult;
 	status!: TaskStatus;
 	errorLog!: string;
@@ -122,7 +135,7 @@ export class TaskResultPacket {
 	finishedAt!: Date;
 
 	static typedef: Array<{ field: string; type: any }> = [
-		{ field: 'matchId', type: BASIC_TYPES.u32 },
+		{ field: 'matchId', type: BASIC_TYPES.str },
 		{ field: 'result', type: BASIC_TYPES.u8 },
 		{ field: 'status', type: BASIC_TYPES.u8 },
 		{ field: 'errorLog', type: BASIC_TYPES.str },
@@ -138,6 +151,30 @@ export class HelloPacket {
 }
 
 export type Packet = TaskAssignPacket | TaskAckownledgedPacket | TaskResultPacket | HelloPacket;
+
+function validatePacketIds(packet: Packet): void {
+	if (packet instanceof HelloPacket) {
+		return;
+	}
+
+	if (packet instanceof TaskAssignPacket) {
+		assertSnowflakeId(packet.matchId, 'TaskAssignPacket.matchId');
+		assertSnowflakeId(packet.strategies[0].strategyGroupId, 'TaskAssignPacket.strategies[0].strategyGroupId');
+		assertSnowflakeId(packet.strategies[1].strategyGroupId, 'TaskAssignPacket.strategies[1].strategyGroupId');
+		return;
+	}
+
+	if (packet instanceof TaskAckownledgedPacket) {
+		assertSnowflakeId(packet.matchId, 'TaskAckownledgedPacket.matchId');
+		return;
+	}
+
+	if (packet instanceof TaskResultPacket) {
+		assertSnowflakeId(packet.matchId, 'TaskResultPacket.matchId');
+		assertSnowflakeId(packet.crashInfo[0].strategyGroupId, 'TaskResultPacket.crashInfo[0].strategyGroupId');
+		assertSnowflakeId(packet.crashInfo[1].strategyGroupId, 'TaskResultPacket.crashInfo[1].strategyGroupId');
+	}
+}
 
 export function getPacketType(packet: Packet): MessageType {
 	if (packet instanceof TaskAssignPacket) {
@@ -175,6 +212,8 @@ export function getPacketHandler(messageType: MessageType): CompoundTypeHandler 
 }
 
 export function encodePacket(packet: Packet): ArrayBuffer {
+	validatePacketIds(packet);
+
 	const header = new PacketHeader();
 	header.protocolMagic = PROTOCOL_MAGIC;
 	header.codecVersion = CODEC_VERSION;
@@ -211,5 +250,7 @@ export function decodePacket(buffer: ArrayBuffer): Packet {
 
 	const handler = getPacketHandler(header.messageType);
 	const packetRes = handler.deserialize(view, headerRes.offset);
-	return packetRes.value as Packet;
+	const packet = packetRes.value as Packet;
+	validatePacketIds(packet);
+	return packet;
 }

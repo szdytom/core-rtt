@@ -7,7 +7,7 @@ import { ElfCache } from '../src/cache.js';
 
 function createDescriptor(overrides?: Partial<StrategyGroupDescriptor>): StrategyGroupDescriptor {
 	const descriptor = new StrategyGroupDescriptor();
-	descriptor.strategyGroupId = overrides?.strategyGroupId ?? 1;
+	descriptor.strategyGroupId = overrides?.strategyGroupId ?? '100000000001';
 	descriptor.baseLastModified = overrides?.baseLastModified ?? new Date('2026-01-01T00:00:00.000Z');
 	descriptor.unitLastModified = overrides?.unitLastModified ?? new Date('2026-01-01T00:00:00.000Z');
 	descriptor.baseStrategyUrl = overrides?.baseStrategyUrl ?? 'https://example.invalid/strategy/base';
@@ -74,7 +74,7 @@ describe('ElfCache', () => {
 	});
 
 	test('persists index in sqlite and survives cache re-instantiation', async () => {
-		const descriptor = createDescriptor({ strategyGroupId: 9 });
+		const descriptor = createDescriptor({ strategyGroupId: '100000000009' });
 		const cacheA = new ElfCache({
 			cacheDir,
 			cacheLimitBytes: 64 * 1024 * 1024,

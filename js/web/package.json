@@ -13,6 +13,8 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1020.0",
+    "@aws-sdk/s3-request-presigner": "^3.1020.0",
     "@better-auth/drizzle-adapter": "^1.5.6",
     "@iconify-json/ri": "^1.2.10",
     "@libsql/client": "^0.17.2",

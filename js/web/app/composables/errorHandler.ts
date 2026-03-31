@@ -16,6 +16,8 @@ export async function useErrorHandler(err: unknown): Promise<void> {
     } else {
       toast.add({ title: 'Error', description: err.message, color: 'error', icon: 'ri:error-warning-line' });
     }
+  } else if (err instanceof Error) {
+    toast.add({ title: 'Error', description: err.message, color: 'error', icon: 'ri:error-warning-line' });
   } else {
     toast.add({ title: 'Error', description: 'An error occurred.', color: 'error', icon: 'ri:error-warning-line' });
   }

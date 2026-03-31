@@ -20,10 +20,12 @@ export const strategy = sqliteTable('strategy', {
 
 export const elfFile = sqliteTable('elf_file', {
   id: text('id').primaryKey().$default(() => makeId()),
-  filename: text('filename').notNull(),
+  filename: text('filename'),
   s3FileId: text('s3_file_id').notNull(),
-  strategyId: text('strategy_id')
+  userId: text('user_id')
     .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  strategyId: text('strategy_id')
     .references(() => strategy.id, { onDelete: 'cascade' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)

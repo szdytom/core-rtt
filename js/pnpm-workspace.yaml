@@ -3,6 +3,7 @@ packages:
   - core-autotest
   - core-worker
   - replay-cli
+  - glicko
   - worker-codec
   - web
 

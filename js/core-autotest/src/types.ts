@@ -45,6 +45,7 @@ export interface CaseSpec {
 	timeLimitMs: number;
 	maxTicks: number;
 	seed?: string;
+	map?: string;
 	aliases?: Record<string, string>;
 	program: [ProgramBinding, ProgramBinding];
 	expectedLogs?: ExpectedLogAssertion[];

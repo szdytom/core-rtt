@@ -89,11 +89,18 @@ Required fields:
 Optional fields:
 
 - `runs`: repeat count (default `1`)
-- `seed`: forwarded to `--seed`
+- `seed`: forwarded to `--seed` (cannot be used with `map`)
+- `map`: map filename loaded from `corelib/autotest/map` and forwarded to `--map` (cannot be used with `seed`)
 - `aliases`: local alias map for `@alias` references
 - `expectedLogs`: assertions that require at least N matches
 - `forbiddenLogs`: assertions that require at most N matches (default 0)
 - `expectFailure`: if `true`, a run is considered pass only when assertions/runtime produce failure
+
+`map` path rules:
+
+- only a filename is accepted (no absolute path and no `/` or `\\` separators)
+- runtime resolves to `<repo>/corelib/autotest/map/<filename>`
+- case loading fails early if `seed` and `map` are both present
 
 `forbiddenLogs` and `expectedLogs` item format:
 

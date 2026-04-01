@@ -8,7 +8,7 @@ describe('decodeReplay', () => {
 		const replay = decodeReplay(sampleReplayBytes());
 
 		expect(replay.header.magic).toBe('CRPL');
-		expect(replay.header.version).toBe(4);
+		expect(replay.header.version).toBe(5);
 		expect(replay.header.tilemap.width).toBe(2);
 		expect(replay.ticks).toHaveLength(1);
 		expect(replay.ticks[0].tick).toBe(5);
@@ -102,9 +102,10 @@ describe('decodeReplay', () => {
 
 	test('throws when unit count exceeds maximum', () => {
 		const bytes = sampleReplayBytes();
+		const header_size = bytes[6] | (bytes[7] << 8);
 
-		// Locate unit_count after: header(18) + tick_type/tick/size(9) + players(8)
-		const unit_count_offset = 18 + 9 + 8;
+		// Locate unit_count after: header(8 + header_size) + tick prefix(9) + players(8)
+		const unit_count_offset = 8 + header_size + 9 + 8;
 		const mutated = concatBytes(bytes.subarray(0, unit_count_offset), leU16(31), bytes.subarray(unit_count_offset + 2));
 
 		expect(() => decodeReplay(mutated)).toThrowError(ReplayDecodeError);
@@ -132,8 +133,8 @@ describe('decodeReplay', () => {
 	test('ignores extra bytes at end of header payload', () => {
 		const base = sampleReplayBytes();
 
-		const old_header_size = 10;
-		const new_header_size = 12;
+		const old_header_size = base[6] | (base[7] << 8);
+		const new_header_size = old_header_size + 2;
 		const header_prefix = base.subarray(0, 6);
 		const tilemap_payload = base.subarray(8, 8 + old_header_size);
 		const tail_records = base.subarray(8 + old_header_size);

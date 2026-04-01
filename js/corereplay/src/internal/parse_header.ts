@@ -1,5 +1,10 @@
 import { ReplayDecodeError } from '../errors.js';
-import type { ReplayHeader, ReplayTile, ReplayTilemap } from '../types.js';
+import type {
+	ReplayGameRules,
+	ReplayHeader,
+	ReplayTile,
+	ReplayTilemap,
+} from '../types.js';
 import { ByteReader } from './byte_reader.js';
 
 export interface HeaderParseResult {
@@ -8,7 +13,8 @@ export interface HeaderParseResult {
 }
 
 const replay_magic = [0x43, 0x52, 0x50, 0x4c] as const;
-const replay_version = 4;
+const replay_version = 5;
+const replay_version_legacy = 4;
 const max_tile_dimension = 256;
 const max_tile_count = max_tile_dimension * max_tile_dimension;
 
@@ -25,25 +31,30 @@ export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseRes
 
 	const version = reader.readU16();
 	const header_size = reader.readU16();
-	if (version !== replay_version) {
+	if (version !== replay_version && version !== replay_version_legacy) {
 		throw new ReplayDecodeError('UNSUPPORTED_VERSION', offset + 4);
 	}
 
 	const header_payload = reader.readBytes(header_size);
-	const tilemap = parseTilemap(header_payload, offset + 8);
+	const payload_reader = new ByteReader(header_payload, offset + 8);
+	const tilemap = parseTilemap(payload_reader, offset + 8);
+	const game_rules =
+		version === replay_version
+			? parseGameRules(payload_reader)
+			: defaultGameRulesForLegacy(tilemap);
 
 	const header: ReplayHeader = {
 		magic: 'CRPL',
-		version: 4,
+		version,
 		headerSize: header_size,
 		tilemap,
+		gameRules: game_rules,
 	};
 
 	return { header, consumed: 8 + header_size };
 }
 
-function parseTilemap(bytes: Uint8Array, absolute_offset: number): ReplayTilemap {
-	const reader = new ByteReader(bytes, absolute_offset);
+function parseTilemap(reader: ByteReader, absolute_offset: number): ReplayTilemap {
 
 	const width = reader.readU16();
 	const height = reader.readU16();
@@ -83,5 +94,47 @@ function parseTilemap(bytes: Uint8Array, absolute_offset: number): ReplayTilemap
 		height,
 		baseSize: base_size,
 		tiles,
+	};
+}
+
+function parseGameRules(reader: ByteReader): ReplayGameRules {
+	return {
+		width: reader.readU16(),
+		height: reader.readU16(),
+		baseSize: reader.readU16(),
+		unitHealth: reader.readU8(),
+		naturalEnergyRate: reader.readU32(),
+		resourceZoneEnergyRate: reader.readU16(),
+		attackCooldown: reader.readU8(),
+		capacityLv1: reader.readU16(),
+		capacityLv2: reader.readU16(),
+		visionLv1: reader.readU8(),
+		visionLv2: reader.readU8(),
+		capacityUpgradeCost: reader.readU16(),
+		visionUpgradeCost: reader.readU16(),
+		damageUpgradeCost: reader.readU16(),
+		manufactCost: reader.readU16(),
+		captureTurnThreshold: reader.readU16(),
+	};
+}
+
+function defaultGameRulesForLegacy(tilemap: ReplayTilemap): ReplayGameRules {
+	return {
+		width: tilemap.width,
+		height: tilemap.height,
+		baseSize: tilemap.baseSize,
+		unitHealth: 100,
+		naturalEnergyRate: 1,
+		resourceZoneEnergyRate: 25,
+		attackCooldown: 3,
+		capacityLv1: 200,
+		capacityLv2: 1000,
+		visionLv1: 5,
+		visionLv2: 9,
+		capacityUpgradeCost: 400,
+		visionUpgradeCost: 1000,
+		damageUpgradeCost: 600,
+		manufactCost: 500,
+		captureTurnThreshold: 8,
 	};
 }

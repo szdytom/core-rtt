@@ -126,14 +126,16 @@ struct GameInfo {
 	uint8_t natural_energy_rate;
 	uint8_t resource_zone_energy_rate;
 	uint8_t attack_cooldown;
-	uint8_t capacity_lv1;
-	uint8_t capacity_lv2;
 	uint8_t capture_turn_threshold;
+	uint8_t vision_lv1;
+	uint8_t vision_lv2;
+	uint16_t capacity_lv1;
+	uint16_t capacity_lv2;
 	uint16_t capacity_upgrade_cost;
 	uint16_t vision_upgrade_cost;
 	uint16_t damage_upgrade_cost;
 	uint16_t manufact_cost;
-	uint8_t reserved[14];
+	uint8_t reserved[10];
 };
 
 int meta(struct GameInfo* info);
@@ -150,9 +152,11 @@ Retrieves the gamerule and meta information of the current game and saves it to 
 - `natural_energy_rate`: the number of turns required for a unit to naturally gain 1 energy.
 - `resource_zone_energy_rate`: the amount of energy a unit gains per turn when inside a resource zone.
 - `attack_cooldown`: the number of turns a unit must wait after attacking before it can attack again.
+- `capture_turn_threshold`: the number of consecutive turns required for a base to be captured.
+- `vision_lv1`: the vision range of a unit before the vision upgrade.
+- `vision_lv2`: the vision range of a unit after the vision upgrade.
 - `capacity_lv1`: the carry capacity of a unit before the capacity upgrade.
 - `capacity_lv2`: the carry capacity of a unit after the capacity upgrade.
-- `capture_turn_threshold`: the number of consecutive turns required for a base to be captured.
 - `capacity_upgrade_cost`: the energy cost for the capacity upgrade.
 - `vision_upgrade_cost`: the energy cost for the vision upgrade.
 - `damage_upgrade_cost`: the energy cost for the damage upgrade.
@@ -229,7 +233,9 @@ int read_sensor(struct SensorData data[]);
 
 Reads the sensor data of surrounding tiles and saves it to the provided `data` array. Each element in the `data` array corresponds to a tile in the visible area of the device. The function returns a non-negative integer representing the number of tiles successfully read on success, or a negative error code on failure (e.g., invalid pointer).
 
-The `data` array should have at least BASE_SIZE × BASE_SIZE elements for base runtime. For unit runtime, the `data` array should have at least 9 × 9 elements if the unit has vision upgrade, or at least 5 × 5 elements otherwise.
+The `data` array should have at least BASE_SIZE × BASE_SIZE elements for base runtime. For unit runtime, the `data` array should have at least VISION_LV2 × VISION_LV2 elements, when the unit has vision upgrade, or at least VISION_LV1 × VISION_LV1 elements, when the unit does not have vision upgrade.
+
+The call will fail if the pointer cannot be written to or is of insufficient size with error `INVALID_POINTER`.
 
 All fields in `SensorData` are only valid if `visible` is true. Otherwise, they should be ignored. The `alliance_unit` field is only valid if `has_unit` is true.
 

@@ -28,23 +28,19 @@ async function onSubmit() {
   }
 
   try {
-    const { id, url } = await $trpc.elfFile.create.mutate({
-      fileName: elfFile.value.name,
-    });
-
-    await $fetch(url, {
-      method: 'PUT',
-      body: elfFile.value.slice(),
-      headers: {
-        'Content-Type': elfFile.value.type,
-      },
-    });
-
-    await $trpc.strategies.create.mutate({
+    const { uploadUrl } = await $trpc.strategies.create.mutate({
       // Zod will not allow undefined values, so we can safely assert that these are not undefined, and provide default values just in case.
       name: state.name ?? 'Unknown Strategy',
       type: state.type ?? 'base',
-      elfFileId: id,
+      fileName: elfFile.value.name,
+    });
+
+    await $fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': elfFile.value.type,
+      },
+      body: elfFile.value,
     });
 
     state.name = '';

@@ -26,6 +26,7 @@ export const elfFile = sqliteTable('elf_file', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   strategyId: text('strategy_id')
+    .notNull()
     .references(() => strategy.id, { onDelete: 'cascade' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)

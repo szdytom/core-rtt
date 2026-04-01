@@ -1,4 +1,3 @@
-import { elfFileRouter } from '~~/server/trpc/routers/elfFile';
 import { leaderboardRouter } from '~~/server/trpc/routers/leaderboard';
 import { strategiesRouter } from '~~/server/trpc/routers/strategies';
 import { strategyGroupRouter } from '~~/server/trpc/routers/strategyGroup';
@@ -8,7 +7,6 @@ export const appRouter = createTRPCRouter({
   strategies: strategiesRouter,
   strategyGroup: strategyGroupRouter,
   leaderboard: leaderboardRouter,
-  elfFile: elfFileRouter,
 });
 
 export type AppRouter = typeof appRouter;

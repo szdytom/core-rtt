@@ -26,24 +26,24 @@ _Energy_ is a only resource in the game, used for attacking, repairing, upgradin
 
 The game includes several configurable parameters that can be set by the referee program before the game starts. This document uses CAPITALIZED NAMES to denote these parameters. The configurable parameters are sometime informally referred to as gamerules.
 
-| Parameter Name | Description | Default Value |
-| --- | --- | --- |
-| WIDTH | The width of the battlefield. | 64 |
-| HEIGHT | The height of the battlefield. | 64 |
-| BASE_SIZE | The size of the base. | 5 |
-| UNIT_HEALTH | The initial health points of a unit. | 100 |
-| NATURAL_ENERGY_RATE | The number of turns required for a unit to naturally gain 1 energy. | 1 |
-| RESOURCE_ZONE_ENERGY_RATE | The amount of energy a unit gains per turn when inside a resource zone. | 25 |
-| ATTACK_COOLDOWN | The number of turns a unit must wait after attacking before it can attack again. | 3 |
-| CAPACITY_LV1 | The carry capacity of a unit before the capacity upgrade. | 200 |
-| CAPACITY_LV2 | The carry capacity of a unit after the capacity upgrade. | 1000 |
-| VISION_LV1 | The vision range of a unit before the vision upgrade. | 5 |
-| VISION_LV2 | The vision range of a unit after the vision upgrade. | 9 |
-| CAPACITY_UPGRADE_COST | The energy cost for the capacity upgrade. | 400 |
-| VISION_UPGRADE_COST | The energy cost for the vision upgrade. | 1000 |
-| DAMAGE_UPGRADE_COST | The energy cost for the damage upgrade. | 600 |
-| MANUFACT_COST | The energy cost for manufacturing a new unit. | 500 |
-| CAPTURE_TURN_THRESHOLD | The number of consecutive turns required for a base to be captured. | 8 |
+| Parameter Name | Description | Default Value | Domain |
+| --- | --- | --- | --- |
+| WIDTH | The width of the battlefield. | 64 | 16-255 |
+| HEIGHT | The height of the battlefield. | 64 | 16-255 |
+| BASE_SIZE | The size of the base. | 5 | 2-8 |
+| UNIT_HEALTH | The initial health points of a unit. | 100 | 1-255 |
+| NATURAL_ENERGY_RATE | The number of turns required for a unit to naturally gain 1 energy. | 1 | 1-255 |
+| RESOURCE_ZONE_ENERGY_RATE | The amount of energy a unit gains per turn when inside a resource zone. | 25 | 1-255 |
+| ATTACK_COOLDOWN | The number of turns a unit must wait after attacking before it can attack again. | 3 | 1-255 |
+| CAPTURE_TURN_THRESHOLD | The number of consecutive turns required for a base to be captured. | 8 | 1-255 |
+| CAPACITY_LV1 | The carry capacity of a unit before the capacity upgrade. | 200 | 1-65,535 |
+| CAPACITY_LV2 | The carry capacity of a unit after the capacity upgrade. | 1000 | 1-65,535 |
+| VISION_LV1 | The vision range of a unit before the vision upgrade. | 5 | 1-255 |
+| VISION_LV2 | The vision range of a unit after the vision upgrade. | 9 | 1-255 |
+| CAPACITY_UPGRADE_COST | The energy cost for the capacity upgrade. | 400 | 1-65,535 |
+| VISION_UPGRADE_COST | The energy cost for the vision upgrade. | 1000 | 1-65,535 |
+| DAMAGE_UPGRADE_COST | The energy cost for the damage upgrade. | 600 | 1-65,535 |
+| MANUFACT_COST | The energy cost for manufacturing a new unit. | 500 | 1-65,535 |
 
 ## Core Concepts
 

@@ -35,8 +35,8 @@ describe('resolveCaseMapPath', () => {
 	});
 
 	test('throws when map file does not exist', async () => {
-		const repo_root = path.resolve(__dirname, '../../..');
+		const repoRoot = path.resolve(__dirname, '../../..');
 		const spec = createSpec({ map: 'not-found-map.txt' });
-		await expect(resolveCaseMapPath(spec, repo_root)).rejects.toThrow('map file not found');
+		await expect(resolveCaseMapPath(spec, repoRoot)).rejects.toThrow('map file not found');
 	});
 });

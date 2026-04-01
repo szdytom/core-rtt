@@ -158,14 +158,16 @@ struct GameInfo {
 	uint8_t natural_energy_rate;
 	uint8_t resource_zone_energy_rate;
 	uint8_t attack_cooldown;
-	uint8_t capacity_lv1;
-	uint8_t capacity_lv2;
 	uint8_t capture_turn_threshold;
+	uint8_t vision_lv1;
+	uint8_t vision_lv2;
+	uint16_t capacity_lv1;
+	uint16_t capacity_lv2;
 	uint16_t capacity_upgrade_cost;
 	uint16_t vision_upgrade_cost;
 	uint16_t damage_upgrade_cost;
 	uint16_t manufact_cost;
-	uint8_t reserved[14];
+	uint8_t reserved[10];
 };
 
 struct DeviceInfo {

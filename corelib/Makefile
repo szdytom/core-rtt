@@ -36,12 +36,8 @@ LIB_OBJ = $(LIB_SRC:.c=.o)
 AUTOTEST_SRCS = $(wildcard autotest/*.c)
 
 # List of test source files and corresponding ELF targets
-TEST_SRCS = test/base.c test/dummy.c \
-            test/misc.c \
-            test/unit_fight.c \
-            test/unit_random_walk.c test/manufact.c \
-            example/harvester.c
-ALL_TEST_SRCS = $(TEST_SRCS) $(AUTOTEST_SRCS)
+EXAMPLE_SRCS = $(wildcard test/*.c example/*.c)
+ALL_TEST_SRCS = $(EXAMPLE_SRCS) $(AUTOTEST_SRCS)
 TEST_OBJS = $(ALL_TEST_SRCS:.c=.o)
 TEST_ELFS = $(ALL_TEST_SRCS:.c=.elf)
 
@@ -70,4 +66,4 @@ $(TEST_ELFS): %.elf: %.o libcorelib.a link.ld
 
 # Clean up all generated files
 clean:
-	rm -f *.o *.a *.elf *.d test/*.o test/*.elf test/*.d autotest/*.o autotest/*.elf autotest/*.d
+	rm -f *.o *.a *.elf *.d test/*.o test/*.elf test/*.d autotest/*.o autotest/*.elf autotest/*.d example/*.o example/*.elf example/*.d

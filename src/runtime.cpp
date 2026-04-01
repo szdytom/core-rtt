@@ -552,7 +552,7 @@ std::expected<std::unique_ptr<RVMachine>, StoppedReason> createMachineFromELF(
 	std::span<const std::uint8_t> elf_binary
 ) noexcept {
 	const riscv::MachineOptions<riscv::RISCV32> RUNTIME_OPTION = {
-		.memory_max = 128 * 1024, // 128KB memory
+		.memory_max = 264 * 1024, // 264KB memory
 		.stack_size = 4 * 1024,   // 4KB stack
 	};
 
@@ -602,7 +602,7 @@ void RuntimeECallContext::bind(RVMachine &machine) noexcept {
 	machine.install_syscall_handler(riscv::SYSCALL_EBREAK, ecall_ebreak);
 
 	auto heap_addr = machine.memory.heap_address();
-	constexpr size_t heap_size = 128 * 1024;
+	constexpr size_t heap_size = 264 * 1024;
 	machine.setup_native_heap(ECallNumber::HEAP_BASE_ID, heap_addr, heap_size);
 }
 

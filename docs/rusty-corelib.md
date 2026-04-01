@@ -244,7 +244,18 @@ pub struct GameInfo {
 	pub map_width: u8,
 	pub map_height: u8,
 	pub base_size: u8,
-	pub reserved: [u8; 13],
+	pub unit_health: u8,
+	pub natural_energy_rate: u8,
+	pub resource_zone_energy_rate: u8,
+	pub attack_cooldown: u8,
+	pub capacity_lv1: u8,
+	pub capacity_lv2: u8,
+	pub capture_turn_threshold: u8,
+	pub capacity_upgrade_cost: u16,
+	pub vision_upgrade_cost: u16,
+	pub damage_upgrade_cost: u16,
+	pub manufact_cost: u16,
+	pub reserved: [u8; 14],
 }
 
 #[repr(C)]

@@ -26,6 +26,82 @@ std::pair<pos_t, pos_t> getDirectionOffset(Direction dir) noexcept {
 	}
 	return {0, 0};
 }
+
+void validateGameRules(const GameRules &rules) noexcept {
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.width >= 16 && rules.width <= 255, "WIDTH out of range [16, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.height >= 16 && rules.height <= 255,
+		"HEIGHT out of range [16, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.base_size >= 2 && rules.base_size <= 8,
+		"BASE_SIZE out of range [2, 8]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.unit_health >= 1 && rules.unit_health <= 255,
+		"UNIT_HEALTH out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.natural_energy_rate >= 1 && rules.natural_energy_rate <= 255,
+		"NATURAL_ENERGY_RATE out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.resource_zone_energy_rate >= 1
+			&& rules.resource_zone_energy_rate <= 255,
+		"RESOURCE_ZONE_ENERGY_RATE out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.attack_cooldown >= 1 && rules.attack_cooldown <= 255,
+		"ATTACK_COOLDOWN out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.capture_turn_threshold >= 1
+			&& rules.capture_turn_threshold <= 255,
+		"CAPTURE_TURN_THRESHOLD out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.vision_lv1 >= 1 && rules.vision_lv1 <= 255,
+		"VISION_LV1 out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.vision_lv2 >= 1 && rules.vision_lv2 <= 255,
+		"VISION_LV2 out of range [1, 255]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.capacity_lv1 >= 1 && rules.capacity_lv1 <= 65535,
+		"CAPACITY_LV1 out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.capacity_lv2 >= 1 && rules.capacity_lv2 <= 65535,
+		"CAPACITY_LV2 out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.capacity_upgrade_cost >= 1
+			&& rules.capacity_upgrade_cost <= 65535,
+		"CAPACITY_UPGRADE_COST out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.vision_upgrade_cost >= 1 && rules.vision_upgrade_cost <= 65535,
+		"VISION_UPGRADE_COST out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.damage_upgrade_cost >= 1 && rules.damage_upgrade_cost <= 65535,
+		"DAMAGE_UPGRADE_COST out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.manufact_cost >= 1 && rules.manufact_cost <= 65535,
+		"MANUFACT_COST out of range [1, 65535]"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.capacity_lv2 >= rules.capacity_lv1,
+		"CAPACITY_LV2 must be >= CAPACITY_LV1"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		rules.vision_lv2 >= rules.vision_lv1, "VISION_LV2 must be >= VISION_LV1"
+	);
+}
 } // namespace
 
 Player::Player(std::uint16_t id) noexcept
@@ -85,6 +161,8 @@ World::World(Tilemap tilemap, GameRules rules) noexcept
 	, _rules(std::move(rules))
 	, _players{Player(1), Player(2)}
 	, _winner_player_id(0) {
+	validateGameRules(_rules);
+
 	// Initialize player base positions based on tilemap
 	// Find out top-left corner of each base and assign to players
 	bool base_found[2] = {false, false};

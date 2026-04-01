@@ -34,11 +34,31 @@ export function sampleReplayBytesWithPayload(payload: Uint8Array): Uint8Array {
 		u8(0b00010001, 0b00100110),
 	);
 
+	const game_rules = concatBytes(
+		leU16(2),
+		leU16(1),
+		leU16(1),
+		u8(100),
+		leU32(1),
+		leU16(25),
+		u8(3),
+		leU16(200),
+		leU16(1000),
+		u8(5),
+		u8(9),
+		leU16(400),
+		leU16(1000),
+		leU16(600),
+		leU16(500),
+		leU16(8),
+	);
+
 	const header = concatBytes(
 		u8(0x43, 0x52, 0x50, 0x4c),
-		leU16(4),
-		leU16(tilemap.length),
+		leU16(5),
+		leU16(tilemap.length + game_rules.length),
 		tilemap,
+		game_rules,
 	);
 
 	const log_entry = concatBytes(

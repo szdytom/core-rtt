@@ -166,7 +166,7 @@ async function resolveRustExampleExecutable(name: string, repo_root: string, ori
 
 export function getDefaultAliases(): Record<string, string> {
 	return {
-		dummy: 'corelib/test/dummy.elf',
+		dummy: 'corelib/example/dummy.elf',
 	};
 }
 

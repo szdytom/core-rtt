@@ -48,14 +48,16 @@ pub fn meta() -> Result<GameInfo> {
 		natural_energy_rate: 0,
 		resource_zone_energy_rate: 0,
 		attack_cooldown: 0,
+		capture_turn_threshold: 0,
+		vision_lv1: 0,
+		vision_lv2: 0,
 		capacity_lv1: 0,
 		capacity_lv2: 0,
-		capture_turn_threshold: 0,
 		capacity_upgrade_cost: 0,
 		vision_upgrade_cost: 0,
 		damage_upgrade_cost: 0,
 		manufact_cost: 0,
-		reserved: [0; 14],
+		reserved: [0; 10],
 	};
 	// SAFETY: `info` is a valid writable pointer.
 	let code = unsafe { syscall::meta((&mut info as *mut GameInfo).cast()) };

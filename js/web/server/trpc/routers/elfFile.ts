@@ -3,11 +3,11 @@ import z from 'zod';
 import { db } from '~~/server/db/db';
 import { makeId } from '~~/server/lib/makeId';
 import { getUploadUrl } from '~~/server/lib/s3';
-import { createTRPCRouter, protectedProcedure } from '~~/server/trpc/trpc';
+import { createTRPCRouter, rateLimitedProtectedProcedure } from '~~/server/trpc/trpc';
 import * as schema from '~~/server/db/schema';
 
 export const elfFileRouter = createTRPCRouter({
-  create: protectedProcedure
+  create: rateLimitedProtectedProcedure
     .input(z.object({
       fileName: z.string().optional(),
     }))

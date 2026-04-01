@@ -14,7 +14,7 @@ const { data: strategyGroups } = await $trpc.strategyGroup.listMine.useQuery();
       <h2 class="font-black text-lg underline underline-offset-8">
         Strategy Groups
       </h2>
-      <StrategiesGroupForm :strategies="strategies" />
+      <StrategiesGroupCreate :strategies="strategies" />
     </div>
 
     <StrategiesGroupList
@@ -25,7 +25,7 @@ const { data: strategyGroups } = await $trpc.strategyGroup.listMine.useQuery();
       <h2 class="font-black text-lg underline underline-offset-8">
         Strategies
       </h2>
-      <StrategiesForm />
+      <StrategiesCreate />
     </div>
 
     <div class="grid md:grid-cols-2 divide-y md:divide-x md:divide-y-0 divide-default border-default border-b">

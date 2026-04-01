@@ -5,7 +5,7 @@ import { z } from 'zod';
 dotenv.config({ path: '../.env', quiet: true });
 
 const envSchema = z.object({
-  DB_FILE_NAME: z.url(),
+  DB_FILE_NAME: z.string(),
 
   S3_SERVER_URL: z.string(),
   S3_ACCESS_KEY_ID: z.string(),
@@ -16,6 +16,9 @@ const envSchema = z.object({
 
   GITHUB_CLIENT_ID: z.string(),
   GITHUB_CLIENT_SECRET: z.string(),
+
+  RATE_LIMITER_WINDOW_MS: z.number().default(30 * 1000), // 30 seconds
+  RATE_LIMITER_MAX_REQUESTS: z.number().default(5),
 });
 
 const envParse = envSchema.safeParse(process.env);

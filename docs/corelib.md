@@ -154,7 +154,18 @@ struct GameInfo {
 	uint8_t map_width;
 	uint8_t map_height;
 	uint8_t base_size;
-	uint8_t reserved[13];
+	uint8_t unit_health;
+	uint8_t natural_energy_rate;
+	uint8_t resource_zone_energy_rate;
+	uint8_t attack_cooldown;
+	uint8_t capacity_lv1;
+	uint8_t capacity_lv2;
+	uint8_t capture_turn_threshold;
+	uint16_t capacity_upgrade_cost;
+	uint16_t vision_upgrade_cost;
+	uint16_t damage_upgrade_cost;
+	uint16_t manufact_cost;
+	uint8_t reserved[14];
 };
 
 struct DeviceInfo {

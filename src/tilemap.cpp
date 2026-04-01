@@ -424,8 +424,9 @@ void Tilemap::saveAsBinary(std::ostream &os) const {
 
 Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 	constexpr int min_map_size = 16;
-	constexpr int max_map_size = 1000;
-	constexpr int max_base_size = min_map_size / 2 - 1;
+	constexpr int max_map_size = 255;
+	constexpr int max_base_size = 8;
+	constexpr int min_base_size = 2;
 
 	if (config.width < min_map_size || config.height < min_map_size) {
 		throw std::runtime_error(
@@ -445,11 +446,11 @@ Tilemap Tilemap::generate(const TilemapGenerationConfig &config) {
 		);
 	}
 
-	if (config.base_size <= 0 || config.base_size > max_base_size) {
+	if (config.base_size < min_base_size || config.base_size > max_base_size) {
 		throw std::runtime_error(
 			std::format(
-				"Invalid base size {}: must be between 1 and {}",
-				config.base_size, max_base_size
+				"Invalid base size {}: must be between {} and {}",
+				config.base_size, min_base_size, max_base_size
 			)
 		);
 	}

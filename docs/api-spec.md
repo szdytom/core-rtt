@@ -415,7 +415,7 @@ The function returns 0 on success, or negative error code on failure.
 
 It is worth noting that a failed move attempt (due to obstacles, boundaries, etc.) is not considered as failing to invoke the function, i.e., the function will still return 0 in such cases.
 
-If the function is invoked multiple times in the same turn, only the last invocation takes effect. If the last invocation has an invalid direction, there will be no movement in the next turn.
+The function can only be invoked once per turn. Attempting to invoke `move` more than once in the same turn will result in an `ON_COOLDOWN` error. Only successful move invocations (i.e. calls that return 0) count towards the cooldown.
 
 The move will take effect in the turn after the current turn, that is, the move taken in turn T will be executed at the beginning of turn T+1.
 

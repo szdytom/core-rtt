@@ -55,7 +55,10 @@ async function onDeleteStrategyGroup() {
     class="group"
   >
     <template #body>
-      <div class="px-6 pt-6 pb-2">
+      <div
+        class="px-6 pt-6"
+        :class="[strategyGroup.ratingHistory.length > 0 ? 'pb-2' : 'pb-6']"
+      >
         <UBadge
           variant="subtle"
           class="font-bold mb-2"
@@ -149,6 +152,10 @@ async function onDeleteStrategyGroup() {
         </div>
       </div>
     </template>
-    <StrategiesRatingChart :show-x-axis="false" />
+    <StrategiesRatingChart
+      v-if="strategyGroup.ratingHistory.length > 0"
+      :show-x-axis="false"
+      :rating-history="strategyGroup.ratingHistory"
+    />
   </UPageCard>
 </template>

@@ -29,6 +29,13 @@ export const leaderboardRouter = createTRPCRouter({
               image: true,
             },
           },
+          ratingHistory: {
+            orderBy: [desc(schema.ratingHistory.createdAt)],
+            columns: {
+              rating: true,
+              createdAt: true,
+            },
+          },
         },
         limit: input.pageSize,
         offset: (input.page - 1) * input.pageSize,

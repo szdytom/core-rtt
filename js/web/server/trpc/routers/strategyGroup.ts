@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, ne, gte } from 'drizzle-orm';
 import { db } from '~~/server/db/db';
 import { createTRPCRouter, protectedProcedure } from '~~/server/trpc/trpc';
 import * as schema from '~~/server/db/schema';
@@ -26,6 +26,11 @@ export const strategyGroupRouter = createTRPCRouter({
       with: {
         strategyBase: true,
         strategyUnit: true,
+        ratingHistory: {
+          orderBy: [desc(schema.ratingHistory.createdAt)],
+          where: gte(schema.ratingHistory.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), // Last 30 days
+          columns: { rating: true, createdAt: true },
+        },
       },
       orderBy: [desc(schema.strategyGroup.rating)],
     });

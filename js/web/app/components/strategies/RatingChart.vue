@@ -4,13 +4,14 @@ import { VisXYContainer, VisLine, VisArea, VisCrosshair, VisTooltip, VisAxis } f
 const {
   showXAxis = false,
   noAnimation = false,
+  ratingHistory,
 } = defineProps<{
   showXAxis?: boolean;
   noAnimation?: boolean;
+  ratingHistory: { createdAt: Date; rating: number }[];
 }>();
 
-type DataRecord = { x: number; y: number };
-const data = ref<DataRecord[]>(Array.from({ length: 70 }, (_, i) => ({ x: i, y: Math.random() * 1000 + 1000 })));
+const data = computed(() => ratingHistory.map(r => ({ x: r.createdAt, y: r.rating })));
 
 const dataMin = computed(() => data.value.reduce((min, d) => Math.min(min, d.y), data.value[0]?.y || 0));
 const dataMax = computed(() => data.value.reduce((max, d) => Math.max(max, d.y), data.value[0]?.y || 0));
@@ -22,7 +23,8 @@ const svgDefs = `
     </linearGradient>
   `;
 
-const template = (d: DataRecord) => `${d.x}: ${d.y}`;
+type DataPoint = { x: Date; y: number };
+const template = (d: DataPoint) => `${d.x.toLocaleDateString()}: ${d.y}`;
 </script>
 
 <template>
@@ -34,16 +36,16 @@ const template = (d: DataRecord) => `${d.x}: ${d.y}`;
       class="h-30"
     >
       <VisLine
-        :x="(d: any) => d.x"
-        :y="(d: any) => d.y"
+        :x="(d: DataPoint) => d.x"
+        :y="(d: DataPoint) => d.y"
         color="var(--ui-primary)"
         :line-width="1"
         :duration="noAnimation ? 0 : 600"
       />
 
       <VisArea
-        :x="(d: any) => d.x"
-        :y="(d: any) => d.y"
+        :x="(d: DataPoint) => d.x"
+        :y="(d: DataPoint) => d.y"
         color="url(#gradient)"
         :duration="noAnimation ? 0 : 600"
       />
@@ -51,6 +53,7 @@ const template = (d: DataRecord) => `${d.x}: ${d.y}`;
       <VisAxis
         v-if="showXAxis"
         type="x"
+        :tick-format="(x: Date) => new Date(x).toLocaleDateString()"
       />
 
       <VisCrosshair

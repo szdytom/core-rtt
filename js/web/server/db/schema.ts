@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, real } from 'drizzle-orm/sqlite-core';
 import { makeId } from '../lib/makeId';
 
 export const strategy = sqliteTable('strategy', {
@@ -50,7 +50,7 @@ export const strategyGroup = sqliteTable('strategy_group', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  rating: integer('rating').default(1500).notNull(),
+  rating: real('rating').default(1500).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -65,7 +65,7 @@ export const ratingHistory = sqliteTable('rating_history', {
   strategyGroupId: text('strategy_group_id')
     .notNull()
     .references(() => strategyGroup.id, { onDelete: 'cascade' }),
-  rating: integer('rating').notNull(),
+  rating: real('rating').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),

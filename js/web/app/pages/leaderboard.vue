@@ -99,11 +99,11 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
     >
       <template #expanded="{ row }">
         <StrategiesRatingChart
+          :rating-history="row.original.ratingHistory"
           show-x-axis
           no-animation
         />
         <span>TODO: show matches</span>
-        <pre>{{ row.original }}</pre>
       </template>
     </UTable>
 

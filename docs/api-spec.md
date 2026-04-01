@@ -1,6 +1,6 @@
 # Core RTT API Specification
 
-Version: 0.1
+Version: 0.2
 
 ## Scope
 
@@ -24,13 +24,17 @@ The program should never return from the `_start` function. The behavior is unde
 
 ## Memory
 
-The sandbox provides a mapped memory space for the player's program. The memory is byte-addressable and has a maximum size of 128KB. The memory is divided into pages of 4KB each.
+The sandbox provides a mapped memory space for the player's program. The memory is byte-addressable and has a maximum size of 264KB. The memory is divided into pages of 4KB each.
 
-The memory limit includes both the code and data of the program. Page over 0x0 is allocated but disabled for catching null pointer dereference. So please do expect that the actual memory available to the program is less than 128KB.
+The memory limit includes both the code and data of the program. So please do expect that the actual memory available to the program is less than 264KB.
 
-The memory is divided into two regions: the flat quick-access region and the paged region. The flat quick-access region is a contiguous memory region of 64KB starting from address 0x10000. The paged region can be located anywhere in the memory.
+The memory is divided into two regions: the flat quick-access region and the paged region. The flat quick-access region is a contiguous memory region of 128KB starting from address 0x10000. The paged region can be located anywhere in the memory.
 
-Accessing an address outside of the flat region will be automatically handled by the page fault mechanism, which allocates a new page and maps it to the faulting address. There can be up to 64KB or 16 pages of memory used for the paged region.
+Accessing an address outside of the flat region will be automatically handled by the page fault mechanism, which allocates a new page and maps it to the faulting address. There can be up to 136KB or 34 pages of memory used for the paged region.
+
+There are three permission bits for each page: READ, WRITE and EXECUTE. The pages permissions are defined by the player's ELF binary. The newly allocated pages for the paged region have all permissions enabled by default.
+
+The memory page at 0x0 is automatically allocated but marked as inaccessible (no READ, WRITE or EXECUTE permissions). This page is used to catch null pointer dereferences. Any access to this page will result in a crash of the program.
 
 The runtime provides environment calls for memory allocation and management. These calls can usually be more memory efficient than implementing memory management in the program itself, as they store the metadata of allocated memory externally in the runtime instead of in the program's memory. Each of these calls has a instruction penalty of 2000, which can be larger than a memory management implementation in the program itself, if done efficiently. Therefore, players can choose to use the provided memory management calls or implement their own memory management scheme based on their needs.
 
@@ -101,7 +105,7 @@ In addition to the single-call length limit, each runtime instance has a log quo
 
 Quota is tracked independently per runtime instance (base and each unit have separate budgets).
 
-It is recommended to output ASCII strings only, as non-ASCII characters may not be displayed properly in the game log. The string can but not necessarily be null-terminated, as the length is explicitly provided.
+It is recommended to output ASCII strings only, as non-ASCII characters may not be displayed properly in the game log. The string can be, but is not necessarily, null-terminated, as the length is explicitly provided.
 
 **Availability**: Base runtime and Unit runtime.
 
@@ -118,7 +122,18 @@ struct GameInfo {
 	uint8_t map_width;
 	uint8_t map_height;
 	uint8_t base_size;
-	uint8_t reserved[13];
+	uint8_t unit_health;
+	uint8_t natural_energy_rate;
+	uint8_t resource_zone_energy_rate;
+	uint8_t attack_cooldown;
+	uint8_t capacity_lv1;
+	uint8_t capacity_lv2;
+	uint8_t capture_turn_threshold;
+	uint16_t capacity_upgrade_cost;
+	uint16_t vision_upgrade_cost;
+	uint16_t damage_upgrade_cost;
+	uint16_t manufact_cost;
+	uint8_t reserved[14];
 };
 
 int meta(struct GameInfo* info);
@@ -131,6 +146,17 @@ Retrieves the gamerule and meta information of the current game and saves it to 
 - `map_width`: the width of the map in tiles.
 - `map_height`: the height of the map in tiles.
 - `base_size`: the size of the base in tiles (the base is a square area of `base_size` x `base_size` tiles).
+- `unit_health`: the initial and newly repaired health points of a unit.
+- `natural_energy_rate`: the number of turns required for a unit to naturally gain 1 energy.
+- `resource_zone_energy_rate`: the amount of energy a unit gains per turn when inside a resource zone.
+- `attack_cooldown`: the number of turns a unit must wait after attacking before it can attack again.
+- `capacity_lv1`: the carry capacity of a unit before the capacity upgrade.
+- `capacity_lv2`: the carry capacity of a unit after the capacity upgrade.
+- `capture_turn_threshold`: the number of consecutive turns required for a base to be captured.
+- `capacity_upgrade_cost`: the energy cost for the capacity upgrade.
+- `vision_upgrade_cost`: the energy cost for the vision upgrade.
+- `damage_upgrade_cost`: the energy cost for the damage upgrade.
+- `manufact_cost`: the energy cost for manufacturing a new unit.
 - `reserved`: reserved for future use and should be ignored.
 
 The function returns 0 on success. It will fail if the pointer cannot be written to with error `INVALID_POINTER`.
@@ -201,9 +227,9 @@ int read_sensor(struct SensorData data[]);
 
 **Description**:
 
-Reads the sensor data of surrounding tiles and saves it to the provided `data` array. Each element in the `data` array corresponds to a tile in the visible area of the device. The function returns 0 on success, or fail with `INVALID_POINTER` if the pointer cannot be written to.
+Reads the sensor data of surrounding tiles and saves it to the provided `data` array. Each element in the `data` array corresponds to a tile in the visible area of the device. The function returns a non-negative integer representing the number of tiles successfully read on success, or a negative error code on failure (e.g., invalid pointer).
 
-The `data` array should have a size of 25 for base and units without vision upgrade, or 81 for units with vision upgrade. The tiles are ordered in row-major order, centered on the current device.
+The `data` array should have at least BASE_SIZE × BASE_SIZE elements for base runtime. For unit runtime, the `data` array should have at least 9 × 9 elements if the unit has vision upgrade, or at least 5 × 5 elements otherwise.
 
 All fields in `SensorData` are only valid if `visible` is true. Otherwise, they should be ignored. The `alliance_unit` field is only valid if `has_unit` is true.
 
@@ -229,7 +255,7 @@ Receives a message from the message queue of at most `n` bytes and saves it to t
 
 If the size of the message in the queue is greater than `n`, only the first `n` bytes are received, and the remaining bytes are discarded.
 
-The length `n` must be non-negative. The `buf` pointer will not be dereferenced if `n` is zero, i.e. `receive_msg(nullptr, 0);` is a valid call to skip a message in the queue without writing to any buffer.
+The length `n` must be non-negative. The `buf` pointer will not be dereferenced if `n` is zero, i.e. `recv_msg(nullptr, 0);` is a valid call to skip a message in the queue without writing to any buffer.
 
 If the length `n` is negative, the call will fail with error `OUT_OF_RANGE`. If the pointer is cannot be written to, the call will fail with error `INVALID_POINTER`.
 
@@ -263,7 +289,7 @@ It is worth noting that messages sent in the same turn will be received in the n
 
 **Instruction Penalty**: 0
 
-### Position Infomation
+### Position Information
 
 **Call Number**: 0x15
 
@@ -384,7 +410,7 @@ The function returns 0 on success, or negative error code on failure (e.g., insu
 
 The `power` parameter specifies the energy cost of firing the bullet. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`. If the `direction` is not one of the above values, the call will fail with error `OUT_OF_RANGE`.
 
-The function can only be invoked once per turn. Furthermore, within the same turn and the next 2 turns after a successful fire, the unit cannot fire another bullet. Attempting to fire a bullet during the cooldown period will result in an `ON_COOLDOWN` error.
+The function can only be invoked once per turn. Furthermore, within the same turn and the next ATTACK_COOLDOWN - 1 turns after a successful fire, the unit cannot fire another bullet. Attempting to fire a bullet during the cooldown period will result in an `ON_COOLDOWN` error.
 
 **Availability**: Unit runtime only.
 
@@ -439,7 +465,7 @@ Deposits the specified `amount` of energy from the unit to the base. The functio
 
 The `amount` must be positive. If the `amount` is not positive, the call will fail with error `OUT_OF_RANGE`. If the unit does not have enough energy, the call will fail with error `INSUFFICIENT_ENERGY`. Energy can only be deposited when the unit is in the base area, otherwise the call will fail with error `INVALID_UNIT`.
 
-The function can only be invoked once per turn (only successful deposit attempts count). Futhermore, one unit can only invoke either `deposit` or `withdraw` in the same turn. Attempting to invoke `deposit` twice in the same turn, or invoking `deposit` after a successful invocation of `withdraw` in the same turn, will result in an `ON_COOLDOWN` error.
+The function can only be invoked once per turn (only successful deposit attempts count). Furthermore, one unit can only invoke either `deposit` or `withdraw` in the same turn. Attempting to invoke `deposit` twice in the same turn, or invoking `deposit` after a successful invocation of `withdraw` in the same turn, will result in an `ON_COOLDOWN` error.
 
 **Availability**: Unit runtime only.
 

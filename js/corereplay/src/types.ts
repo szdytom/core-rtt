@@ -14,11 +14,31 @@ export interface ReplayTilemap {
 	tiles: ReplayTile[];
 }
 
+export interface ReplayGameRules {
+	width: number;
+	height: number;
+	baseSize: number;
+	unitHealth: number;
+	naturalEnergyRate: number;
+	resourceZoneEnergyRate: number;
+	attackCooldown: number;
+	capacityLv1: number;
+	capacityLv2: number;
+	visionLv1: number;
+	visionLv2: number;
+	capacityUpgradeCost: number;
+	visionUpgradeCost: number;
+	damageUpgradeCost: number;
+	manufactCost: number;
+	captureTurnThreshold: number;
+}
+
 export interface ReplayHeader {
 	magic: 'CRPL';
-	version: 4;
+	version: 4 | 5;
 	headerSize: number;
 	tilemap: ReplayTilemap;
+	gameRules: ReplayGameRules;
 }
 
 export interface ReplayPlayer {

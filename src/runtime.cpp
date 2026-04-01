@@ -133,7 +133,7 @@ void ecall_read_sensor(RVMachine &machine) {
 
 	if (ctx->unit) {
 		auto unit = ctx->unit;
-		range = unit->visionRange();
+		range = unit->visionRange(ctx->world->rules());
 		topleft_x = unit->x - range / 2;
 		topleft_y = unit->y - range / 2;
 	} else {
@@ -354,7 +354,7 @@ void ecall_fire(RVMachine &machine) {
 		.damage = static_cast<health_t>(damage),
 		.direction = dir,
 	};
-	ctx->unit->attack_cooldown = 3;
+	ctx->unit->attack_cooldown = ctx->world->rules().attack_cooldown;
 	machine.set_result(ActionResult::OK);
 }
 
@@ -453,8 +453,8 @@ void ecall_withdraw(RVMachine &machine) {
 	}
 
 	auto value = ctx->unit->energy + amount;
-	if (value > ctx->unit->maxCapacity()) {
-		value = ctx->unit->maxCapacity();
+	if (value > ctx->unit->maxCapacity(ctx->world->rules())) {
+		value = ctx->unit->maxCapacity(ctx->world->rules());
 	}
 	ctx->unit->energy = value;
 	// COCURRENT LOCKME

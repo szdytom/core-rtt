@@ -26,7 +26,8 @@ namespace {
 constexpr std::array<std::byte, 4> replay_magic = {
 	std::byte{'C'}, std::byte{'R'}, std::byte{'P'}, std::byte{'L'}
 };
-constexpr std::uint16_t replay_version = 4;
+constexpr std::uint16_t replay_version = 5;
+constexpr std::uint16_t replay_version_legacy = 4;
 
 DecodeErrorCode formatError(DecodeErrorCode code) noexcept {
 	return code;
@@ -38,6 +39,10 @@ std::size_t tileCount(const ReplayTilemap &tilemap) noexcept {
 
 std::size_t tilemapEncodedSize(const ReplayTilemap &tilemap) noexcept {
 	return 8 + tileCount(tilemap);
+}
+
+constexpr std::size_t gamerulesEncodedSize() noexcept {
+	return 2 + 2 + 2 + 1 + 4 + 2 + 1 + 2 + 2 + 1 + 1 + 2 + 2 + 2 + 2 + 2;
 }
 
 void encodeTilemap(WriteBuffer &writer, const ReplayTilemap &tilemap) {
@@ -90,6 +95,51 @@ DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 		tilemap.tiles.push_back(TileFlags::unpack(reader.readU8()));
 	}
 	return tilemap;
+}
+
+void encodeGameRules(WriteBuffer &writer, const ReplayGameRules &game_rules) {
+	writer.write(
+		game_rules.width, game_rules.height, game_rules.base_size,
+		game_rules.unit_health, game_rules.natural_energy_rate,
+		game_rules.resource_zone_energy_rate, game_rules.attack_cooldown,
+		game_rules.capacity_lv1, game_rules.capacity_lv2, game_rules.vision_lv1,
+		game_rules.vision_lv2, game_rules.capacity_upgrade_cost,
+		game_rules.vision_upgrade_cost, game_rules.damage_upgrade_cost,
+		game_rules.manufact_cost, game_rules.capture_turn_threshold
+	);
+}
+
+DecodeResult<ReplayGameRules> decodeGameRules(ReadBuffer &reader) {
+	ReplayGameRules game_rules;
+	constexpr std::size_t encoded_size = gamerulesEncodedSize();
+	if (!reader.has(encoded_size)) {
+		return std::unexpected(
+			formatError(DecodeErrorCode::TruncatedHeaderPayload)
+		);
+	}
+
+	game_rules.width = reader.readU16();
+	game_rules.height = reader.readU16();
+	game_rules.base_size = reader.readU16();
+	game_rules.unit_health = reader.readU8();
+	game_rules.natural_energy_rate = reader.readU32();
+	game_rules.resource_zone_energy_rate = reader.readU16();
+	game_rules.attack_cooldown = reader.readU8();
+	game_rules.capacity_lv1 = reader.readU16();
+	game_rules.capacity_lv2 = reader.readU16();
+	game_rules.vision_lv1 = reader.readU8();
+	game_rules.vision_lv2 = reader.readU8();
+	game_rules.capacity_upgrade_cost = reader.readU16();
+	game_rules.vision_upgrade_cost = reader.readU16();
+	game_rules.damage_upgrade_cost = reader.readU16();
+	game_rules.manufact_cost = reader.readU16();
+	game_rules.capture_turn_threshold = reader.readU16();
+
+	return game_rules;
+}
+
+ReplayGameRules makeDefaultReplayGameRules() {
+	return ReplayGameRules{};
 }
 
 void encodeLogEntry(WriteBuffer &writer, const ReplayLogEntry &entry) {
@@ -312,7 +362,8 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 
 void encodeReplayHeader(WriteBuffer &writer, const ReplayHeader &header) {
 	writer.writeBytes(replay_magic);
-	const auto header_size = tilemapEncodedSize(header.tilemap);
+	const auto header_size = tilemapEncodedSize(header.tilemap)
+		+ gamerulesEncodedSize();
 	if (header_size > std::numeric_limits<std::uint16_t>::max()) {
 		CR_FAIL_FAST_ASSERT_LIGHT(
 			false, "Replay encode failed: header payload too large"
@@ -321,6 +372,7 @@ void encodeReplayHeader(WriteBuffer &writer, const ReplayHeader &header) {
 	writer.write(header.version);
 	writer.writeU16(header_size);
 	encodeTilemap(writer, header.tilemap);
+	encodeGameRules(writer, header.game_rules);
 }
 
 void encodeReplayEndMarker(
@@ -386,7 +438,8 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	ReplayHeader header;
 	header.version = reader.readU16();
 	const auto header_size = reader.readU16();
-	if (header.version != replay_version) {
+	if (header.version != replay_version
+	    && header.version != replay_version_legacy) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::UnsupportedVersion)
 		);
@@ -404,6 +457,20 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 		return std::unexpected(tilemap.error());
 	}
 	header.tilemap = std::move(*tilemap);
+
+	if (header.version == replay_version) {
+		auto game_rules = decodeGameRules(header_reader);
+		if (!game_rules.has_value()) {
+			return std::unexpected(game_rules.error());
+		}
+		header.game_rules = std::move(*game_rules);
+	} else {
+		header.game_rules = makeDefaultReplayGameRules();
+		header.game_rules.width = header.tilemap.width;
+		header.game_rules.height = header.tilemap.height;
+		header.game_rules.base_size = header.tilemap.base_size;
+	}
+
 	return header;
 }
 
@@ -631,10 +698,28 @@ ReplayHeader ReplayHeader::fromWorld(const World &world) {
 	ReplayHeader header;
 	header.version = replay_version;
 	const auto &tilemap = world.tilemap();
+	const auto &rules = world.rules();
 	header.tilemap.width = tilemap.width();
 	header.tilemap.height = tilemap.height();
 	header.tilemap.base_size = tilemap.baseSize();
 	header.tilemap.tiles.reserve(tilemap.width() * tilemap.height());
+	header.game_rules.width = rules.width;
+	header.game_rules.height = rules.height;
+	header.game_rules.base_size = rules.base_size;
+	header.game_rules.unit_health = rules.unit_health;
+	header.game_rules.natural_energy_rate = rules.natural_energy_rate;
+	header.game_rules
+		.resource_zone_energy_rate = rules.resource_zone_energy_rate;
+	header.game_rules.attack_cooldown = rules.attack_cooldown;
+	header.game_rules.capacity_lv1 = rules.capacity_lv1;
+	header.game_rules.capacity_lv2 = rules.capacity_lv2;
+	header.game_rules.vision_lv1 = rules.vision_lv1;
+	header.game_rules.vision_lv2 = rules.vision_lv2;
+	header.game_rules.capacity_upgrade_cost = rules.capacity_upgrade_cost;
+	header.game_rules.vision_upgrade_cost = rules.vision_upgrade_cost;
+	header.game_rules.damage_upgrade_cost = rules.damage_upgrade_cost;
+	header.game_rules.manufact_cost = rules.manufact_cost;
+	header.game_rules.capture_turn_threshold = rules.capture_turn_threshold;
 
 	for (int y = 0; y < tilemap.height(); ++y) {
 		for (int x = 0; x < tilemap.width(); ++x) {

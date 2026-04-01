@@ -8,6 +8,8 @@
 
 namespace cr {
 
+struct GameRules;
+
 using pos_t = std::int16_t;
 using energy_t = std::uint16_t;
 using health_t = std::uint8_t;
@@ -32,7 +34,7 @@ struct Upgrades {
 };
 
 struct Unit {
-	static constexpr health_t MAX_HEALTH = 100;
+	static constexpr health_t DEFAULT_MAX_HEALTH = 100;
 
 	std::uint8_t id;        // 1-max_units
 	std::uint8_t player_id; // 1 or 2
@@ -50,10 +52,14 @@ struct Unit {
 	} pending_attack;
 
 	Unit() noexcept = default;
-	Unit(std::uint8_t id, std::uint8_t player_id, pos_t x, pos_t y) noexcept;
+	Unit(
+		std::uint8_t id, std::uint8_t player_id, pos_t x, pos_t y,
+		health_t initial_health
+	) noexcept;
 
-	energy_t maxCapacity() const noexcept;
-	int visionRange() const noexcept;
+	energy_t maxCapacity(const GameRules &rules) const noexcept;
+	int visionRange(const GameRules &rules) const noexcept;
+	health_t maxHealth(const GameRules &rules) const noexcept;
 	bool canAttack() const noexcept;
 
 	void step(World &world, Player &player) noexcept;

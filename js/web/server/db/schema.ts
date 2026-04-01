@@ -1,6 +1,7 @@
 import { relations, sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, index, real } from 'drizzle-orm/sqlite-core';
 import { makeId } from '../lib/makeId';
+import { env } from '../env';
 
 export const strategy = sqliteTable('strategy', {
   id: text('id').primaryKey().$default(() => makeId()),
@@ -50,7 +51,12 @@ export const strategyGroup = sqliteTable('strategy_group', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  rating: real('rating').default(1500).notNull(),
+  rating: real('rating')
+    .notNull().default(env.GLICKO2_RATING_DEFAULT),
+  ratingDeviation: real('rating_deviation')
+    .notNull().default(env.GLICKO2_RATING_DEVIATION_DEFAULT),
+  volatility: real('volatility')
+    .notNull().default(env.GLICKO2_VOLATILITY_DEFAULT),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -66,6 +72,8 @@ export const ratingHistory = sqliteTable('rating_history', {
     .notNull()
     .references(() => strategyGroup.id, { onDelete: 'cascade' }),
   rating: real('rating').notNull(),
+  ratingDeviation: real('rating_deviation').notNull(),
+  volatility: real('volatility').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -79,15 +87,19 @@ export const match = sqliteTable('match', {
   strategyGroupBId: text('strategy_group_b_id')
     .notNull()
     .references(() => strategyGroup.id, { onDelete: 'cascade' }),
-  status: text('status', { enum: ['pending', 'running', 'completed'] }).notNull(),
+  type: text('type', { enum: ['rated', 'friendly'] }).notNull().default('friendly'),
+  status: text('status', { enum: ['pending', 'running', 'finished', 'polluted', 'timeout', 'crashed', 'rejected', 'ignored'] }).notNull(),
+  result: text('result', { enum: ['AWin', 'BWin', 'draw', 'no-result'] }).default('no-result').notNull(),
+  workerLog: text('worker_log'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
+  finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
 });
 
 export const replayFile = sqliteTable('replay_file', {
   id: text('id').primaryKey().$default(() => makeId()),
-  filename: text('filename').notNull(),
+  filename: text('filename'),
   s3FileId: text('s3_file_id').notNull(),
   matchId: text('match_id')
     .notNull()
@@ -240,6 +252,12 @@ export const strategyGroupRelations = relations(strategyGroup, ({ one, many }) =
     references: [strategy.id],
   }),
   ratingHistory: many(ratingHistory),
+  matchesAsA: many(match, {
+    relationName: 'strategyGroupA',
+  }),
+  matchesAsB: many(match, {
+    relationName: 'strategyGroupB',
+  }),
 }));
 
 export const ratingHistoryRelations = relations(ratingHistory, ({ one }) => ({
@@ -251,10 +269,12 @@ export const ratingHistoryRelations = relations(ratingHistory, ({ one }) => ({
 
 export const matchRelations = relations(match, ({ one }) => ({
   strategyGroupA: one(strategyGroup, {
+    relationName: 'strategyGroupA',
     fields: [match.strategyGroupAId],
     references: [strategyGroup.id],
   }),
   strategyGroupB: one(strategyGroup, {
+    relationName: 'strategyGroupB',
     fields: [match.strategyGroupBId],
     references: [strategyGroup.id],
   }),

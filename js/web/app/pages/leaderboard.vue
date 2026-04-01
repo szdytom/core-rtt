@@ -36,6 +36,21 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
   {
     accessorKey: 'rating',
     header: 'Rating',
+    meta: {
+      class: {
+        td: 'text-highlighted',
+      },
+    },
+    cell: ({ row }) => {
+      return h('div', { class: 'font-mono' }, [
+        h('span', { class: 'font-bold' }, [
+          row.original.rating.toFixed(0),
+        ]),
+        h('span', { class: 'text-sm text-muted' }, [
+          ` ± ${row.original.ratingDeviation.toFixed(0)}`,
+        ]),
+      ]);
+    },
   },
   {
     accessorKey: 'name',
@@ -99,11 +114,11 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
     >
       <template #expanded="{ row }">
         <StrategiesRatingChart
+          v-if="row.original.ratingHistory.length > 0"
           :rating-history="row.original.ratingHistory"
           show-x-axis
           no-animation
         />
-        <span>TODO: show matches</span>
       </template>
     </UTable>
 

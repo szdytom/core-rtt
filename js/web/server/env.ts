@@ -19,6 +19,11 @@ const envSchema = z.object({
 
   RATE_LIMITER_WINDOW_MS: z.number().default(30 * 1000), // 30 seconds
   RATE_LIMITER_MAX_REQUESTS: z.number().default(5),
+
+  GLICKO2_RATING_DEFAULT: z.number().default(1500),
+  GLICKO2_RATING_DEVIATION_DEFAULT: z.number().default(350),
+  GLICKO2_VOLATILITY_DEFAULT: z.number().default(0.06),
+  GLICKO2_LEADERBOARD_ENTRY_MAX_DEVIATION: z.number().default(100),
 });
 
 const envParse = envSchema.safeParse(process.env);

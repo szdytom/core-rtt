@@ -1,9 +1,10 @@
-import { count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, lt } from 'drizzle-orm';
 import z from 'zod';
 import { db } from '~~/server/db/db';
 import { createTRPCRouter, publicProcedure } from '~~/server/trpc/trpc';
 
 import * as schema from '~~/server/db/schema';
+import { env } from '~~/server/env';
 
 export const leaderboardRouter = createTRPCRouter({
   get: publicProcedure
@@ -16,11 +17,15 @@ export const leaderboardRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const leaderboard = await db.query.strategyGroup.findMany({
         orderBy: [desc(schema.strategyGroup.rating)],
-        where: eq(schema.strategyGroup.status, 'normal'),
+        where: and(
+          eq(schema.strategyGroup.status, 'normal'),
+          lt(schema.strategyGroup.ratingDeviation, env.GLICKO2_LEADERBOARD_ENTRY_MAX_DEVIATION),
+        ),
         columns: {
           id: true,
           name: true,
           rating: true,
+          ratingDeviation: true,
         },
         with: {
           user: {

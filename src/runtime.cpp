@@ -7,6 +7,7 @@
 #include <bit>
 #include <libriscv/common.hpp>
 #include <libriscv/types.hpp>
+#include <limits>
 #include <memory>
 #include <print>
 
@@ -19,6 +20,26 @@ RuntimeECallContext *check_userdata(RVMachine &machine) {
 	CR_FAIL_FAST_ASSERT_LIGHT(ctx != nullptr, "userdata is null");
 	CR_FAIL_FAST_ASSERT_LIGHT(ctx->world != nullptr, "world pointer is null");
 	return ctx;
+}
+
+std::uint8_t clampToU8(int value) noexcept {
+	if (value < 0) {
+		return 0;
+	}
+	if (value > std::numeric_limits<std::uint8_t>::max()) {
+		return std::numeric_limits<std::uint8_t>::max();
+	}
+	return value;
+}
+
+std::uint16_t clampToU16(int value) noexcept {
+	if (value < 0) {
+		return 0;
+	}
+	if (value > std::numeric_limits<std::uint16_t>::max()) {
+		return std::numeric_limits<std::uint16_t>::max();
+	}
+	return value;
 }
 
 void ecall_ebreak(RVMachine &machine) {}
@@ -62,19 +83,40 @@ void ecall_log(RVMachine &machine) {
 
 void ecall_meta(RVMachine &machine) {
 	auto ctx = check_userdata(machine);
+	const auto &rules = ctx->world->rules();
 	struct GameInfo {
 		std::uint8_t map_width;
 		std::uint8_t map_height;
 		std::uint8_t base_size;
-		std::uint8_t reserved[13];
+		std::uint8_t unit_health;
+		std::uint8_t natural_energy_rate;
+		std::uint8_t resource_zone_energy_rate;
+		std::uint8_t attack_cooldown;
+		std::uint8_t capacity_lv1;
+		std::uint8_t capacity_lv2;
+		std::uint8_t capture_turn_threshold;
+		std::uint16_t capacity_upgrade_cost;
+		std::uint16_t vision_upgrade_cost;
+		std::uint16_t damage_upgrade_cost;
+		std::uint16_t manufact_cost;
+		std::uint8_t reserved[14];
 	};
-	static_assert(sizeof(GameInfo) == 16, "GameInfo must be 16 bytes");
+	static_assert(sizeof(GameInfo) == 32, "GameInfo must be 32 bytes");
 	GameInfo info{};
-	info.map_width = static_cast<std::uint8_t>(ctx->world->width());
-	info.map_height = static_cast<std::uint8_t>(ctx->world->height());
-	info.base_size = static_cast<std::uint8_t>(
-		ctx->world->tilemap().baseSize()
-	);
+	info.map_width = clampToU8(rules.width);
+	info.map_height = clampToU8(rules.height);
+	info.base_size = clampToU8(rules.base_size);
+	info.unit_health = rules.unit_health;
+	info.natural_energy_rate = clampToU8(rules.natural_energy_rate);
+	info.resource_zone_energy_rate = clampToU8(rules.resource_zone_energy_rate);
+	info.attack_cooldown = rules.attack_cooldown;
+	info.capacity_lv1 = clampToU8(rules.capacity_lv1);
+	info.capacity_lv2 = clampToU8(rules.capacity_lv2);
+	info.capture_turn_threshold = clampToU8(rules.capture_turn_threshold);
+	info.capacity_upgrade_cost = clampToU16(rules.capacity_upgrade_cost);
+	info.vision_upgrade_cost = clampToU16(rules.vision_upgrade_cost);
+	info.damage_upgrade_cost = clampToU16(rules.damage_upgrade_cost);
+	info.manufact_cost = clampToU16(rules.manufact_cost);
 	try {
 		auto [ptr] = machine.sysargs<RVMachine::address_t>();
 		machine.copy_to_guest(ptr, &info, sizeof(info));

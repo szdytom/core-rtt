@@ -421,10 +421,21 @@ int recv_msg(uint8_t *data, int max_len);
 uint32_t rand(void);
 
 struct GameInfo {
-	uint8_t map_width;    // width of the map in tiles
-	uint8_t map_height;   // height of the map in tiles
-	uint8_t base_size;    // side length of the square base area in tiles
-	uint8_t reserved[13]; // reserved for future use
+	uint8_t map_width;                 // width of the map in tiles
+	uint8_t map_height;                // height of the map in tiles
+	uint8_t base_size;                 // side length of the square base area
+	uint8_t unit_health;               // initial and repaired unit health
+	uint8_t natural_energy_rate;       // turns required for natural +1 energy
+	uint8_t resource_zone_energy_rate; // per-turn resource zone energy gain
+	uint8_t attack_cooldown;           // turns required between attacks
+	uint8_t capacity_lv1;              // unit capacity before capacity upgrade
+	uint8_t capacity_lv2;              // unit capacity after capacity upgrade
+	uint8_t capture_turn_threshold;    // turns required for base capture
+	uint16_t capacity_upgrade_cost;    // energy cost of capacity upgrade
+	uint16_t vision_upgrade_cost;      // energy cost of vision upgrade
+	uint16_t damage_upgrade_cost;      // energy cost of damage upgrade
+	uint16_t manufact_cost;            // energy cost of manufacturing unit
+	uint8_t reserved[14];              // reserved for future use
 };
 
 /**

@@ -12,8 +12,6 @@
 
 namespace cr {
 
-constexpr int base_capture_threshold = 8;
-
 namespace {
 std::pair<pos_t, pos_t> getDirectionOffset(Direction dir) noexcept {
 	switch (dir) {
@@ -81,9 +79,10 @@ void Player::step(World &world) noexcept {
 	}
 }
 
-World::World(Tilemap tilemap) noexcept
+World::World(Tilemap tilemap, GameRules rules) noexcept
 	: tick(0)
 	, _tilemap(std::move(tilemap))
+	, _rules(std::move(rules))
 	, _players{Player(1), Player(2)}
 	, _winner_player_id(0) {
 	// Initialize player base positions based on tilemap
@@ -498,6 +497,8 @@ void World::_checkBaseCaptureCondition() noexcept {
 		}
 	}
 
+	const int base_capture_threshold = _rules.capture_turn_threshold;
+
 	if (_players[0].base_capture_counter == base_capture_threshold
 	    && _players[1].base_capture_counter == base_capture_threshold) {
 		// Simultaneous capture, match continues
@@ -525,17 +526,19 @@ void World::_collectEnergy() noexcept {
 			continue;
 		}
 
-		// Base energy collection: 1 per turn
-		energy_t gained = 1;
+		energy_t gained = 0;
+		if (_rules.natural_energy_rate != 0
+		    && currentTick() % _rules.natural_energy_rate == 0) {
+			gained += 1;
+		}
 
-		// Resource zone bonus: 25 per turn
 		auto tile = _tilemap.tileOf(unit->x, unit->y);
 		if (tile.is_resource) {
-			gained += 25;
+			gained += _rules.resource_zone_energy_rate;
 		}
 
 		unit->energy = std::min<energy_t>(
-			unit->energy + gained, unit->maxCapacity()
+			unit->energy + gained, unit->maxCapacity(_rules)
 		);
 	}
 }
@@ -545,7 +548,7 @@ ActionResult World::manufactureUnit(
 ) noexcept {
 	auto &player = _players[player_id - 1];
 
-	constexpr energy_t manufacture_cost = 500;
+	const energy_t manufacture_cost = _rules.manufact_cost;
 	if (player.base_energy < manufacture_cost) {
 		return ActionResult::INSUFFICIENT_ENERGY;
 	}
@@ -598,7 +601,9 @@ void World::_spawnUnitAtBase(std::uint8_t player_id, std::uint8_t unit_id) {
 void World::_spawnUnit(
 	std::uint8_t player_id, std::uint8_t unit_id, pos_t x, pos_t y
 ) noexcept {
-	auto new_unit = std::make_unique<Unit>(unit_id, player_id, x, y);
+	auto new_unit = std::make_unique<Unit>(
+		unit_id, player_id, x, y, _rules.unit_health
+	);
 
 	auto &tile = _tilemap.tileOf(x, y);
 	tile.unit_ptr = new_unit.get();
@@ -632,7 +637,8 @@ ActionResult World::repairUnit(
 	}
 
 	// Calculate repair cost
-	health_t missing_health = Unit::MAX_HEALTH - unit->health;
+	health_t max_health = unit->maxHealth(_rules);
+	health_t missing_health = max_health - unit->health;
 	if (missing_health == 0) {
 		return ActionResult::INVALID_UNIT; // No repair needed
 	}
@@ -644,7 +650,7 @@ ActionResult World::repairUnit(
 
 	// Perform repair
 	player.base_energy -= repair_cost;
-	unit->health = Unit::MAX_HEALTH;
+	unit->health = max_health;
 	return ActionResult::OK;
 }
 
@@ -672,15 +678,15 @@ ActionResult World::upgradeUnit(
 
 	switch (type) {
 	case UpgradeType::Capacity:
-		cost = 400;
+		cost = _rules.capacity_upgrade_cost;
 		already_upgraded = unit->upgrades.capacity;
 		break;
 	case UpgradeType::Vision:
-		cost = 1000;
+		cost = _rules.vision_upgrade_cost;
 		already_upgraded = unit->upgrades.vision;
 		break;
 	case UpgradeType::Damage:
-		cost = 600;
+		cost = _rules.damage_upgrade_cost;
 		already_upgraded = unit->upgrades.damage;
 		break;
 	default:
@@ -761,7 +767,7 @@ void World::_commitPendingAttacks() noexcept {
 		tile.occupied_state = Tile::OCCUPIED_BY_BULLET;
 
 		_bullets.push_back(std::move(bullet));
-		unit->attack_cooldown = 3;
+		unit->attack_cooldown = _rules.attack_cooldown;
 		unit->pending_attack.damage = 0;
 	}
 }

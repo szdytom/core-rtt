@@ -3,6 +3,7 @@
 #include <argparse/argparse.hpp>
 #include <format>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -49,6 +50,58 @@ ProgramOptions parseOptions(
 		.default_value(5)
 		.scan<'i', int>()
 		.help("number of resource clusters");
+	program.add_argument("--unit-health")
+		.default_value(100)
+		.scan<'i', int>()
+		.help("initial unit health");
+	program.add_argument("--natural-energy-rate")
+		.default_value(1u)
+		.scan<'u', unsigned int>()
+		.help("turns required for natural +1 unit energy");
+	program.add_argument("--resource-zone-energy-rate")
+		.default_value(25)
+		.scan<'i', int>()
+		.help("resource zone bonus energy per turn");
+	program.add_argument("--attack-cooldown")
+		.default_value(3)
+		.scan<'i', int>()
+		.help("turn cooldown after unit attack");
+	program.add_argument("--capacity-lv1")
+		.default_value(200)
+		.scan<'i', int>()
+		.help("unit capacity before capacity upgrade");
+	program.add_argument("--capacity-lv2")
+		.default_value(1000)
+		.scan<'i', int>()
+		.help("unit capacity after capacity upgrade");
+	program.add_argument("--vision-lv1")
+		.default_value(5)
+		.scan<'i', int>()
+		.help("unit vision range before vision upgrade");
+	program.add_argument("--vision-lv2")
+		.default_value(9)
+		.scan<'i', int>()
+		.help("unit vision range after vision upgrade");
+	program.add_argument("--capacity-upgrade-cost")
+		.default_value(400)
+		.scan<'i', int>()
+		.help("energy cost of capacity upgrade");
+	program.add_argument("--vision-upgrade-cost")
+		.default_value(1000)
+		.scan<'i', int>()
+		.help("energy cost of vision upgrade");
+	program.add_argument("--damage-upgrade-cost")
+		.default_value(600)
+		.scan<'i', int>()
+		.help("energy cost of damage upgrade");
+	program.add_argument("--manufact-cost")
+		.default_value(500)
+		.scan<'i', int>()
+		.help("energy cost for base manufacturing");
+	program.add_argument("--capture-turn-threshold")
+		.default_value(8)
+		.scan<'i', int>()
+		.help("consecutive capture turns required to lose");
 	program.add_argument("--p1-base")
 		.default_value(std::string("player1_base.elf"))
 		.help("path to player 1 base ELF");
@@ -137,6 +190,28 @@ ProgramOptions parseOptions(
 	options.output_zstd = program.get<bool>("--output-zstd");
 	options.output_zstd_level = FIXED_ZSTD_COMPRESSION_LEVEL;
 
+	const int unit_health = program.get<int>("--unit-health");
+	const std::uint32_t natural_energy_rate = program.get<unsigned int>(
+		"--natural-energy-rate"
+	);
+	const int resource_zone_energy_rate = program.get<int>(
+		"--resource-zone-energy-rate"
+	);
+	const int attack_cooldown = program.get<int>("--attack-cooldown");
+	const int capacity_lv1 = program.get<int>("--capacity-lv1");
+	const int capacity_lv2 = program.get<int>("--capacity-lv2");
+	const int vision_lv1 = program.get<int>("--vision-lv1");
+	const int vision_lv2 = program.get<int>("--vision-lv2");
+	const int capacity_upgrade_cost = program.get<int>(
+		"--capacity-upgrade-cost"
+	);
+	const int vision_upgrade_cost = program.get<int>("--vision-upgrade-cost");
+	const int damage_upgrade_cost = program.get<int>("--damage-upgrade-cost");
+	const int manufact_cost = program.get<int>("--manufact-cost");
+	const int capture_turn_threshold = program.get<int>(
+		"--capture-turn-threshold"
+	);
+
 	const bool used_random_generation_option = program.is_used("--width")
 		|| program.is_used("--height") || program.is_used("--base-size")
 		|| program.is_used("--resources") || program.is_used("--seed");
@@ -184,6 +259,84 @@ ProgramOptions parseOptions(
 	if (options.map_file.empty() && !options.seed.has_value()) {
 		options.seed = Seed::deviceRandom();
 	}
+
+	if (unit_health < 1) {
+		throw std::runtime_error("--unit-health must be >= 1");
+	}
+
+	if (options.base_size < 2 || options.base_size > 8) {
+		throw std::runtime_error("--base-size must be within [2, 8]");
+	}
+
+	if (natural_energy_rate < 1) {
+		throw std::runtime_error("--natural-energy-rate must be >= 1");
+	}
+
+	if (resource_zone_energy_rate < 0) {
+		throw std::runtime_error("--resource-zone-energy-rate must be >= 0");
+	}
+
+	if (attack_cooldown < 1) {
+		throw std::runtime_error("--attack-cooldown must be >= 1");
+	}
+
+	if (capacity_lv1 < 1 || capacity_lv2 < 1) {
+		throw std::runtime_error(
+			"--capacity-lv1 and --capacity-lv2 must be >= 1"
+		);
+	}
+
+	if (capacity_lv2 < capacity_lv1) {
+		throw std::runtime_error("--capacity-lv2 must be >= --capacity-lv1");
+	}
+
+	if (vision_lv1 < 1 || vision_lv2 < 1) {
+		throw std::runtime_error("--vision-lv1 and --vision-lv2 must be >= 1");
+	}
+
+	if (vision_lv2 < vision_lv1) {
+		throw std::runtime_error("--vision-lv2 must be >= --vision-lv1");
+	}
+
+	if (capacity_upgrade_cost < 1 || vision_upgrade_cost < 1
+	    || damage_upgrade_cost < 1 || manufact_cost < 1) {
+		throw std::runtime_error("all upgrade/manufact costs must be >= 1");
+	}
+
+	if (capture_turn_threshold < 1) {
+		throw std::runtime_error("--capture-turn-threshold must be >= 1");
+	}
+
+	if (unit_health > std::numeric_limits<health_t>::max()
+	    || attack_cooldown > std::numeric_limits<std::uint8_t>::max()
+	    || vision_lv1 > std::numeric_limits<std::uint8_t>::max()
+	    || vision_lv2 > std::numeric_limits<std::uint8_t>::max()
+	    || resource_zone_energy_rate > std::numeric_limits<energy_t>::max()
+	    || capacity_lv1 > std::numeric_limits<energy_t>::max()
+	    || capacity_lv2 > std::numeric_limits<energy_t>::max()
+	    || capacity_upgrade_cost > std::numeric_limits<energy_t>::max()
+	    || vision_upgrade_cost > std::numeric_limits<energy_t>::max()
+	    || damage_upgrade_cost > std::numeric_limits<energy_t>::max()
+	    || manufact_cost > std::numeric_limits<energy_t>::max()) {
+		throw std::runtime_error("one or more gamerule values exceed limits");
+	}
+
+	options.rules.width = options.width;
+	options.rules.height = options.height;
+	options.rules.base_size = options.base_size;
+	options.rules.unit_health = unit_health;
+	options.rules.natural_energy_rate = natural_energy_rate;
+	options.rules.resource_zone_energy_rate = resource_zone_energy_rate;
+	options.rules.attack_cooldown = attack_cooldown;
+	options.rules.capacity_lv1 = capacity_lv1;
+	options.rules.capacity_lv2 = capacity_lv2;
+	options.rules.vision_lv1 = vision_lv1;
+	options.rules.vision_lv2 = vision_lv2;
+	options.rules.capacity_upgrade_cost = capacity_upgrade_cost;
+	options.rules.vision_upgrade_cost = vision_upgrade_cost;
+	options.rules.damage_upgrade_cost = damage_upgrade_cost;
+	options.rules.manufact_cost = manufact_cost;
+	options.rules.capture_turn_threshold = capture_turn_threshold;
 
 	return options;
 }

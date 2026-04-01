@@ -61,8 +61,12 @@ World createWorldFromOptions(const ProgramOptions &options) {
 	Tilemap tilemap = options.map_file.empty()
 		? generateTilemap(options)
 		: loadTilemap(options.map_file);
+	GameRules rules = options.rules;
+	rules.width = tilemap.width();
+	rules.height = tilemap.height();
+	rules.base_size = tilemap.baseSize();
 
-	World world(std::move(tilemap));
+	World world(std::move(tilemap), rules);
 	world.setPlayerProgram(
 		1, loadBinary(options.p1_base), loadBinary(options.p1_unit)
 	);

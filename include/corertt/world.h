@@ -14,6 +14,25 @@ namespace cr {
 
 constexpr int max_units = 15;
 
+struct GameRules {
+	int width = 64;
+	int height = 64;
+	int base_size = 5;
+	health_t unit_health = 100;
+	std::uint32_t natural_energy_rate = 1;
+	energy_t resource_zone_energy_rate = 25;
+	std::uint8_t attack_cooldown = 3;
+	energy_t capacity_lv1 = 200;
+	energy_t capacity_lv2 = 1000;
+	std::uint8_t vision_lv1 = 5;
+	std::uint8_t vision_lv2 = 9;
+	energy_t capacity_upgrade_cost = 400;
+	energy_t vision_upgrade_cost = 1000;
+	energy_t damage_upgrade_cost = 600;
+	energy_t manufact_cost = 500;
+	int capture_turn_threshold = 8;
+};
+
 enum class UpgradeType : std::uint8_t {
 	Capacity = 0,
 	Vision = 1,
@@ -57,7 +76,7 @@ class World {
 public:
 	using RuntimeLogConstIterator = std::vector<ReplayLogEntry>::const_iterator;
 
-	World(Tilemap tilemap) noexcept;
+	World(Tilemap tilemap, GameRules rules) noexcept;
 
 	int width() const noexcept {
 		return _tilemap.width();
@@ -85,6 +104,10 @@ public:
 
 	const Tilemap &tilemap() const noexcept {
 		return _tilemap;
+	}
+
+	const GameRules &rules() const noexcept {
+		return _rules;
 	}
 
 	const Player &player(int id) const noexcept {
@@ -133,6 +156,7 @@ private:
 
 	std::uint32_t tick;
 	Tilemap _tilemap;
+	GameRules _rules;
 	Player _players[2];
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;

@@ -41,6 +41,7 @@ struct ProgramOptions {
 	int output_zstd_level = 12;
 	bool worker_mode = false;
 	UIMode ui_mode = UIMode::Tui;
+	GameRules rules{};
 };
 
 class ReplayChunkWriter {

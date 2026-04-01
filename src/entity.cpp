@@ -23,22 +23,29 @@ Upgrades::operator std::uint8_t() const noexcept {
 	return res;
 }
 
-Unit::Unit(std::uint8_t id, std::uint8_t player_id, pos_t x, pos_t y) noexcept
+Unit::Unit(
+	std::uint8_t id, std::uint8_t player_id, pos_t x, pos_t y,
+	health_t initial_health
+) noexcept
 	: id(id)
 	, player_id(player_id)
 	, x(x)
 	, y(y)
-	, health(100)
+	, health(initial_health)
 	, energy(0)
 	, attack_cooldown(0)
 	, pending_attack{.damage = 0} {}
 
-energy_t Unit::maxCapacity() const noexcept {
-	return upgrades.capacity ? 1000 : 200;
+energy_t Unit::maxCapacity(const GameRules &rules) const noexcept {
+	return upgrades.capacity ? rules.capacity_lv2 : rules.capacity_lv1;
 }
 
-int Unit::visionRange() const noexcept {
-	return upgrades.vision ? 9 : 5; // 9x9 vs 5x5 area
+int Unit::visionRange(const GameRules &rules) const noexcept {
+	return upgrades.vision ? rules.vision_lv2 : rules.vision_lv1;
+}
+
+health_t Unit::maxHealth(const GameRules &rules) const noexcept {
+	return rules.unit_health;
 }
 
 bool Unit::canAttack() const noexcept {
@@ -55,7 +62,7 @@ void Unit::step(World &world, Player &player) noexcept {
 	}
 
 	// Compute vision cache using BFS
-	const int range = visionRange();
+	const int range = visionRange(world.rules());
 	const int total_tiles = range * range;
 
 	_ecall_ctx.visible_tiles.assign(total_tiles, false);

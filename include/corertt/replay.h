@@ -121,6 +121,25 @@ struct ReplayTilemap {
 	std::vector<TileFlags> tiles;
 };
 
+struct ReplayGameRules {
+	std::uint16_t width = 64;
+	std::uint16_t height = 64;
+	std::uint16_t base_size = 5;
+	std::uint8_t unit_health = 100;
+	std::uint32_t natural_energy_rate = 1;
+	std::uint16_t resource_zone_energy_rate = 25;
+	std::uint8_t attack_cooldown = 3;
+	std::uint16_t capacity_lv1 = 200;
+	std::uint16_t capacity_lv2 = 1000;
+	std::uint8_t vision_lv1 = 5;
+	std::uint8_t vision_lv2 = 9;
+	std::uint16_t capacity_upgrade_cost = 400;
+	std::uint16_t vision_upgrade_cost = 1000;
+	std::uint16_t damage_upgrade_cost = 600;
+	std::uint16_t manufact_cost = 500;
+	std::uint16_t capture_turn_threshold = 8;
+};
+
 struct ReplayPlayer {
 	std::uint8_t id = 0;
 	std::uint16_t base_energy = 0;
@@ -158,8 +177,9 @@ struct ReplayTickFrame {
 };
 
 struct ReplayHeader {
-	std::uint16_t version = 4;
+	std::uint16_t version = 5;
 	ReplayTilemap tilemap;
+	ReplayGameRules game_rules;
 
 	static ReplayHeader fromWorld(const World &world);
 	static std::vector<std::byte> encode(const ReplayHeader &header);

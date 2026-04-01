@@ -66,14 +66,16 @@ pub struct GameInfo {
 	pub natural_energy_rate: u8,
 	pub resource_zone_energy_rate: u8,
 	pub attack_cooldown: u8,
-	pub capacity_lv1: u8,
-	pub capacity_lv2: u8,
 	pub capture_turn_threshold: u8,
+	pub vision_lv1: u8,
+	pub vision_lv2: u8,
+	pub capacity_lv1: u16,
+	pub capacity_lv2: u16,
 	pub capacity_upgrade_cost: u16,
 	pub vision_upgrade_cost: u16,
 	pub damage_upgrade_cost: u16,
 	pub manufact_cost: u16,
-	pub reserved: [u8; 14],
+	pub reserved: [u8; 10],
 }
 
 #[repr(C)]

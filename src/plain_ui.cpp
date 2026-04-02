@@ -36,6 +36,23 @@ void PlainUIRunner::publishHeader(const ReplayHeader &header) {
 		"H v={} map={}x{} base={}\n", header.version, header.tilemap.width,
 		header.tilemap.height, header.tilemap.base_size
 	);
+	_output << std::format(
+		"G width={} height={} base={} unit_health={} natural_energy_rate={} "
+		"resource_zone_energy_rate={} attack_cooldown={} "
+		"capture_turn_threshold={} vision_lv1={} vision_lv2={} capacity_lv1={} "
+		"capacity_lv2={} capacity_upgrade_cost={} vision_upgrade_cost={} "
+		"damage_upgrade_cost={} manufact_cost={}\n",
+		header.game_rules.width, header.game_rules.height,
+		header.game_rules.base_size, header.game_rules.unit_health,
+		header.game_rules.natural_energy_rate,
+		header.game_rules.resource_zone_energy_rate,
+		header.game_rules.attack_cooldown,
+		header.game_rules.capture_turn_threshold, header.game_rules.vision_lv1,
+		header.game_rules.vision_lv2, header.game_rules.capacity_lv1,
+		header.game_rules.capacity_lv2, header.game_rules.capacity_upgrade_cost,
+		header.game_rules.vision_upgrade_cost,
+		header.game_rules.damage_upgrade_cost, header.game_rules.manufact_cost
+	);
 }
 
 void PlainUIRunner::publishTick(const ReplayTickFrame &tick) {

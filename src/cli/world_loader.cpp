@@ -151,4 +151,16 @@ World createWorldFromOptions(const ProgramOptions &options) {
 	return world;
 }
 
+std::unique_ptr<RuleDrawJudge> createRuleDrawJudgeFromOptions(
+	const ProgramOptions &options
+) {
+	if (options.dynamic_draw) {
+		return createDynamicTurnLimitRuleDrawJudge();
+	}
+	if (options.max_ticks > 0) {
+		return createMaxTicksRuleDrawJudge(options.max_ticks);
+	}
+	return createNoopRuleDrawJudge();
+}
+
 } // namespace cr

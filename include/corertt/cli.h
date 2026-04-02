@@ -1,6 +1,7 @@
 #ifndef CORERTT_CLI_H
 #define CORERTT_CLI_H
 
+#include "corertt/draw_judge.h"
 #include "corertt/tilemap.h"
 #include "corertt/ui.h"
 #include "corertt/world.h"
@@ -44,6 +45,10 @@ struct ProgramOptions {
 	UIMode ui_mode = UIMode::Tui;
 	GameRules rules{};
 };
+
+std::unique_ptr<RuleDrawJudge> createRuleDrawJudgeFromOptions(
+	const ProgramOptions &options
+);
 
 class ReplayChunkWriter {
 public:

@@ -21,9 +21,13 @@ export const strategiesRouter = createTRPCRouter({
 
   create: rateLimitedProtectedProcedure
     .input(z.object({
-      name: z.string(),
+      name: z.string()
+        .min(1, 'Name is required')
+        .max(100, 'Name must be at most 100 characters long'),
       type: z.enum(['base', 'unit']),
-      fileName: z.string(),
+      fileName: z.string()
+        .max(255, 'File name must be at most 255 characters long')
+        .optional(),
       llmDisclosure: z.object({
         model: z.string().max(80).optional(),
         agentHarness: z.string().max(100).optional(),
@@ -85,7 +89,9 @@ export const strategiesRouter = createTRPCRouter({
 
   delete: protectedProcedure
     .input(z.object({
-      id: z.string(),
+      id: z.string()
+        .min(1, 'Strategy id is required')
+        .max(64, 'Strategy ID must be at most 64 characters long'),
     }))
     .mutation(async ({ input, ctx }) => {
       const strategy = await db.query.strategy.findFirst({

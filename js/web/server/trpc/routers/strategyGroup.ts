@@ -6,44 +6,52 @@ import * as schema from '~~/server/db/schema';
 import z from 'zod';
 
 export const strategyGroupRouter = createTRPCRouter({
-  getLimit: protectedProcedure.query(async ({ ctx }) => {
-    const user = await db.query.user.findFirst({
-      where: eq(schema.user.id, ctx.authSession.user.id),
-      columns: { strategyGroupLimit: true },
-    });
-    if (!user)
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'User not found.' });
+  getLimit: protectedProcedure
+    .query(async ({ ctx }) => {
+      const user = await db.query.user.findFirst({
+        where: eq(schema.user.id, ctx.authSession.user.id),
+        columns: { strategyGroupLimit: true },
+      });
+      if (!user)
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'User not found.' });
 
-    return user.strategyGroupLimit;
-  }),
+      return user.strategyGroupLimit;
+    }),
 
-  listMine: protectedProcedure.query(async ({ ctx }) => {
-    const strategyGroups = await db.query.strategyGroup.findMany({
-      where: and(
-        eq(schema.strategyGroup.userId, ctx.authSession.user.id),
-        ne(schema.strategyGroup.status, 'deleted'),
-      ),
-      with: {
-        strategyBase: true,
-        strategyUnit: true,
-        ratingHistory: {
-          orderBy: [desc(schema.ratingHistory.createdAt)],
-          where: gte(schema.ratingHistory.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), // Last 30 days
-          columns: { rating: true, createdAt: true },
+  listMine: protectedProcedure
+    .query(async ({ ctx }) => {
+      const strategyGroups = await db.query.strategyGroup.findMany({
+        where: and(
+          eq(schema.strategyGroup.userId, ctx.authSession.user.id),
+          ne(schema.strategyGroup.status, 'deleted'),
+        ),
+        with: {
+          strategyBase: true,
+          strategyUnit: true,
+          ratingHistory: {
+            orderBy: [desc(schema.ratingHistory.createdAt)],
+            where: gte(schema.ratingHistory.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), // Last 30 days
+            columns: { rating: true, createdAt: true },
+          },
         },
-      },
-      orderBy: [desc(schema.strategyGroup.rating)],
-    });
+        orderBy: [desc(schema.strategyGroup.rating)],
+      });
 
-    return strategyGroups;
-  }),
+      return strategyGroups;
+    }),
 
   create: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(1, 'Name is required').max(100, 'Name must be at most 100 characters'),
-        strategyBaseId: z.string().min(1, 'Base strategy is required'),
-        strategyUnitId: z.string().min(1, 'Unit strategy is required'),
+        name: z.string()
+          .min(1, 'Name is required')
+          .max(100, 'Name must be at most 100 characters long'),
+        strategyBaseId: z.string()
+          .min(1, 'Base strategy is required')
+          .max(64, 'Base strategy ID must be at most 64 characters long'),
+        strategyUnitId: z.string()
+          .min(1, 'Unit strategy is required')
+          .max(64, 'Unit strategy ID must be at most 64 characters long'),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -114,7 +122,9 @@ export const strategyGroupRouter = createTRPCRouter({
   toggleActive: protectedProcedure
     .input(
       z.object({
-        id: z.string().min(1, 'Strategy group id is required'),
+        id: z.string()
+          .min(1, 'Strategy group is required')
+          .max(64, 'Strategy group ID must be at most 64 characters long'),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -169,7 +179,9 @@ export const strategyGroupRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(
       z.object({
-        id: z.string().min(1, 'Strategy group id is required'),
+        id: z.string()
+          .min(1, 'Strategy group id is required')
+          .max(64, 'Strategy group ID must be at most 64 characters long'),
       }),
     )
     .mutation(async ({ ctx, input }) => {

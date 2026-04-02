@@ -131,17 +131,17 @@ struct ReplayPlayer {
 struct ReplayUnit {
 	std::uint8_t id = 0;
 	std::uint8_t player_id = 0;
-	std::int16_t x = 0;
-	std::int16_t y = 0;
+	std::uint8_t x = 0;
+	std::uint8_t y = 0;
 	std::uint8_t health = 0;
-	std::uint16_t energy = 0;
 	std::uint8_t attack_cooldown = 0;
 	std::uint8_t upgrades = 0;
+	std::uint16_t energy = 0;
 };
 
 struct ReplayBullet {
-	std::int16_t x = 0;
-	std::int16_t y = 0;
+	std::uint8_t x = 0;
+	std::uint8_t y = 0;
 	std::uint8_t direction = 0;
 	std::uint8_t player_id = 0;
 	std::uint8_t damage = 0;

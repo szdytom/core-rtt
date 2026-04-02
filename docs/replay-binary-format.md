@@ -35,7 +35,7 @@ A replay stream is:
 | Field | Type | Size | Notes |
 |---|---|---:|---|
 | magic | bytes | 4 | ASCII `CRPL` |
-| version | u16 | 2 | Current value: `4` |
+| version | u16 | 2 | Current value: `5` |
 | header size | u16 | 2 | The size of the tilemap in bytes |
 
 The header size field is the size of the entire header after the header size field itself, i.e. the size of the tilemap for now.
@@ -107,12 +107,12 @@ Unit item:
 |---|---|
 | id | u8 |
 | player_id | u8 |
-| x | i16 |
-| y | i16 |
+| x | u8 |
+| y | u8 |
 | health | u8 |
-| energy | u16 |
 | attack_cooldown | u8 |
 | upgrades | u8 |
+| energy | u16 |
 
 ### Bullets
 
@@ -125,8 +125,8 @@ Bullet item:
 
 | Field | Type |
 |---|---|
-| x | i16 |
-| y | i16 |
+| x | u8 |
+| y | u8 |
 | direction | u8 |
 | player_id | u8 |
 | damage | u8 |

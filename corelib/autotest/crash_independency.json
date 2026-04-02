@@ -1,0 +1,81 @@
+{
+	"version": 1,
+	"name": "crashed guest program should not affect other guests",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"program": [
+		{
+			"base": "c::log_simple",
+			"unit": "@dummy"
+		},
+		{
+			"base": "c::abort_immediately",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"playerId": 1,
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"playerId": 1,
+				"payload": {
+					"regex": "^first message"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"playerId": 1,
+				"payload": {
+					"regex": "^second message"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"playerId": 1,
+				"payload": {
+					"regex": "^third message"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"playerId": 1,
+				"payload": {
+					"regex": "^\\[PASS\\] log \\+ log_str simple test"
+				}
+			}
+		},
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"playerId": 2,
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	]
+}

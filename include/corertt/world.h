@@ -47,6 +47,8 @@ struct GameRules {
 	energy_t damage_upgrade_cost = 600;
 	energy_t manufact_cost = 500;
 	int capture_turn_threshold = 8;
+
+	bool validate() const noexcept;
 };
 
 enum class UpgradeType : std::uint8_t {

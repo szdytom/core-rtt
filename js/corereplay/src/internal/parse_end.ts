@@ -14,7 +14,7 @@ export function parseEndMarkerAt(
 	const reader = new ByteReader(bytes.subarray(offset), offset);
 
 	const raw_termination = reader.readU8();
-	if (raw_termination > 1) {
+	if (raw_termination > 2) {
 		throw new ReplayDecodeError(
 			'INVALID_REPLAY_TERMINATION',
 			offset + reader.cursor() - 1,
@@ -29,8 +29,13 @@ export function parseEndMarkerAt(
 		if (winner_player_id === 0 || winner_player_id > 2) {
 			throw new ReplayDecodeError('INVALID_END_MARKER_PAYLOAD', offset + 1);
 		}
-	} else {
+	} else if (raw_termination === 1) {
 		termination = 'aborted';
+		if (winner_player_id !== 0) {
+			throw new ReplayDecodeError('INVALID_END_MARKER_PAYLOAD', offset + 1);
+		}
+	} else {
+		termination = 'rule-draw';
 		if (winner_player_id !== 0) {
 			throw new ReplayDecodeError('INVALID_END_MARKER_PAYLOAD', offset + 1);
 		}

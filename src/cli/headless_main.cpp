@@ -74,17 +74,12 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 			  replay_stream, options.output_zstd_level
 		  )
 		: cr::createRawReplayChunkWriter(replay_stream);
-	std::unique_ptr<cr::RuleDrawJudge>
-		rule_draw_judge = cr::createNoopRuleDrawJudge();
-	if (options.dynamic_draw) {
-		rule_draw_judge = cr::createDynamicTurnLimitRuleDrawJudge();
-	} else if (options.max_ticks > 0) {
-		rule_draw_judge = cr::createMaxTicksRuleDrawJudge(options.max_ticks);
-	}
 
 	auto header = cr::ReplayHeader::fromWorld(world);
 	auto header_bytes = cr::ReplayHeader::encode(header);
 	replay_writer->writeChunk(header_bytes);
+
+	auto rule_draw_judge = cr::createRuleDrawJudgeFromOptions(options);
 
 	int exit_code = 0;
 	while (!world.gameOver()) {

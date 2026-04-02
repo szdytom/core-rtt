@@ -169,19 +169,9 @@ int runLiveMode(
 	}
 
 	try {
-		cr::World world = cr::createWorldFromOptions(options);
-		std::unique_ptr<cr::RuleDrawJudge>
-			rule_draw_judge = cr::createNoopRuleDrawJudge();
-		if (options.dynamic_draw) {
-			rule_draw_judge = cr::createDynamicTurnLimitRuleDrawJudge();
-		} else if (options.max_ticks > 0) {
-			rule_draw_judge = cr::createMaxTicksRuleDrawJudge(
-				options.max_ticks
-			);
-		}
-		std::optional<std::ofstream> replay_file_stream = cr::openReplayFile(
-			options.replay_file
-		);
+		auto world = cr::createWorldFromOptions(options);
+		auto rule_draw_judge = cr::createRuleDrawJudgeFromOptions(options);
+		auto replay_file_stream = cr::openReplayFile(options.replay_file);
 		std::unique_ptr<cr::ReplayChunkWriter> replay_writer;
 		if (replay_file_stream.has_value()) {
 			replay_writer = options.output_zstd

@@ -24,7 +24,7 @@ _Energy_ is a only resource in the game, used for attacking, repairing, upgradin
 
 ## Configurable Parameters
 
-The game includes several configurable parameters that can be set by the referee program before the game starts. This document uses CAPITALIZED NAMES to denote these parameters. The configurable parameters are sometime informally referred to as gamerules.
+The game includes several configurable parameters that can be set by the referee program before the game starts. This document uses CAPITALIZED NAMES to denote these parameters. The configurable parameters are sometimes informally referred to as gamerules.
 
 | Parameter Name | Description | Default Value | Domain |
 | --- | --- | --- | --- |
@@ -172,7 +172,7 @@ If both players' bases have insufficient energy to manufacture new units and all
 
 There is a turn limit for draw. This limit is implementation-defined and can be dynamically adjusted by the referee program based on the game state. It is required that such limit is at least 1,000 turns.
 
-Further losing conditions to panelize error-prone strategies can be defined, such as programs failed to load or crashed multiple times, but they are implementation-defined and not required. The implementation can just kindly reload/restart the program without penalizing the player, or can choose to penalize the player after a certain number of reloads/restarts.
+Further losing conditions to penalize error-prone strategies can be defined, such as programs failed to load or crashed multiple times, but they are implementation-defined and not required. The implementation can just kindly reload/restart the program without penalizing the player, or can choose to penalize the player after a certain number of reloads/restarts.
 
 A possible draw condition can be defined as follows:
 
@@ -195,7 +195,7 @@ Please note that above is just an example of a possible draw condition. The actu
 
 When multiple units attempt to move onto the same tile, a movement conflict occurs. To address these conflicts, the game uses the following resolution rules:
 
-We say a unit's move is _cancelled_ if it's move will not be executed. The _target tile_ of a unit's move is the tile that the unit attempts to move onto. For a unit's intended move:
+We say a unit's move is _cancelled_ if its move will not be executed. The _target tile_ of a unit's move is the tile that the unit attempts to move onto. For a unit's intended move:
 
 + If the _target tile_ is a water or obstacle tile, the move is cancelled.
 + If the _target tile_ is occupied by a bullet, the move is cancelled.

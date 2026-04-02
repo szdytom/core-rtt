@@ -128,15 +128,18 @@ ProgramOptions parseOptions(
 	program.add_argument("-z", "--output-zstd")
 		.flag()
 		.help("compress replay output with zstd (fixed compression level: 12)");
+	program.add_argument("--max-ticks")
+		.default_value(0u)
+		.scan<'u', unsigned int>()
+		.help(
+			"maximum number of ticks to simulate before auto draw "
+			"(0=unlimited)"
+		);
+	program.add_argument("--dynamic-draw")
+		.flag()
+		.help("use the rule-recommended dynamic draw limit");
 
 	if (mode == CliMode::Headless) {
-		program.add_argument("--max-ticks")
-			.default_value(0u)
-			.scan<'u', unsigned int>()
-			.help(
-				"maximum number of ticks to simulate before auto draw "
-				"(0=unlimited)"
-			);
 		program.add_argument("--worker-mode")
 			.flag()
 			.help("don't enable this unless you know what it does");
@@ -175,9 +178,9 @@ ProgramOptions parseOptions(
 		options.seed = Seed::fromString(program.get<std::string>("--seed"));
 	}
 	options.replay_file = program.get<std::string>("--replay-file");
+	options.max_ticks = program.get<unsigned int>("--max-ticks");
 
 	if (mode == CliMode::Headless) {
-		options.max_ticks = program.get<unsigned int>("--max-ticks");
 		options.worker_mode = program.get<bool>("--worker-mode");
 	}
 
@@ -185,6 +188,13 @@ ProgramOptions parseOptions(
 		options.step_interval_ms = program.get<int>("--step-interval-ms");
 		options.play_replay = program.get<std::string>("--play-replay");
 		options.ui_mode = parseUIMode(program.get<std::string>("--ui-mode"));
+	}
+
+	options.dynamic_draw = program.get<bool>("--dynamic-draw");
+	if (options.dynamic_draw && options.max_ticks > 0) {
+		throw std::runtime_error(
+			"--dynamic-draw conflicts with --max-ticks; specify at most one"
+		);
 	}
 
 	options.output_zstd = program.get<bool>("--output-zstd");

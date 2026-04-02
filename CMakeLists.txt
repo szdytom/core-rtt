@@ -97,6 +97,7 @@ add_library(corertt_core STATIC
 	src/world.cpp
 	src/entity.cpp
 	src/runtime.cpp
+	src/draw_judge.cpp
 	src/replay.cpp
 )
 

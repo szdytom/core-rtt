@@ -188,6 +188,7 @@ struct ReplayHeader {
 enum class ReplayTermination : std::uint8_t {
 	Completed = 0,
 	Aborted = 1,
+	RuleDraw = 2,
 };
 
 struct ReplayEndMarker {
@@ -196,6 +197,7 @@ struct ReplayEndMarker {
 
 	static ReplayEndMarker aborted() noexcept;
 	static ReplayEndMarker completed(std::uint8_t winner_player_id) noexcept;
+	static ReplayEndMarker ruleDraw() noexcept;
 	static ReplayEndMarker fromWorld(const World &world) noexcept;
 	static std::vector<std::byte> encode(const ReplayEndMarker &end_marker);
 };

@@ -10,6 +10,8 @@ std::string_view toString(ReplayTermination termination) noexcept {
 	switch (termination) {
 	case ReplayTermination::Completed:
 		return "completed";
+	case ReplayTermination::RuleDraw:
+		return "rule-draw";
 	case ReplayTermination::Aborted:
 		return "aborted";
 	}

@@ -159,6 +159,7 @@ World::World(Tilemap tilemap, GameRules rules) noexcept
 	, _tilemap(std::move(tilemap))
 	, _rules(std::move(rules))
 	, _players{Player(1), Player(2)}
+	, _termination_reason(WorldTerminationReason::Ongoing)
 	, _winner_player_id(0) {
 	validateGameRules(_rules);
 
@@ -201,6 +202,7 @@ void World::step() noexcept {
 		return;
 	}
 
+	_turn_events = {};
 	_runtime_logs.clear();
 
 	tick += 1;
@@ -332,6 +334,7 @@ void World::_processUnitMovement() noexcept {
 			continue;
 		}
 
+		_turn_events.unit_destroyed = true;
 		appendLog(
 			ReplayLogEntry::unitDestructionLog(
 				currentTick(), unit->player_id, unit->id
@@ -534,6 +537,14 @@ void World::_processUnitMovement() noexcept {
 		}
 
 		auto &unit = *_units[i];
+		if (isInBase(unit.x, unit.y, unit.player_id)
+		    && !isInBase(tgt_x[i], tgt_y[i], unit.player_id)) {
+			_turn_events.unit_left_base = true;
+		}
+		if (!_tilemap.tileOf(unit.x, unit.y).is_resource
+		    && _tilemap.tileOf(tgt_x[i], tgt_y[i]).is_resource) {
+			_turn_events.unit_entered_resource_zone = true;
+		}
 		unit.x = tgt_x[i];
 		unit.y = tgt_y[i];
 
@@ -574,6 +585,14 @@ void World::_checkBaseCaptureCondition() noexcept {
 		}
 	}
 
+	for (int pid : {1, 2}) {
+		if (_players[pid - 1].base_capture_counter
+		    >= _rules.capture_turn_threshold) {
+			_turn_events.base_entered_capture_condition = true;
+			break;
+		}
+	}
+
 	const int base_capture_threshold = _rules.capture_turn_threshold;
 
 	if (_players[0].base_capture_counter == base_capture_threshold
@@ -589,7 +608,7 @@ void World::_checkBaseCaptureCondition() noexcept {
 			continue;
 		}
 
-		_winner_player_id = 3 - pid;
+		_markVictory(3 - pid);
 		appendLog(
 			ReplayLogEntry::baseCapturedLog(currentTick(), _winner_player_id)
 		);
@@ -642,6 +661,7 @@ ActionResult World::manufactureUnit(
 	// All checks passed, create the unit at a random empty tile in the base
 	player.base_energy -= manufacture_cost;
 	_spawnUnitAtBase(player_id, new_unit_id);
+	_turn_events.unit_manufactured = true;
 
 	return ActionResult::OK;
 }
@@ -728,6 +748,7 @@ ActionResult World::repairUnit(
 	// Perform repair
 	player.base_energy -= repair_cost;
 	unit->health = max_health;
+	_turn_events.unit_upgraded_or_repaired_at_base = true;
 	return ActionResult::OK;
 }
 
@@ -791,6 +812,8 @@ ActionResult World::upgradeUnit(
 		unit->upgrades.damage = true;
 		break;
 	}
+
+	_turn_events.unit_upgraded_or_repaired_at_base = true;
 
 	return ActionResult::OK;
 }
@@ -869,6 +892,24 @@ void World::appendLog(ReplayLogEntry entry) {
 
 std::vector<ReplayLogEntry> World::takeTickLogs() noexcept {
 	return std::move(_runtime_logs);
+}
+
+void World::_markVictory(std::uint8_t winner_player_id) noexcept {
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		winner_player_id == 1 || winner_player_id == 2,
+		"invalid winner player id"
+	);
+
+	_winner_player_id = winner_player_id;
+	_termination_reason = WorldTerminationReason::Victory;
+}
+
+void World::markRuleDraw() noexcept {
+	if (gameOver()) {
+		return;
+	}
+
+	_termination_reason = WorldTerminationReason::RuleDraw;
 }
 
 } // namespace cr

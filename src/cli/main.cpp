@@ -1,4 +1,5 @@
 #include "corertt/cli.h"
+#include "corertt/draw_judge.h"
 #include "corertt/plain_ui.h"
 #include "corertt/replay.h"
 #include "corertt/tui.h"
@@ -169,6 +170,15 @@ int runLiveMode(
 
 	try {
 		cr::World world = cr::createWorldFromOptions(options);
+		std::unique_ptr<cr::RuleDrawJudge>
+			rule_draw_judge = cr::createNoopRuleDrawJudge();
+		if (options.dynamic_draw) {
+			rule_draw_judge = cr::createDynamicTurnLimitRuleDrawJudge();
+		} else if (options.max_ticks > 0) {
+			rule_draw_judge = cr::createMaxTicksRuleDrawJudge(
+				options.max_ticks
+			);
+		}
 		std::optional<std::ofstream> replay_file_stream = cr::openReplayFile(
 			options.replay_file
 		);
@@ -203,6 +213,11 @@ int runLiveMode(
 			ui.publishTick(tick);
 
 			if (world.gameOver()) {
+				break;
+			}
+
+			if (rule_draw_judge->shouldDraw(world)) {
+				world.markRuleDraw();
 				break;
 			}
 			std::this_thread::sleep_until(next_tick_time);

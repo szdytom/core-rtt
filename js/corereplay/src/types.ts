@@ -35,7 +35,7 @@ export interface ReplayGameRules {
 
 export interface ReplayHeader {
 	magic: 'CRPL';
-	version: 4 | 5;
+	version: 5;
 	headerSize: number;
 	tilemap: ReplayTilemap;
 	gameRules: ReplayGameRules;

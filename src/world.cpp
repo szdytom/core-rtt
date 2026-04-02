@@ -87,12 +87,10 @@ World::World(Tilemap tilemap, GameRules rules) noexcept
 	, _players{Player(1), Player(2)}
 	, _termination_reason(WorldTerminationReason::Ongoing)
 	, _winner_player_id(0) {
+	_rules.width = _tilemap.width();
+	_rules.height = _tilemap.height();
+	_rules.base_size = _tilemap.baseSize();
 	CR_FAIL_FAST_ASSERT_LIGHT(_rules.validate(), "Invalid game rules");
-	CR_FAIL_FAST_ASSERT_LIGHT(
-		_tilemap.width() == _rules.width && _tilemap.height() == _rules.height
-			&& _tilemap.baseSize() == _rules.base_size,
-		"Tilemap size does not match game rules"
-	);
 
 	// Initialize player base positions based on tilemap
 	// Find out top-left corner of each base and assign to players

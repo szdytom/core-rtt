@@ -3,7 +3,6 @@
 #include <argparse/argparse.hpp>
 #include <format>
 #include <iostream>
-#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -12,6 +11,15 @@ namespace cr {
 namespace {
 
 constexpr int FIXED_ZSTD_COMPRESSION_LEVEL = 12;
+
+void validateWorldRuleParams(
+	int width, int height, int base_size, int unit_health,
+	std::uint32_t natural_energy_rate, int resource_zone_energy_rate,
+	int attack_cooldown, int capture_turn_threshold, int vision_lv1,
+	int vision_lv2, int capacity_lv1, int capacity_lv2,
+	int capacity_upgrade_cost, int vision_upgrade_cost, int damage_upgrade_cost,
+	int manufact_cost
+) {}
 
 UIMode parseUIMode(const std::string &value) {
 	if (value == "tui") {
@@ -270,70 +278,74 @@ ProgramOptions parseOptions(
 		options.seed = Seed::deviceRandom();
 	}
 
-	if (unit_health < 1) {
-		throw std::runtime_error("--unit-health must be >= 1");
+	if (used_random_generation_option) {
+		if (options.width < 4 || options.width > 255) {
+			throw std::runtime_error("WIDTH must be within [4, 255]");
+		}
+		if (options.height < 4 || options.height > 255) {
+			throw std::runtime_error("HEIGHT must be within [4, 255]");
+		}
+		if (options.base_size < 2 || options.base_size > 8) {
+			throw std::runtime_error("BASE_SIZE must be within [2, 8]");
+		}
 	}
 
-	if (options.base_size < 2 || options.base_size > 8) {
-		throw std::runtime_error("--base-size must be within [2, 8]");
+	if (unit_health < 1 || unit_health > 255) {
+		throw std::runtime_error("UNIT_HEALTH must be within [1, 255]");
 	}
-
-	if (natural_energy_rate < 1) {
-		throw std::runtime_error("--natural-energy-rate must be >= 1");
+	if (natural_energy_rate < 1 || natural_energy_rate > 255) {
+		throw std::runtime_error("NATURAL_ENERGY_RATE must be within [1, 255]");
 	}
-
-	if (resource_zone_energy_rate < 0) {
-		throw std::runtime_error("--resource-zone-energy-rate must be >= 0");
-	}
-
-	if (attack_cooldown < 1) {
-		throw std::runtime_error("--attack-cooldown must be >= 1");
-	}
-
-	if (capacity_lv1 < 1 || capacity_lv2 < 1) {
+	if (resource_zone_energy_rate < 1 || resource_zone_energy_rate > 255) {
 		throw std::runtime_error(
-			"--capacity-lv1 and --capacity-lv2 must be >= 1"
+			"RESOURCE_ZONE_ENERGY_RATE must be within [1, 255]"
 		);
 	}
-
+	if (attack_cooldown < 1 || attack_cooldown > 255) {
+		throw std::runtime_error("ATTACK_COOLDOWN must be within [1, 255]");
+	}
+	if (capture_turn_threshold < 1 || capture_turn_threshold > 255) {
+		throw std::runtime_error(
+			"CAPTURE_TURN_THRESHOLD must be within [1, 255]"
+		);
+	}
+	if (vision_lv1 < 1 || vision_lv1 > 255) {
+		throw std::runtime_error("VISION_LV1 must be within [1, 255]");
+	}
+	if (vision_lv2 < 1 || vision_lv2 > 255) {
+		throw std::runtime_error("VISION_LV2 must be within [1, 255]");
+	}
+	if (capacity_lv1 < 1 || capacity_lv1 > 65535) {
+		throw std::runtime_error("CAPACITY_LV1 must be within [1, 65535]");
+	}
+	if (capacity_lv2 < 1 || capacity_lv2 > 65535) {
+		throw std::runtime_error("CAPACITY_LV2 must be within [1, 65535]");
+	}
+	if (capacity_upgrade_cost < 1 || capacity_upgrade_cost > 65535) {
+		throw std::runtime_error(
+			"CAPACITY_UPGRADE_COST must be within [1, 65535]"
+		);
+	}
+	if (vision_upgrade_cost < 1 || vision_upgrade_cost > 65535) {
+		throw std::runtime_error(
+			"VISION_UPGRADE_COST must be within [1, 65535]"
+		);
+	}
+	if (damage_upgrade_cost < 1 || damage_upgrade_cost > 65535) {
+		throw std::runtime_error(
+			"DAMAGE_UPGRADE_COST must be within [1, 65535]"
+		);
+	}
+	if (manufact_cost < 1 || manufact_cost > 65535) {
+		throw std::runtime_error("MANUFACT_COST must be within [1, 65535]");
+	}
 	if (capacity_lv2 < capacity_lv1) {
-		throw std::runtime_error("--capacity-lv2 must be >= --capacity-lv1");
+		throw std::runtime_error("CAPACITY_LV2 must be >= CAPACITY_LV1");
 	}
-
-	if (vision_lv1 < 1 || vision_lv2 < 1) {
-		throw std::runtime_error("--vision-lv1 and --vision-lv2 must be >= 1");
-	}
-
 	if (vision_lv2 < vision_lv1) {
-		throw std::runtime_error("--vision-lv2 must be >= --vision-lv1");
+		throw std::runtime_error("VISION_LV2 must be >= VISION_LV1");
 	}
 
-	if (capacity_upgrade_cost < 1 || vision_upgrade_cost < 1
-	    || damage_upgrade_cost < 1 || manufact_cost < 1) {
-		throw std::runtime_error("all upgrade/manufact costs must be >= 1");
-	}
-
-	if (capture_turn_threshold < 1) {
-		throw std::runtime_error("--capture-turn-threshold must be >= 1");
-	}
-
-	if (unit_health > std::numeric_limits<health_t>::max()
-	    || attack_cooldown > std::numeric_limits<std::uint8_t>::max()
-	    || vision_lv1 > std::numeric_limits<std::uint8_t>::max()
-	    || vision_lv2 > std::numeric_limits<std::uint8_t>::max()
-	    || resource_zone_energy_rate > std::numeric_limits<energy_t>::max()
-	    || capacity_lv1 > std::numeric_limits<energy_t>::max()
-	    || capacity_lv2 > std::numeric_limits<energy_t>::max()
-	    || capacity_upgrade_cost > std::numeric_limits<energy_t>::max()
-	    || vision_upgrade_cost > std::numeric_limits<energy_t>::max()
-	    || damage_upgrade_cost > std::numeric_limits<energy_t>::max()
-	    || manufact_cost > std::numeric_limits<energy_t>::max()) {
-		throw std::runtime_error("one or more gamerule values exceed limits");
-	}
-
-	options.rules.width = options.width;
-	options.rules.height = options.height;
-	options.rules.base_size = options.base_size;
 	options.rules.unit_health = unit_health;
 	options.rules.natural_energy_rate = natural_energy_rate;
 	options.rules.resource_zone_energy_rate = resource_zone_energy_rate;

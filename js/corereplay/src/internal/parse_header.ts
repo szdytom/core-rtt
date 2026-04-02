@@ -14,7 +14,6 @@ export interface HeaderParseResult {
 
 const replay_magic = [0x43, 0x52, 0x50, 0x4c] as const;
 const replay_version = 5;
-const replay_version_legacy = 4;
 const max_tile_dimension = 256;
 const max_tile_count = max_tile_dimension * max_tile_dimension;
 
@@ -31,17 +30,14 @@ export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseRes
 
 	const version = reader.readU16();
 	const header_size = reader.readU16();
-	if (version !== replay_version && version !== replay_version_legacy) {
+	if (version !== replay_version) {
 		throw new ReplayDecodeError('UNSUPPORTED_VERSION', offset + 4);
 	}
 
 	const header_payload = reader.readBytes(header_size);
 	const payload_reader = new ByteReader(header_payload, offset + 8);
 	const tilemap = parseTilemap(payload_reader, offset + 8);
-	const game_rules =
-		version === replay_version
-			? parseGameRules(payload_reader)
-			: defaultGameRulesForLegacy(tilemap);
+	const game_rules = parseGameRules(payload_reader);
 
 	const header: ReplayHeader = {
 		magic: 'CRPL',
@@ -115,26 +111,5 @@ function parseGameRules(reader: ByteReader): ReplayGameRules {
 		damageUpgradeCost: reader.readU16(),
 		manufactCost: reader.readU16(),
 		captureTurnThreshold: reader.readU16(),
-	};
-}
-
-function defaultGameRulesForLegacy(tilemap: ReplayTilemap): ReplayGameRules {
-	return {
-		width: tilemap.width,
-		height: tilemap.height,
-		baseSize: tilemap.baseSize,
-		unitHealth: 100,
-		naturalEnergyRate: 1,
-		resourceZoneEnergyRate: 25,
-		attackCooldown: 3,
-		capacityLv1: 200,
-		capacityLv2: 1000,
-		visionLv1: 5,
-		visionLv2: 9,
-		capacityUpgradeCost: 400,
-		visionUpgradeCost: 1000,
-		damageUpgradeCost: 600,
-		manufactCost: 500,
-		captureTurnThreshold: 8,
 	};
 }

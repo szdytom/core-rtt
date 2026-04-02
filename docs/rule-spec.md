@@ -28,8 +28,8 @@ The game includes several configurable parameters that can be set by the referee
 
 | Parameter Name | Description | Default Value | Domain |
 | --- | --- | --- | --- |
-| WIDTH | The width of the battlefield. | 64 | 16-255 |
-| HEIGHT | The height of the battlefield. | 64 | 16-255 |
+| WIDTH | The width of the battlefield. | 64 | 4-255 |
+| HEIGHT | The height of the battlefield. | 64 | 4-255 |
 | BASE_SIZE | The size of the base. | 5 | 2-8 |
 | UNIT_HEALTH | The initial health points of a unit. | 100 | 1-255 |
 | NATURAL_ENERGY_RATE | The number of turns required for a unit to naturally gain 1 energy. | 1 | 1-255 |
@@ -44,6 +44,8 @@ The game includes several configurable parameters that can be set by the referee
 | VISION_UPGRADE_COST | The energy cost for the vision upgrade. | 1000 | 1-65,535 |
 | DAMAGE_UPGRADE_COST | The energy cost for the damage upgrade. | 600 | 1-65,535 |
 | MANUFACT_COST | The energy cost for manufacturing a new unit. | 500 | 1-65,535 |
+
+For preset maps loaded from file, WIDTH and HEIGHT can be as small as 4. For randomly generated maps, WIDTH and HEIGHT must be at least 16.
 
 ## Core Concepts
 

@@ -1,18 +1,13 @@
 #ifndef CORE_RTT_ENTITY_H
 #define CORE_RTT_ENTITY_H
 
+#include "corertt/game_rules.h"
 #include "corertt/runtime.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
 
 namespace cr {
-
-struct GameRules;
-
-using pos_t = std::int16_t;
-using energy_t = std::uint16_t;
-using health_t = std::uint8_t;
 
 class World;
 class Player;

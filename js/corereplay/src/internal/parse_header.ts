@@ -51,7 +51,6 @@ export function parseHeaderAt(bytes: Uint8Array, offset: number): HeaderParseRes
 }
 
 function parseTilemap(reader: ByteReader, absolute_offset: number): ReplayTilemap {
-
 	const width = reader.readU16();
 	const height = reader.readU16();
 	const base_size = reader.readU16();
@@ -95,21 +94,21 @@ function parseTilemap(reader: ByteReader, absolute_offset: number): ReplayTilema
 
 function parseGameRules(reader: ByteReader): ReplayGameRules {
 	return {
-		width: reader.readU16(),
-		height: reader.readU16(),
-		baseSize: reader.readU16(),
+		width: reader.readU8(),
+		height: reader.readU8(),
+		baseSize: reader.readU8(),
 		unitHealth: reader.readU8(),
-		naturalEnergyRate: reader.readU32(),
-		resourceZoneEnergyRate: reader.readU16(),
+		naturalEnergyRate: reader.readU8(),
+		resourceZoneEnergyRate: reader.readU8(),
 		attackCooldown: reader.readU8(),
-		capacityLv1: reader.readU16(),
-		capacityLv2: reader.readU16(),
+		captureTurnThreshold: reader.readU8(),
 		visionLv1: reader.readU8(),
 		visionLv2: reader.readU8(),
+		capacityLv1: reader.readU16(),
+		capacityLv2: reader.readU16(),
 		capacityUpgradeCost: reader.readU16(),
 		visionUpgradeCost: reader.readU16(),
 		damageUpgradeCost: reader.readU16(),
 		manufactCost: reader.readU16(),
-		captureTurnThreshold: reader.readU16(),
 	};
 }

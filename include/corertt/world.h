@@ -30,27 +30,6 @@ struct TurnEvents {
 	bool base_entered_capture_condition : 1;
 };
 
-struct GameRules {
-	int width = 64;
-	int height = 64;
-	int base_size = 5;
-	health_t unit_health = 100;
-	std::uint32_t natural_energy_rate = 1;
-	energy_t resource_zone_energy_rate = 25;
-	std::uint8_t attack_cooldown = 3;
-	energy_t capacity_lv1 = 200;
-	energy_t capacity_lv2 = 1000;
-	std::uint8_t vision_lv1 = 5;
-	std::uint8_t vision_lv2 = 9;
-	energy_t capacity_upgrade_cost = 400;
-	energy_t vision_upgrade_cost = 1000;
-	energy_t damage_upgrade_cost = 600;
-	energy_t manufact_cost = 500;
-	int capture_turn_threshold = 8;
-
-	bool validate() const noexcept;
-};
-
 enum class UpgradeType : std::uint8_t {
 	Capacity = 0,
 	Vision = 1,

@@ -27,7 +27,6 @@ constexpr std::array<std::byte, 4> replay_magic = {
 	std::byte{'C'}, std::byte{'R'}, std::byte{'P'}, std::byte{'L'}
 };
 constexpr std::uint16_t replay_version = 5;
-constexpr std::uint16_t replay_version_legacy = 4;
 
 DecodeErrorCode formatError(DecodeErrorCode code) noexcept {
 	return code;
@@ -438,8 +437,7 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	ReplayHeader header;
 	header.version = reader.readU16();
 	const auto header_size = reader.readU16();
-	if (header.version != replay_version
-	    && header.version != replay_version_legacy) {
+	if (header.version != replay_version) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::UnsupportedVersion)
 		);
@@ -458,18 +456,11 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	}
 	header.tilemap = std::move(*tilemap);
 
-	if (header.version == replay_version) {
-		auto game_rules = decodeGameRules(header_reader);
-		if (!game_rules.has_value()) {
-			return std::unexpected(game_rules.error());
-		}
-		header.game_rules = std::move(*game_rules);
-	} else {
-		header.game_rules = makeDefaultReplayGameRules();
-		header.game_rules.width = header.tilemap.width;
-		header.game_rules.height = header.tilemap.height;
-		header.game_rules.base_size = header.tilemap.base_size;
+	auto game_rules = decodeGameRules(header_reader);
+	if (!game_rules.has_value()) {
+		return std::unexpected(game_rules.error());
 	}
+	header.game_rules = std::move(*game_rules);
 
 	return header;
 }

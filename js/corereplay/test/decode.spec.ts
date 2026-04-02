@@ -130,6 +130,16 @@ describe('decodeReplay', () => {
 		}
 	});
 
+	test('decodes rule-draw end marker', () => {
+		const bytes = sampleReplayBytes();
+		bytes[bytes.length - 2] = 2;
+		bytes[bytes.length - 1] = 0;
+
+		const replay = decodeReplay(bytes);
+		expect(replay.endMarker.termination).toBe('rule-draw');
+		expect(replay.endMarker.winnerPlayerId).toBe(0);
+	});
+
 	test('ignores extra bytes at end of header payload', () => {
 		const base = sampleReplayBytes();
 

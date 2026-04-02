@@ -342,6 +342,11 @@ ftxui::Element renderGameStatusLine(const PlaybackState &playback_state) {
 			return hbox({text("Game over: "), winner});
 		}
 
+		if (end_marker.termination == ReplayTermination::RuleDraw) {
+			return text("Game over: draw") | color(UIConst::color_terminated)
+				| bold;
+		}
+
 		return text("Replay terminated early (unfinished)")
 			| color(UIConst::color_terminated) | bold;
 	}

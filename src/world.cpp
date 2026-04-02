@@ -29,11 +29,10 @@ std::pair<pos_t, pos_t> getDirectionOffset(Direction dir) noexcept {
 
 void validateGameRules(const GameRules &rules) noexcept {
 	CR_FAIL_FAST_ASSERT_LIGHT(
-		rules.width >= 16 && rules.width <= 255, "WIDTH out of range [16, 255]"
+		rules.width >= 4 && rules.width <= 255, "WIDTH out of range [4, 255]"
 	);
 	CR_FAIL_FAST_ASSERT_LIGHT(
-		rules.height >= 16 && rules.height <= 255,
-		"HEIGHT out of range [16, 255]"
+		rules.height >= 4 && rules.height <= 255, "HEIGHT out of range [4, 255]"
 	);
 	CR_FAIL_FAST_ASSERT_LIGHT(
 		rules.base_size >= 2 && rules.base_size <= 8,

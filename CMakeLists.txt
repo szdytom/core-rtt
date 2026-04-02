@@ -99,6 +99,7 @@ add_library(corertt_core STATIC
 	src/runtime.cpp
 	src/draw_judge.cpp
 	src/replay.cpp
+	src/game_rules.cpp
 )
 
 target_compile_features(corertt_core PUBLIC cxx_std_23)

@@ -51,6 +51,17 @@ describe('decodeReplayStream', () => {
 		expect(replay.ticks[0].tick).toBe(5);
 	});
 
+	test('decodes rule-draw end marker from stream', async () => {
+		const bytes = sampleReplayBytes();
+		bytes[bytes.length - 2] = 2;
+		bytes[bytes.length - 1] = 0;
+
+		const replay = await decodeReplayFromStream(chunkedReadableStream(bytes, 3));
+
+		expect(replay.endMarker.termination).toBe('rule-draw');
+		expect(replay.endMarker.winnerPlayerId).toBe(0);
+	});
+
 	test('synthesizes aborted end marker for header-only stream in non-strict mode', async () => {
 		const full = sampleReplayBytes();
 		const header_size = full[6] | (full[7] << 8);

@@ -1,5 +1,6 @@
 #include "corertt/build_config.h"
 #include "corertt/cli.h"
+#include "corertt/draw_judge.h"
 #include "corertt/replay.h"
 #include <atomic>
 #include <csignal>
@@ -73,22 +74,29 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 			  replay_stream, options.output_zstd_level
 		  )
 		: cr::createRawReplayChunkWriter(replay_stream);
+	std::unique_ptr<cr::RuleDrawJudge>
+		rule_draw_judge = cr::createNoopRuleDrawJudge();
+	if (options.dynamic_draw) {
+		rule_draw_judge = cr::createDynamicTurnLimitRuleDrawJudge();
+	} else if (options.max_ticks > 0) {
+		rule_draw_judge = cr::createMaxTicksRuleDrawJudge(options.max_ticks);
+	}
 
 	auto header = cr::ReplayHeader::fromWorld(world);
 	auto header_bytes = cr::ReplayHeader::encode(header);
 	replay_writer->writeChunk(header_bytes);
 
-	std::uint32_t tick_limit = options.max_ticks > 0
-		? options.max_ticks
-		: std::numeric_limits<std::uint32_t>::max();
-
 	int exit_code = 0;
-	while (!world.gameOver() && world.currentTick() < tick_limit) {
+	while (!world.gameOver()) {
 		world.step();
 
 		auto tick = cr::ReplayTickFrame::fromWorldState(world);
 		auto tick_bytes = cr::ReplayTickFrame::encode(tick);
 		replay_writer->writeChunk(tick_bytes);
+
+		if (world.gameOver()) {
+			break;
+		}
 
 		if (g_terminateRequested.load(std::memory_order_relaxed)) {
 			if (options.worker_mode) {
@@ -101,6 +109,11 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 				);
 			}
 			exit_code = 1;
+			break;
+		}
+
+		if (rule_draw_judge->shouldDraw(world)) {
+			world.markRuleDraw();
 			break;
 		}
 	}
@@ -118,6 +131,8 @@ int runHeadlessLiveMode(const cr::ProgramOptions &options) {
 			"\"p2_base_crash\": {}, \"p2_unit_crash\": {}}}",
 			end_marker.termination == cr::ReplayTermination::Completed
 				? "completed"
+				: end_marker.termination == cr::ReplayTermination::RuleDraw
+				? "rule-draw"
 				: "aborted",
 			end_marker.winner_player_id, world.player(1).base_elf_crash_flag,
 			world.player(1).unit_elf_crash_flag,

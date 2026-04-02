@@ -391,7 +391,7 @@ DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 		);
 	}
 	const auto raw_termination = reader.readU8();
-	if (raw_termination > std::to_underlying(ReplayTermination::Aborted)) {
+	if (raw_termination > std::to_underlying(ReplayTermination::RuleDraw)) {
 		return std::unexpected(
 			formatError(DecodeErrorCode::InvalidReplayTermination)
 		);
@@ -412,6 +412,14 @@ DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 		break;
 
 	case ReplayTermination::Aborted:
+		if (winner_player_id != 0) {
+			return std::unexpected(
+				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
+			);
+		}
+		break;
+
+	case ReplayTermination::RuleDraw:
 		if (winner_player_id != 0) {
 			return std::unexpected(
 				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
@@ -794,9 +802,21 @@ std::vector<std::byte> ReplayTickFrame::encode(const ReplayTickFrame &tick) {
 }
 
 ReplayEndMarker ReplayEndMarker::fromWorld(const World &world) noexcept {
-	if (world.gameOver()) {
-		return ReplayEndMarker::completed(world.winnerPlayerId());
+	if (!world.gameOver()) {
+		return ReplayEndMarker::aborted();
 	}
+
+	switch (world.terminationReason()) {
+	case WorldTerminationReason::Victory:
+		return ReplayEndMarker::completed(world.winnerPlayerId());
+
+	case WorldTerminationReason::RuleDraw:
+		return ReplayEndMarker::ruleDraw();
+
+	case WorldTerminationReason::Ongoing:
+		return ReplayEndMarker::aborted();
+	}
+
 	return ReplayEndMarker::aborted();
 }
 
@@ -816,6 +836,10 @@ ReplayEndMarker ReplayEndMarker::completed(
 
 ReplayEndMarker ReplayEndMarker::aborted() noexcept {
 	return {.termination = ReplayTermination::Aborted, .winner_player_id = 0};
+}
+
+ReplayEndMarker ReplayEndMarker::ruleDraw() noexcept {
+	return {.termination = ReplayTermination::RuleDraw, .winner_player_id = 0};
 }
 
 std::vector<std::byte> ReplayEndMarker::encode(

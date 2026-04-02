@@ -8,11 +8,27 @@
 #include <array>
 #include <memory>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace cr {
 
 constexpr int max_units = 15;
+
+enum class WorldTerminationReason : std::uint8_t {
+	Ongoing = 0,
+	Victory = 1,
+	RuleDraw = 2,
+};
+
+struct TurnEvents {
+	bool unit_left_base : 1;
+	bool unit_entered_resource_zone : 1;
+	bool unit_upgraded_or_repaired_at_base : 1;
+	bool unit_manufactured : 1;
+	bool unit_destroyed : 1;
+	bool base_entered_capture_condition : 1;
+};
 
 struct GameRules {
 	int width = 64;
@@ -91,7 +107,11 @@ public:
 	}
 
 	bool gameOver() const noexcept {
-		return _winner_player_id != 0;
+		return _termination_reason != WorldTerminationReason::Ongoing;
+	}
+
+	WorldTerminationReason terminationReason() const noexcept {
+		return _termination_reason;
 	}
 
 	std::uint8_t winnerPlayerId() const noexcept {
@@ -99,7 +119,7 @@ public:
 	}
 
 	std::uint8_t capturedPlayerId() const noexcept {
-		return 3 - _winner_player_id;
+		return _winner_player_id == 0 ? 0 : 3 - _winner_player_id;
 	}
 
 	const Tilemap &tilemap() const noexcept {
@@ -139,6 +159,12 @@ public:
 	void appendLog(ReplayLogEntry entry);
 	std::vector<ReplayLogEntry> takeTickLogs() noexcept;
 
+	const TurnEvents &turnEvents() const noexcept {
+		return _turn_events;
+	}
+
+	void markRuleDraw() noexcept;
+
 	auto runtimeLogsBegin() const noexcept {
 		return _runtime_logs.cbegin();
 	}
@@ -161,9 +187,12 @@ private:
 	std::vector<std::unique_ptr<Unit>> _units;
 	std::vector<std::unique_ptr<Bullet>> _bullets;
 	std::vector<ReplayLogEntry> _runtime_logs;
+	TurnEvents _turn_events{};
+	WorldTerminationReason _termination_reason;
 	std::uint8_t _winner_player_id;
 
 	// Helper methods
+	void _markVictory(std::uint8_t winner_player_id) noexcept;
 	void _processBulletMovement() noexcept;
 	void _processUnitMovement() noexcept;
 	void _checkBaseCaptureCondition() noexcept;

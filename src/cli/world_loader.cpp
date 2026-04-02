@@ -11,12 +11,12 @@ namespace cr {
 
 namespace {
 
-void validateWorldRulesForMeta(const GameRules &rules) {
-	if (rules.width < 16 || rules.width > 255) {
-		throw std::runtime_error("WIDTH must be within [16, 255]");
+void validateWorldRules(const GameRules &rules) {
+	if (rules.width < 4 || rules.width > 255) {
+		throw std::runtime_error("WIDTH must be within [4, 255]");
 	}
-	if (rules.height < 16 || rules.height > 255) {
-		throw std::runtime_error("HEIGHT must be within [16, 255]");
+	if (rules.height < 4 || rules.height > 255) {
+		throw std::runtime_error("HEIGHT must be within [4, 255]");
 	}
 	if (rules.base_size < 2 || rules.base_size > 8) {
 		throw std::runtime_error("BASE_SIZE must be within [2, 8]");
@@ -139,7 +139,7 @@ World createWorldFromOptions(const ProgramOptions &options) {
 	rules.width = tilemap.width();
 	rules.height = tilemap.height();
 	rules.base_size = tilemap.baseSize();
-	validateWorldRulesForMeta(rules);
+	validateWorldRules(rules);
 
 	World world(std::move(tilemap), rules);
 	world.setPlayerProgram(

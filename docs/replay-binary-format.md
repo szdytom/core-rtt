@@ -36,9 +36,9 @@ A replay stream is:
 |---|---|---:|---|
 | magic | bytes | 4 | ASCII `CRPL` |
 | version | u16 | 2 | Current value: `5` |
-| header size | u16 | 2 | The size of the tilemap in bytes |
+| header size | u16 | 2 | The size of the header payload in bytes |
 
-The header size field is the size of the entire header after the header size field itself, i.e. the size of the tilemap for now.
+The header size field is the size of the entire header after the header size field itself, i.e. the combined size of the tilemap and game rules for now.
 
 ### Tilemap
 
@@ -58,9 +58,32 @@ Packed tile bits (lowest bits first):
 - bit `5`: `is_base`
 - bits `[6..7]`: reserved
 
+### Game rules
+
+The game rules payload follows the tilemap in the header body.
+
+| Field | Type | Notes |
+|---|---|---|
+| width | u8 | Map width |
+| height | u8 | Map height |
+| base_size | u8 | Base side length |
+| unit_health | u8 | Unit health |
+| natural_energy_rate | u8 | Natural energy rate |
+| resource_zone_energy_rate | u8 | Resource-zone energy rate |
+| attack_cooldown | u8 | Attack cooldown |
+| capture_turn_threshold | u8 | Capture turn threshold |
+| vision_lv1 | u8 | Vision level 1 |
+| vision_lv2 | u8 | Vision level 2 |
+| capacity_lv1 | u16 | Capacity upgrade level 1 |
+| capacity_lv2 | u16 | Capacity upgrade level 2 |
+| capacity_upgrade_cost | u16 | Capacity upgrade cost |
+| vision_upgrade_cost | u16 | Vision upgrade cost |
+| damage_upgrade_cost | u16 | Damage upgrade cost |
+| manufact_cost | u16 | Manufacturing cost |
+
 ### End of header
 
-After the tilemap, the header ends. If the header size field says there are extra bytes after the tilemap, those bytes should be ignored and not treated as a format error.
+After the game rules, the header ends. If the header size field says there are extra bytes after the game rules, those bytes should be ignored and not treated as a format error.
 
 ## Record framing
 

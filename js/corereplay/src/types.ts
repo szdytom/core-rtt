@@ -87,7 +87,7 @@ export interface ReplayTickFrame {
 	logs: ReplayLogEntry[];
 }
 
-export type ReplayTermination = 'completed' | 'aborted';
+export type ReplayTermination = 'completed' | 'rule-draw' | 'aborted';
 
 export interface ReplayEndMarker {
 	termination: ReplayTermination;

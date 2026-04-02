@@ -1,6 +1,6 @@
 # Core RTT Game Rules Overview
 
-This document provides an overview of the rules and mechanics of the Core RTT game. For detailed technical specifications, please refer 
+This document provides an overview of the rules and mechanics of the Core RTT game. For detailed technical specifications, please refer to the following documents:
 
 - [Core RTT Rule Specification](./rule-spec.md)
 - [Core RTT API Specification](./api-spec.md)
@@ -9,7 +9,7 @@ For any inconsistencies between this overview and the official specifications, t
 
 ## Configurable Parameters (a.k.a Gamerules)
 
-The game includes several configurable parameters that can be set by the referee program before the game starts. This document uses CAPTIALIZED NAMES to denote these parameters.
+The game includes several configurable parameters that can be set by the referee program before the game starts. This document uses CAPITALIZED NAMES to denote these parameters.
 
 - **WIDTH**: The width of the battlefield (default: 64).
 - **HEIGHT**: The height of the battlefield (default: 64).
@@ -32,7 +32,7 @@ The game includes several configurable parameters that can be set by the referee
 - **Unit**: An entity controlled by a player (code) in the game. Each unit independently runs a program written by the player.
 - **Bullet**: An entity in the game that causes damage upon collision with other entities.
 - **Energy**: A resource used for attacking, repairing, upgrading, producing new robots, and other actions.
-	The smallest unit of energy is 1, with a usable range of 0 to 65,535.
+  The smallest unit of energy is 1, with a usable range of 0 to 65,535.
 
 ## Units
 

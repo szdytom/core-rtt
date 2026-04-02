@@ -1,12 +1,32 @@
 import { readFile } from 'node:fs/promises';
 import type {
 	CaseSpec,
+	GameRulesConfig,
 	ExpectedLogAssertion,
 	ForbiddenLogAssertion,
 	LogFilter,
 	TestCase,
 } from './types.js';
 import { discoverCaseFilesFromDirs } from './fs-utils.js';
+
+const DEFAULT_GAME_RULES = {
+	width: 64,
+	height: 64,
+	baseSize: 5,
+	unitHealth: 100,
+	naturalEnergyRate: 1,
+	resourceZoneEnergyRate: 25,
+	attackCooldown: 3,
+	captureTurnThreshold: 8,
+	capacityLv1: 200,
+	capacityLv2: 1000,
+	visionLv1: 5,
+	visionLv2: 9,
+	capacityUpgradeCost: 400,
+	visionUpgradeCost: 1000,
+	damageUpgradeCost: 600,
+	manufactCost: 500,
+} as const;
 
 function assertObject(value: unknown, path_name: string): asserts value is Record<string, unknown> {
 	if (value == null || typeof value !== 'object' || Array.isArray(value)) {
@@ -41,6 +61,152 @@ function parseAliases(raw_value: unknown, path_name: string): Record<string, str
 		aliases[key] = value;
 	}
 	return aliases;
+}
+
+function parseRuleValue(
+	rawValue: Record<string, unknown>,
+	fieldName: keyof GameRulesConfig,
+	pathName: string,
+	minValue: number,
+	maxValue: number,
+): number | undefined {
+	const value = rawValue[fieldName];
+	if (value == null) {
+		return undefined;
+	}
+	if (!Number.isInteger(value)) {
+		throw new Error(`${pathName}.${String(fieldName)} must be an integer`);
+	}
+	const numericValue = Number(value);
+	if (numericValue < minValue || numericValue > maxValue) {
+		throw new Error(
+			`${pathName}.${String(fieldName)} must be within [${minValue}, ${maxValue}]`
+		);
+	}
+	return numericValue;
+}
+
+function parseGameRules(rawValue: unknown, pathName: string): GameRulesConfig | undefined {
+	if (rawValue == null) {
+		return undefined;
+	}
+	assertObject(rawValue, pathName);
+
+	const gameRules: GameRulesConfig = {};
+
+	const width = parseRuleValue(rawValue, 'width', pathName, 4, 255);
+	if (width != null) {
+		gameRules.width = width;
+	}
+	const height = parseRuleValue(rawValue, 'height', pathName, 4, 255);
+	if (height != null) {
+		gameRules.height = height;
+	}
+	const baseSize = parseRuleValue(rawValue, 'baseSize', pathName, 2, 8);
+	if (baseSize != null) {
+		gameRules.baseSize = baseSize;
+	}
+	const unitHealth = parseRuleValue(rawValue, 'unitHealth', pathName, 1, 255);
+	if (unitHealth != null) {
+		gameRules.unitHealth = unitHealth;
+	}
+	const naturalEnergyRate = parseRuleValue(
+		rawValue,
+		'naturalEnergyRate',
+		pathName,
+		1,
+		255,
+	);
+	if (naturalEnergyRate != null) {
+		gameRules.naturalEnergyRate = naturalEnergyRate;
+	}
+	const resourceZoneEnergyRate = parseRuleValue(
+		rawValue,
+		'resourceZoneEnergyRate',
+		pathName,
+		1,
+		255,
+	);
+	if (resourceZoneEnergyRate != null) {
+		gameRules.resourceZoneEnergyRate = resourceZoneEnergyRate;
+	}
+	const attackCooldown = parseRuleValue(rawValue, 'attackCooldown', pathName, 1, 255);
+	if (attackCooldown != null) {
+		gameRules.attackCooldown = attackCooldown;
+	}
+	const captureTurnThreshold = parseRuleValue(
+		rawValue,
+		'captureTurnThreshold',
+		pathName,
+		1,
+		255,
+	);
+	if (captureTurnThreshold != null) {
+		gameRules.captureTurnThreshold = captureTurnThreshold;
+	}
+	const capacityLv1 = parseRuleValue(rawValue, 'capacityLv1', pathName, 1, 65535);
+	if (capacityLv1 != null) {
+		gameRules.capacityLv1 = capacityLv1;
+	}
+	const capacityLv2 = parseRuleValue(rawValue, 'capacityLv2', pathName, 1, 65535);
+	if (capacityLv2 != null) {
+		gameRules.capacityLv2 = capacityLv2;
+	}
+	const visionLv1 = parseRuleValue(rawValue, 'visionLv1', pathName, 1, 255);
+	if (visionLv1 != null) {
+		gameRules.visionLv1 = visionLv1;
+	}
+	const visionLv2 = parseRuleValue(rawValue, 'visionLv2', pathName, 1, 255);
+	if (visionLv2 != null) {
+		gameRules.visionLv2 = visionLv2;
+	}
+	const capacityUpgradeCost = parseRuleValue(
+		rawValue,
+		'capacityUpgradeCost',
+		pathName,
+		1,
+		65535,
+	);
+	if (capacityUpgradeCost != null) {
+		gameRules.capacityUpgradeCost = capacityUpgradeCost;
+	}
+	const visionUpgradeCost = parseRuleValue(
+		rawValue,
+		'visionUpgradeCost',
+		pathName,
+		1,
+		65535,
+	);
+	if (visionUpgradeCost != null) {
+		gameRules.visionUpgradeCost = visionUpgradeCost;
+	}
+	const damageUpgradeCost = parseRuleValue(
+		rawValue,
+		'damageUpgradeCost',
+		pathName,
+		1,
+		65535,
+	);
+	if (damageUpgradeCost != null) {
+		gameRules.damageUpgradeCost = damageUpgradeCost;
+	}
+	const manufactCost = parseRuleValue(rawValue, 'manufactCost', pathName, 1, 65535);
+	if (manufactCost != null) {
+		gameRules.manufactCost = manufactCost;
+	}
+
+	const effectiveGameRules = {
+		...DEFAULT_GAME_RULES,
+		...gameRules,
+	};
+	if (effectiveGameRules.capacityLv2 < effectiveGameRules.capacityLv1) {
+		throw new Error(`${pathName}.capacityLv2 must be >= ${pathName}.capacityLv1`);
+	}
+	if (effectiveGameRules.visionLv2 < effectiveGameRules.visionLv1) {
+		throw new Error(`${pathName}.visionLv2 must be >= ${pathName}.visionLv1`);
+	}
+
+	return gameRules;
 }
 
 function parseLogFilter(raw_value: unknown, path_name: string): LogFilter {
@@ -150,6 +316,15 @@ export function parseCaseSpec(raw_data: unknown, file_path: string): CaseSpec {
 		throw new Error(`${file_path}.seed and ${file_path}.map are mutually exclusive`);
 	}
 
+	const gameRules = parseGameRules(raw_data.gameRules, `${file_path}.gameRules`);
+	if (map != null && gameRules != null) {
+		if (gameRules.width != null || gameRules.height != null || gameRules.baseSize != null) {
+			throw new Error(
+				`${file_path}.gameRules.width, ${file_path}.gameRules.height, and ${file_path}.gameRules.baseSize cannot be used with ${file_path}.map`
+			);
+		}
+	}
+
 	if (!Array.isArray(raw_data.program) || raw_data.program.length !== 2) {
 		throw new Error(`${file_path}.program must be an array with exactly 2 player bindings`);
 	}
@@ -182,6 +357,7 @@ export function parseCaseSpec(raw_data: unknown, file_path: string): CaseSpec {
 		seed,
 		map,
 		aliases,
+		gameRules,
 		program,
 		expectedLogs: expected_logs,
 		forbiddenLogs: forbidden_logs,

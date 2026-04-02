@@ -2,10 +2,65 @@ import { spawn } from 'node:child_process';
 import process from 'node:process';
 import path from 'node:path';
 import { decodeReplayStream } from '@corertt/corereplay';
-import type { CaseSpec, RunResult } from './types.js';
+import type { CaseSpec, GameRulesConfig, RunResult } from './types.js';
 import { resolveProgramRef } from './program-resolver.js';
 import { evaluateAssertions } from './assertions.js';
 import { pathExists } from './fs-utils.js';
+
+export function appendGameRuleArgs(args: string[], gameRules: GameRulesConfig | undefined): void {
+	if (gameRules == null) {
+		return;
+	}
+
+	if (gameRules.width != null) {
+		args.push('--width', String(gameRules.width));
+	}
+	if (gameRules.height != null) {
+		args.push('--height', String(gameRules.height));
+	}
+	if (gameRules.baseSize != null) {
+		args.push('--base-size', String(gameRules.baseSize));
+	}
+	if (gameRules.unitHealth != null) {
+		args.push('--unit-health', String(gameRules.unitHealth));
+	}
+	if (gameRules.naturalEnergyRate != null) {
+		args.push('--natural-energy-rate', String(gameRules.naturalEnergyRate));
+	}
+	if (gameRules.resourceZoneEnergyRate != null) {
+		args.push('--resource-zone-energy-rate', String(gameRules.resourceZoneEnergyRate));
+	}
+	if (gameRules.attackCooldown != null) {
+		args.push('--attack-cooldown', String(gameRules.attackCooldown));
+	}
+	if (gameRules.captureTurnThreshold != null) {
+		args.push('--capture-turn-threshold', String(gameRules.captureTurnThreshold));
+	}
+	if (gameRules.capacityLv1 != null) {
+		args.push('--capacity-lv1', String(gameRules.capacityLv1));
+	}
+	if (gameRules.capacityLv2 != null) {
+		args.push('--capacity-lv2', String(gameRules.capacityLv2));
+	}
+	if (gameRules.visionLv1 != null) {
+		args.push('--vision-lv1', String(gameRules.visionLv1));
+	}
+	if (gameRules.visionLv2 != null) {
+		args.push('--vision-lv2', String(gameRules.visionLv2));
+	}
+	if (gameRules.capacityUpgradeCost != null) {
+		args.push('--capacity-upgrade-cost', String(gameRules.capacityUpgradeCost));
+	}
+	if (gameRules.visionUpgradeCost != null) {
+		args.push('--vision-upgrade-cost', String(gameRules.visionUpgradeCost));
+	}
+	if (gameRules.damageUpgradeCost != null) {
+		args.push('--damage-upgrade-cost', String(gameRules.damageUpgradeCost));
+	}
+	if (gameRules.manufactCost != null) {
+		args.push('--manufact-cost', String(gameRules.manufactCost));
+	}
+}
 
 async function decodeReplayLogsFromStdout(stdout_stream: AsyncIterable<Uint8Array>): Promise<import('@corertt/corereplay').ReplayLogEntry[]> {
 	let saw_header = false;
@@ -71,13 +126,15 @@ export async function runHeadlessOnce(
 	const p2_unit = await resolveProgramRef(spec.program[1].unit, spec, repo_root);
 	const map_path = await resolveCaseMapPath(spec, repo_root);
 
-	const args = [
+	const args: string[] = [];
+	appendGameRuleArgs(args, spec.gameRules);
+	args.push(
 		'--p1-base', p1_base,
 		'--p1-unit', p1_unit,
 		'--p2-base', p2_base,
 		'--p2-unit', p2_unit,
 		'--max-ticks', String(spec.maxTicks),
-	];
+	);
 	if (map_path != null) {
 		args.push('--map', map_path);
 	} else if (spec.seed != null && spec.seed.length > 0) {

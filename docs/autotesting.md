@@ -92,6 +92,7 @@ Optional fields:
 - `seed`: forwarded to `--seed` (cannot be used with `map`)
 - `map`: map filename loaded from `corelib/autotest/map` and forwarded to `--map` (cannot be used with `seed`)
 - `aliases`: local alias map for `@alias` references
+- `gameRules`: optional overrides forwarded to `corertt_headless` CLI flags. Supported fields are `width`, `height`, `baseSize`, `unitHealth`, `naturalEnergyRate`, `resourceZoneEnergyRate`, `attackCooldown`, `captureTurnThreshold`, `capacityLv1`, `capacityLv2`, `visionLv1`, `visionLv2`, `capacityUpgradeCost`, `visionUpgradeCost`, `damageUpgradeCost`, and `manufactCost`
 - `expectedLogs`: assertions that require at least N matches
 - `forbiddenLogs`: assertions that require at most N matches (default 0)
 - `expectFailure`: if `true`, a run is considered pass only when assertions/runtime produce failure
@@ -109,6 +110,25 @@ Optional fields:
 - `filter.playerId`: exact player id match
 - `filter.unitId`: exact unit id match
 - `filter.payload`: exact string or `{ "equals": "..." }` or `{ "regex": "..." }`
+
+`gameRules` values are translated directly into `corertt_headless` arguments:
+
+- `width` -> `--width`
+- `height` -> `--height`
+- `baseSize` -> `--base-size`
+- `unitHealth` -> `--unit-health`
+- `naturalEnergyRate` -> `--natural-energy-rate`
+- `resourceZoneEnergyRate` -> `--resource-zone-energy-rate`
+- `attackCooldown` -> `--attack-cooldown`
+- `captureTurnThreshold` -> `--capture-turn-threshold`
+- `capacityLv1` -> `--capacity-lv1`
+- `capacityLv2` -> `--capacity-lv2`
+- `visionLv1` -> `--vision-lv1`
+- `visionLv2` -> `--vision-lv2`
+- `capacityUpgradeCost` -> `--capacity-upgrade-cost`
+- `visionUpgradeCost` -> `--vision-upgrade-cost`
+- `damageUpgradeCost` -> `--damage-upgrade-cost`
+- `manufactCost` -> `--manufact-cost`
 
 ## Positive Example
 

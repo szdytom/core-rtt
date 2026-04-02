@@ -14,6 +14,25 @@ export interface ProgramBinding {
 	unit: string;
 }
 
+export interface GameRulesConfig {
+	width?: number;
+	height?: number;
+	baseSize?: number;
+	unitHealth?: number;
+	naturalEnergyRate?: number;
+	resourceZoneEnergyRate?: number;
+	attackCooldown?: number;
+	captureTurnThreshold?: number;
+	capacityLv1?: number;
+	capacityLv2?: number;
+	visionLv1?: number;
+	visionLv2?: number;
+	capacityUpgradeCost?: number;
+	visionUpgradeCost?: number;
+	damageUpgradeCost?: number;
+	manufactCost?: number;
+}
+
 export interface PayloadMatcher {
 	equals?: string;
 	regex?: string;
@@ -47,6 +66,7 @@ export interface CaseSpec {
 	seed?: string;
 	map?: string;
 	aliases?: Record<string, string>;
+	gameRules?: GameRulesConfig;
 	program: [ProgramBinding, ProgramBinding];
 	expectedLogs?: ExpectedLogAssertion[];
 	forbiddenLogs?: ForbiddenLogAssertion[];

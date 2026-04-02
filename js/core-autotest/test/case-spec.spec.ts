@@ -51,6 +51,30 @@ describe('parseCaseSpec', () => {
 		expect(spec.map).toBe('tiny.txt');
 	});
 
+	test('parses gameRules overrides', () => {
+		const raw = validRawCase();
+		raw.gameRules = {
+			unitHealth: 120,
+			attackCooldown: 4,
+			manufactCost: 750,
+		};
+		const spec = parseCaseSpec(raw, 'sample.json');
+		expect(spec.gameRules).toEqual({
+			unitHealth: 120,
+			attackCooldown: 4,
+			manufactCost: 750,
+		});
+	});
+
+	test('rejects layout gameRules with map', () => {
+		const raw = validRawCase();
+		raw.map = 'tiny.txt';
+		raw.gameRules = { width: 32 };
+		expect(() => parseCaseSpec(raw, 'sample.json')).toThrow(
+			'sample.json.gameRules.width, sample.json.gameRules.height, and sample.json.gameRules.baseSize cannot be used with sample.json.map',
+		);
+	});
+
 	test('rejects map and seed together', () => {
 		const raw = validRawCase();
 		raw.map = 'tiny.txt';

@@ -47,6 +47,8 @@ The game includes several configurable parameters that can be set by the referee
 
 For preset maps loaded from file, WIDTH and HEIGHT can be as small as 4. For randomly generated maps, WIDTH and HEIGHT must be at least 16.
 
+Autotest case JSON files can override these values through a `gameRules` object, which is forwarded to `corertt_headless` as the corresponding CLI flags.
+
 ## Core Concepts
 
 ### Resource Zone

@@ -24,6 +24,10 @@ export const strategiesRouter = createTRPCRouter({
       name: z.string(),
       type: z.enum(['base', 'unit']),
       fileName: z.string(),
+      llmDisclosure: z.object({
+        model: z.string().max(80).optional(),
+        agentHarness: z.string().max(100).optional(),
+      }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       return await db.transaction(async (tx) => {
@@ -44,11 +48,15 @@ export const strategiesRouter = createTRPCRouter({
         if (existingStrategies.count >= userLimit.strategyLimit)
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'You have reached the limit of strategies you can create.' });
 
-        const [insertedStrategy] = await tx.insert(schema.strategy).values({
-          name: input.name,
-          type: input.type,
-          userId: ctx.authSession.user.id,
-        }).returning();
+        const [insertedStrategy] = await tx
+          .insert(schema.strategy)
+          .values({
+            name: input.name,
+            type: input.type,
+            userId: ctx.authSession.user.id,
+            model: input.llmDisclosure?.model,
+            agentHarness: input.llmDisclosure?.agentHarness,
+          }).returning();
 
         if (!insertedStrategy || !insertedStrategy.id)
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create strategy.' });

@@ -31,6 +31,25 @@ async function onDeleteStrategy() {
     variant="naked"
     class="p-6 group"
   >
+    <div
+      v-if="strategy.model || strategy.agentHarness"
+      class="flex gap-2"
+    >
+      <UBadge
+        v-if="strategy.model"
+        variant="subtle"
+        size="sm"
+      >
+        {{ strategy.model }}
+      </UBadge>
+      <UBadge
+        v-if="strategy.agentHarness"
+        variant="subtle"
+        size="sm"
+      >
+        {{ strategy.agentHarness }}
+      </UBadge>
+    </div>
     <UModal title="Delete Strategy">
       <UTooltip text="Delete Strategy">
         <UButton

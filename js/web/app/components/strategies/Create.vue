@@ -5,14 +5,22 @@ import * as z from 'zod';
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
   type: z.enum(['base', 'unit']),
+  llmDisclosure: z.object({
+    model: z.string().max(80).optional(),
+    agentHarness: z.string().max(100).optional(),
+  }),
 });
 type Schema = z.output<typeof schema>;
 
 const modalOpen = ref(false);
 
-const state = reactive<Partial<Schema>>({
+const state = reactive<Schema>({
   name: '',
   type: 'base',
+  llmDisclosure: {
+    model: undefined,
+    agentHarness: undefined,
+  },
 });
 
 const elfFile = ref<File | null>(null);
@@ -33,6 +41,10 @@ async function onSubmit() {
       name: state.name ?? 'Unknown Strategy',
       type: state.type ?? 'base',
       fileName: elfFile.value.name,
+      llmDisclosure: {
+        model: state.llmDisclosure.model,
+        agentHarness: state.llmDisclosure.agentHarness,
+      },
     });
 
     await $fetch(uploadUrl, {
@@ -111,6 +123,59 @@ async function onSubmit() {
             description="ELF files"
           />
         </UFormField>
+
+        <UCollapsible>
+          <UButton
+            variant="ghost"
+            trailing-icon="i-lucide-chevron-down"
+            class="w-full"
+            block
+            :ui="{
+              base: 'bg-muted border border-accented',
+            }"
+          >
+            LLM Disclosure
+          </UButton>
+          <template #content>
+            <div class="p-3 border-x border-b border-accented bg-muted space-y-3">
+              <!-- TODO: move option items into env file -->
+              <UFormField
+                name="model"
+                label="Model"
+                hint="optional"
+              >
+                <UInputMenu
+                  v-model="state.llmDisclosure.model"
+                  :items="[
+                    'None',
+                    'GPT-5.4',
+                    'GPT-5.3-Codex',
+                    'Claude Opus 4.6',
+                    'Claude Sonnet 4.6',
+                  ]"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                name="agentHarness"
+                label="Agent Harness"
+                hint="optional"
+              >
+                <UInputMenu
+                  v-model="state.llmDisclosure.agentHarness"
+                  :items="[
+                    'None',
+                    'Copilot',
+                    'Codex',
+                    'Claude Code',
+                  ]"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
+          </template>
+        </UCollapsible>
 
         <UButton type="submit">
           Submit

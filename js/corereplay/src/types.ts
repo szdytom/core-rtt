@@ -53,9 +53,9 @@ export interface ReplayUnit {
 	x: number;
 	y: number;
 	health: number;
-	energy: number;
 	attackCooldown: number;
 	upgrades: number;
+	energy: number;
 }
 
 export interface ReplayBullet {

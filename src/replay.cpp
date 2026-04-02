@@ -28,10 +28,6 @@ constexpr std::array<std::byte, 4> replay_magic = {
 };
 constexpr std::uint16_t replay_version = 5;
 
-DecodeErrorCode formatError(DecodeErrorCode code) noexcept {
-	return code;
-}
-
 std::size_t tileCount(const ReplayTilemap &tilemap) noexcept {
 	return tilemap.width * tilemap.height;
 }
@@ -63,9 +59,7 @@ void encodeTilemap(WriteBuffer &writer, const ReplayTilemap &tilemap) {
 DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 	ReplayTilemap tilemap;
 	if (!reader.has(8)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TruncatedTilemapHeader)
-		);
+		return std::unexpected(DecodeErrorCode::TruncatedTilemapHeader);
 	}
 	tilemap.width = reader.readU16();
 	tilemap.height = reader.readU16();
@@ -75,15 +69,11 @@ DecodeResult<ReplayTilemap> decodeTilemap(ReadBuffer &reader) {
 	constexpr std::uint32_t MAX_TILE_DIMEMSION = 512;
 	if (tilemap.width > MAX_TILE_DIMEMSION
 	    || tilemap.height > MAX_TILE_DIMEMSION) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TilemapDimensionsExceedMaximum)
-		);
+		return std::unexpected(DecodeErrorCode::TilemapDimensionsExceedMaximum);
 	}
 	const auto count = tileCount(tilemap);
 	if (!reader.has(count)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TilemapDataTruncated)
-		);
+		return std::unexpected(DecodeErrorCode::TilemapDataTruncated);
 	}
 	tilemap.tiles.reserve(count);
 	for (std::size_t i = 0; i < count; ++i) {
@@ -107,9 +97,7 @@ void encodeGameRules(WriteBuffer &writer, const GameRules &game_rules) {
 DecodeResult<GameRules> decodeGameRules(ReadBuffer &reader) {
 	constexpr std::size_t encoded_size = sizeof(GameRules);
 	if (!reader.has(encoded_size)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TruncatedHeaderPayload)
-		);
+		return std::unexpected(DecodeErrorCode::TruncatedHeaderPayload);
 	}
 
 	GameRules game_rules;
@@ -153,7 +141,7 @@ void encodeLogEntry(WriteBuffer &writer, const ReplayLogEntry &entry) {
 DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 	ReplayLogEntry entry;
 	if (!reader.has(10)) {
-		return std::unexpected(formatError(DecodeErrorCode::TruncatedLogEntry));
+		return std::unexpected(DecodeErrorCode::TruncatedLogEntry);
 	}
 	entry.tick = reader.readU32();
 	entry.player_id = reader.readU8();
@@ -161,17 +149,13 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 
 	const auto raw_source = reader.readU8();
 	if (raw_source > std::to_underlying(ReplayLogEntry::Source::Player)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::InvalidLogSourceValue)
-		);
+		return std::unexpected(DecodeErrorCode::InvalidLogSourceValue);
 	}
 	entry.source = static_cast<ReplayLogEntry::Source>(raw_source);
 
 	const auto raw_type = reader.readU8();
 	if (raw_type > std::to_underlying(ReplayLogEntry::Type::BaseCaptured)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::InvalidLogTypeValue)
-		);
+		return std::unexpected(DecodeErrorCode::InvalidLogTypeValue);
 	}
 	entry.type = static_cast<ReplayLogEntry::Type>(raw_type);
 
@@ -179,16 +163,12 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 	const auto payload_size = reader.readU16();
 
 	if (payload_size > max_payload_size) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::LogPayloadSizeExceedsMaximum)
-		);
+		return std::unexpected(DecodeErrorCode::LogPayloadSizeExceedsMaximum);
 	}
 
 	if (payload_size > 0) {
 		if (!reader.has(payload_size)) {
-			return std::unexpected(
-				formatError(DecodeErrorCode::LogPayloadTruncated)
-			);
+			return std::unexpected(DecodeErrorCode::LogPayloadTruncated);
 		}
 
 		const auto bytes = reader.readBytes(payload_size);
@@ -199,19 +179,18 @@ DecodeResult<ReplayLogEntry> decodeLogEntry(ReadBuffer &reader) {
 }
 
 void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
-	if (tick.units.size() > std::numeric_limits<std::uint16_t>::max()) {
-		CR_FAIL_FAST_ASSERT_LIGHT(
-			false, "Replay encode failed: too many units"
-		);
-	}
-	if (tick.bullets.size() > std::numeric_limits<std::uint16_t>::max()) {
-		CR_FAIL_FAST_ASSERT_LIGHT(
-			false, "Replay encode failed: too many bullets"
-		);
-	}
-	if (tick.logs.size() > std::numeric_limits<std::uint16_t>::max()) {
-		CR_FAIL_FAST_ASSERT_LIGHT(false, "Replay encode failed: too many logs");
-	}
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		tick.units.size() <= std::numeric_limits<std::uint16_t>::max(),
+		"Replay encode failed: too many units"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		tick.bullets.size() <= std::numeric_limits<std::uint16_t>::max(),
+		"Replay encode failed: too many bullets"
+	);
+	CR_FAIL_FAST_ASSERT_LIGHT(
+		tick.logs.size() <= std::numeric_limits<std::uint16_t>::max(),
+		"Replay encode failed: too many logs"
+	);
 
 	writer.write(std::to_underlying(ReplayRecordType::Tick), tick.tick);
 	const auto payload_size_offset = writer.size();
@@ -227,8 +206,8 @@ void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
 	writer.writeU16(tick.units.size());
 	for (const auto &unit : tick.units) {
 		writer.write(
-			unit.id, unit.player_id, unit.x, unit.y, unit.health, unit.energy,
-			unit.attack_cooldown, unit.upgrades
+			unit.id, unit.player_id, unit.x, unit.y, unit.health,
+			unit.attack_cooldown, unit.upgrades, unit.energy
 		);
 	}
 
@@ -257,17 +236,14 @@ void encodeReplayTick(WriteBuffer &writer, const ReplayTickFrame &tick) {
 DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 	ReadBuffer &reader, std::uint32_t tick_id
 ) {
-	auto fail_format = [&](DecodeErrorCode code) {
-		return std::unexpected(formatError(code));
-	};
-
 	ReplayTickFrame tick;
 	tick.tick = tick_id;
 
 	constexpr std::size_t player_bytes = 2 * 4;
 	if (!reader.has(player_bytes)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
+
 	for (std::size_t i = 0; i < tick.players.size(); ++i) {
 		ReplayPlayer player;
 		player.id = reader.readU8();
@@ -278,17 +254,17 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 
 	constexpr std::uint16_t max_unit_count = 30;
 	if (!reader.has(2)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
 	const auto unit_count = reader.readU16();
 	if (unit_count > max_unit_count) {
-		return fail_format(DecodeErrorCode::UnitCountExceedsMaximum);
+		return std::unexpected(DecodeErrorCode::UnitCountExceedsMaximum);
 	}
 
-	constexpr std::size_t unit_bytes = 11;
-	const auto unit_section_bytes = unit_count * unit_bytes;
+	constexpr std::size_t UNIT_BYTES = 9;
+	const auto unit_section_bytes = unit_count * UNIT_BYTES;
 	if (!reader.has(unit_section_bytes)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
 
 	tick.units.reserve(unit_count);
@@ -296,35 +272,35 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 		ReplayUnit unit;
 		unit.id = reader.readU8();
 		unit.player_id = reader.readU8();
-		unit.x = reader.readI16();
-		unit.y = reader.readI16();
+		unit.x = reader.readU8();
+		unit.y = reader.readU8();
 		unit.health = reader.readU8();
-		unit.energy = reader.readU16();
 		unit.attack_cooldown = reader.readU8();
 		unit.upgrades = reader.readU8();
+		unit.energy = reader.readU16();
 		tick.units.push_back(unit);
 	}
 
 	constexpr std::uint16_t max_bullet_count = 4096;
 	if (!reader.has(2)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
 	const auto bullet_count = reader.readU16();
 	if (bullet_count > max_bullet_count) {
-		return fail_format(DecodeErrorCode::BulletCountExceedsMaximum);
+		return std::unexpected(DecodeErrorCode::BulletCountExceedsMaximum);
 	}
 
-	constexpr std::size_t bullet_bytes = 7;
-	const auto bullet_section_bytes = bullet_count * bullet_bytes;
+	constexpr std::size_t BULLET_BYTES = 5;
+	const auto bullet_section_bytes = bullet_count * BULLET_BYTES;
 	if (!reader.has(bullet_section_bytes)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
 
 	tick.bullets.reserve(bullet_count);
 	for (std::uint16_t i = 0; i < bullet_count; ++i) {
 		ReplayBullet bullet;
-		bullet.x = reader.readI16();
-		bullet.y = reader.readI16();
+		bullet.x = reader.readU8();
+		bullet.y = reader.readU8();
 		bullet.direction = reader.readU8();
 		bullet.player_id = reader.readU8();
 		bullet.damage = reader.readU8();
@@ -333,11 +309,11 @@ DecodeResult<ReplayTickFrame> decodeReplayTickPayload(
 
 	constexpr std::uint16_t max_log_count = 64;
 	if (!reader.has(2)) {
-		return fail_format(DecodeErrorCode::TickPayloadTooSmall);
+		return std::unexpected(DecodeErrorCode::TickPayloadTooSmall);
 	}
 	const auto log_count = reader.readU16();
 	if (log_count > max_log_count) {
-		return fail_format(DecodeErrorCode::LogCountExceedsMaximum);
+		return std::unexpected(DecodeErrorCode::LogCountExceedsMaximum);
 	}
 	tick.logs.reserve(log_count);
 	for (std::uint16_t i = 0; i < log_count; ++i) {
@@ -377,15 +353,11 @@ void encodeReplayEndMarker(
 DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 	ReplayEndMarker end_marker;
 	if (!reader.has(2)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TruncatedEndMarker)
-		);
+		return std::unexpected(DecodeErrorCode::TruncatedEndMarker);
 	}
 	const auto raw_termination = reader.readU8();
 	if (raw_termination > std::to_underlying(ReplayTermination::RuleDraw)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::InvalidReplayTermination)
-		);
+		return std::unexpected(DecodeErrorCode::InvalidReplayTermination);
 	}
 
 	const auto winner_player_id = reader.readU8();
@@ -396,25 +368,19 @@ DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 	switch (end_marker.termination) {
 	case ReplayTermination::Completed:
 		if (winner_player_id == 0 || winner_player_id > 2) {
-			return std::unexpected(
-				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
-			);
+			return std::unexpected(DecodeErrorCode::InvalidEndMarkerPayload);
 		}
 		break;
 
 	case ReplayTermination::Aborted:
 		if (winner_player_id != 0) {
-			return std::unexpected(
-				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
-			);
+			return std::unexpected(DecodeErrorCode::InvalidEndMarkerPayload);
 		}
 		break;
 
 	case ReplayTermination::RuleDraw:
 		if (winner_player_id != 0) {
-			return std::unexpected(
-				formatError(DecodeErrorCode::InvalidEndMarkerPayload)
-			);
+			return std::unexpected(DecodeErrorCode::InvalidEndMarkerPayload);
 		}
 		break;
 	}
@@ -424,12 +390,12 @@ DecodeResult<ReplayEndMarker> decodeReplayEndMarker(ReadBuffer &reader) {
 
 DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	if (!reader.has(8)) {
-		return std::unexpected(formatError(DecodeErrorCode::TruncatedInput));
+		return std::unexpected(DecodeErrorCode::TruncatedInput);
 	}
 
 	for (const auto magic : replay_magic) {
 		if (reader.readU8() != std::to_integer<std::uint8_t>(magic)) {
-			return std::unexpected(formatError(DecodeErrorCode::BadMagic));
+			return std::unexpected(DecodeErrorCode::BadMagic);
 		}
 	}
 
@@ -437,15 +403,11 @@ DecodeResult<ReplayHeader> decodeReplayHeader(ReadBuffer &reader) {
 	header.version = reader.readU16();
 	const auto header_size = reader.readU16();
 	if (header.version != replay_version) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::UnsupportedVersion)
-		);
+		return std::unexpected(DecodeErrorCode::UnsupportedVersion);
 	}
 
 	if (!reader.has(header_size)) {
-		return std::unexpected(
-			formatError(DecodeErrorCode::TruncatedHeaderPayload)
-		);
+		return std::unexpected(DecodeErrorCode::TruncatedHeaderPayload);
 	}
 	MemoryStreamAdapter header_stream(reader.readBytes(header_size));
 	ReadBuffer header_reader(header_stream);
@@ -740,12 +702,12 @@ ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
 		tick.units.push_back({
 			.id = unit.id,
 			.player_id = unit.player_id,
-			.x = unit.x,
-			.y = unit.y,
+			.x = static_cast<std::uint8_t>(unit.x),
+			.y = static_cast<std::uint8_t>(unit.y),
 			.health = unit.health,
-			.energy = unit.energy,
 			.attack_cooldown = unit.attack_cooldown,
 			.upgrades = unit.upgrades,
+			.energy = unit.energy,
 		});
 	}
 
@@ -757,8 +719,8 @@ ReplayTickFrame ReplayTickFrame::fromWorldState(World &world) {
 
 		const auto &bullet = *bullet_ptr;
 		tick.bullets.push_back({
-			.x = bullet.x,
-			.y = bullet.y,
+			.x = static_cast<std::uint8_t>(bullet.x),
+			.y = static_cast<std::uint8_t>(bullet.y),
 			.direction = std::to_underlying(bullet.direction),
 			.player_id = bullet.player_id,
 			.damage = bullet.damage,
@@ -958,7 +920,7 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
 
 	if (type != ReplayRecordType::Tick) {
 		result.status = ReadStatus::Error;
-		result.error = formatError(DecodeErrorCode::UnknownRecordType);
+		result.error = DecodeErrorCode::UnknownRecordType;
 		return result;
 	}
 
@@ -966,7 +928,7 @@ ReplayStreamDecoder::ReadResult ReplayStreamDecoder::nextTick() {
 	const auto payload_size = reader.readU32();
 	if (!reader.has(payload_size)) {
 		result.status = ReadStatus::Error;
-		result.error = formatError(DecodeErrorCode::TickPayloadTooSmall);
+		result.error = DecodeErrorCode::TickPayloadTooSmall;
 		return result;
 	}
 	MemoryStreamAdapter payload_stream(reader.peek(payload_size));

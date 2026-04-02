@@ -60,12 +60,12 @@ export function parseTickPayload(
 		units[i] = {
 			id: reader.readU8(),
 			playerId: reader.readU8(),
-			x: reader.readI16(),
-			y: reader.readI16(),
+			x: reader.readU8(),
+			y: reader.readU8(),
 			health: reader.readU8(),
-			energy: reader.readU16(),
 			attackCooldown: reader.readU8(),
 			upgrades: reader.readU8(),
+			energy: reader.readU16(),
 		};
 	}
 
@@ -81,8 +81,8 @@ export function parseTickPayload(
 	bullets.length = bullet_count;
 	for (let i = 0; i < bullet_count; i += 1) {
 		bullets[i] = {
-			x: reader.readI16(),
-			y: reader.readI16(),
+			x: reader.readU8(),
+			y: reader.readU8(),
 			direction: reader.readU8(),
 			playerId: reader.readU8(),
 			damage: reader.readU8(),

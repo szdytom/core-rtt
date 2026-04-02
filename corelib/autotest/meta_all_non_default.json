@@ -1,0 +1,58 @@
+{
+	"version": 1,
+	"name": "meta gamerules all non-default values test",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"seed": "meta-all-non-default",
+	"gameRules": {
+		"width": 20,
+		"height": 18,
+		"baseSize": 3,
+		"unitHealth": 123,
+		"naturalEnergyRate": 7,
+		"resourceZoneEnergyRate": 31,
+		"attackCooldown": 4,
+		"captureTurnThreshold": 11,
+		"capacityLv1": 345,
+		"capacityLv2": 1200,
+		"visionLv1": 6,
+		"visionLv2": 10,
+		"capacityUpgradeCost": 450,
+		"visionUpgradeCost": 1100,
+		"damageUpgradeCost": 650,
+		"manufactCost": 777
+	},
+	"program": [
+		{
+			"base": "c::meta_all_non_default",
+			"unit": "@dummy"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": [
+		{
+			"filter": {
+				"source": "Player",
+				"type": "Custom",
+				"payload": {
+					"regex": "^\\[PASS\\] meta reports all overridden gamerules\\.$"
+				}
+			}
+		}
+	]
+}

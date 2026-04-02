@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"name": "Load tiny map size assertions",
+	"runs": 1,
+	"timeLimitMs": 2000,
+	"maxTicks": 10,
+	"map": "tiny.txt",
+	"program": [
+		{
+			"base": "c::tiny_custom_map",
+			"unit": "@dummy"
+		},
+		{
+			"base": "@dummy",
+			"unit": "@dummy"
+		}
+	],
+	"forbiddenLogs": [
+		{
+			"filter": {
+				"source": "System",
+				"type": "ExecutionException",
+				"payload": {
+					"regex": "^ABORTED$"
+				}
+			}
+		}
+	],
+	"expectedLogs": []
+}

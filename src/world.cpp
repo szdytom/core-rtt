@@ -534,16 +534,9 @@ void World::_checkBaseCaptureCondition() noexcept {
 
 		if (enemy_units_in_base > own_units_in_base) {
 			++player.base_capture_counter;
+			_turn_events.base_entered_capture_condition = true;
 		} else {
 			player.base_capture_counter = 0;
-		}
-	}
-
-	for (int pid : {1, 2}) {
-		if (_players[pid - 1].base_capture_counter
-		    >= _rules.capture_turn_threshold) {
-			_turn_events.base_entered_capture_condition = true;
-			break;
 		}
 	}
 

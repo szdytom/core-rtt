@@ -125,6 +125,9 @@ function onCreateCustomName(item: string) {
             layout="list"
             label="Drop your ELF file here"
             description="ELF files"
+            :ui="{
+              base: 'border-solid',
+            }"
           />
         </UFormField>
 
@@ -139,14 +142,18 @@ function onCreateCustomName(item: string) {
               trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
             }"
           >
-            LLM Disclosure
+            LLM Usage Disclosure
           </UButton>
           <template #content>
             <div class="p-3 border-x border-b border-accented bg-muted space-y-3">
               <UFormField
                 name="model"
-                label="Model"
-                hint="optional"
+                label="Model Used"
+                description="Indicate which LLM model was used in the creation of this strategy. Just for fun, not required at all."
+                hint="(optional)"
+                :ui="{
+                  description: 'text-xs my-2',
+                }"
               >
                 <UInputMenu
                   v-model="state.llmDisclosure.model"

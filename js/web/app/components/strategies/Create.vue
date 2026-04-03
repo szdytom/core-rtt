@@ -7,7 +7,6 @@ const schema = z.object({
   type: z.enum(['base', 'unit']),
   llmDisclosure: z.object({
     model: z.string().max(80).optional(),
-    agentHarness: z.string().max(100).optional(),
   }),
 });
 type Schema = z.output<typeof schema>;
@@ -19,7 +18,6 @@ const state = reactive<Schema>({
   type: 'base',
   llmDisclosure: {
     model: undefined,
-    agentHarness: undefined,
   },
 });
 
@@ -31,7 +29,7 @@ const strategyListQueryKey = getQueryKey($trpc.strategies.listMine, undefined);
 async function onSubmit() {
   if (!elfFile.value) {
     const toast = useToast();
-    toast.add({ title: 'Error', description: 'Please upload an ELF file.', color: 'error' });
+    toast.add({ icon: 'ri:error-warning-line', title: 'Error', description: 'Please upload an ELF file.', color: 'error' });
     return;
   }
 
@@ -43,7 +41,6 @@ async function onSubmit() {
       fileName: elfFile.value.name,
       llmDisclosure: {
         model: state.llmDisclosure.model,
-        agentHarness: state.llmDisclosure.agentHarness,
       },
     });
 
@@ -65,6 +62,13 @@ async function onSubmit() {
   } catch (error) {
     useErrorHandler(error);
   }
+}
+
+const { data: modelList } = await useLazyFetch<{ data: { name: string }[] }>('https://openrouter.ai/api/v1/models');
+
+function onCreateCustomName(item: string) {
+  modelList.value?.data.push({ name: item });
+  state.llmDisclosure.model = item;
 }
 </script>
 
@@ -128,17 +132,17 @@ async function onSubmit() {
           <UButton
             variant="ghost"
             trailing-icon="i-lucide-chevron-down"
-            class="w-full"
+            class="group w-full"
             block
             :ui="{
               base: 'bg-muted border border-accented',
+              trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
             }"
           >
             LLM Disclosure
           </UButton>
           <template #content>
             <div class="p-3 border-x border-b border-accented bg-muted space-y-3">
-              <!-- TODO: move option items into env file -->
               <UFormField
                 name="model"
                 label="Model"
@@ -146,31 +150,11 @@ async function onSubmit() {
               >
                 <UInputMenu
                   v-model="state.llmDisclosure.model"
-                  :items="[
-                    'None',
-                    'GPT-5.4',
-                    'GPT-5.3-Codex',
-                    'Claude Opus 4.6',
-                    'Claude Sonnet 4.6',
-                  ]"
+                  :items="modelList?.data.map(model => model.name) ?? []"
+                  create-item
+                  virtualize
                   class="w-full"
-                />
-              </UFormField>
-
-              <UFormField
-                name="agentHarness"
-                label="Agent Harness"
-                hint="optional"
-              >
-                <UInputMenu
-                  v-model="state.llmDisclosure.agentHarness"
-                  :items="[
-                    'None',
-                    'Copilot',
-                    'Codex',
-                    'Claude Code',
-                  ]"
-                  class="w-full"
+                  @create="onCreateCustomName"
                 />
               </UFormField>
             </div>

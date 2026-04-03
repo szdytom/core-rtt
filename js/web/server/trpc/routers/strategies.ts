@@ -30,7 +30,6 @@ export const strategiesRouter = createTRPCRouter({
         .optional(),
       llmDisclosure: z.object({
         model: z.string().max(80).optional(),
-        agentHarness: z.string().max(100).optional(),
       }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -59,7 +58,6 @@ export const strategiesRouter = createTRPCRouter({
             type: input.type,
             userId: ctx.authSession.user.id,
             model: input.llmDisclosure?.model,
-            agentHarness: input.llmDisclosure?.agentHarness,
           }).returning();
 
         if (!insertedStrategy || !insertedStrategy.id)

@@ -11,7 +11,6 @@ export const strategy = sqliteTable('strategy', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   model: text('model'),
-  agentHarness: text('agent_harness'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),

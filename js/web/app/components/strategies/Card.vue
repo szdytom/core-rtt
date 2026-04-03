@@ -32,22 +32,14 @@ async function onDeleteStrategy() {
     class="p-6 group"
   >
     <div
-      v-if="strategy.model || strategy.agentHarness"
+      v-if="strategy.model"
       class="flex gap-2"
     >
       <UBadge
-        v-if="strategy.model"
         variant="subtle"
         size="sm"
       >
-        {{ strategy.model }}
-      </UBadge>
-      <UBadge
-        v-if="strategy.agentHarness"
-        variant="subtle"
-        size="sm"
-      >
-        {{ strategy.agentHarness }}
+        w/ {{ strategy.model }}
       </UBadge>
     </div>
     <UModal title="Delete Strategy">

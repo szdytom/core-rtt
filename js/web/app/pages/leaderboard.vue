@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
+import { authClient } from '~/lib/auth-client';
 
 const { $trpc } = useNuxtApp();
+const session = authClient.useSession();
 
 const page = ref(1);
 const pageSize = 20;
@@ -9,6 +11,14 @@ const pageSize = 20;
 const { data: total } = await $trpc.leaderboard.getTotal.useQuery();
 
 const leaderboardPage = ref<RouterOutput['leaderboard']['get']>([]);
+const isChallengeMenuOpen = ref(false);
+const opponentStrategyGroup = ref<RouterOutput['leaderboard']['get'][number] | undefined>(undefined);
+
+function openChallengeMenu(target: RouterOutput['leaderboard']['get'][number]) {
+  opponentStrategyGroup.value = target;
+  isChallengeMenuOpen.value = true;
+}
+
 watch(page, async (newPage) => {
   const { data } = await $trpc.leaderboard.get.useQuery({
     page: newPage,
@@ -27,11 +37,6 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
   {
     accessorKey: 'rank',
     header: 'Rank',
-    cell: ({ row }) => {
-      return h('div', { class: row.index < 3 && [topThreeColors[row.index], 'font-bold'] }, [
-        `[#${row.index + 1 + (page.value - 1) * pageSize}]`,
-      ]);
-    },
   },
   {
     accessorKey: 'rating',
@@ -41,66 +46,34 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
         td: 'text-highlighted',
       },
     },
-    cell: ({ row }) => {
-      return h('div', { class: 'font-mono' }, [
-        h('span', { class: 'font-bold' }, [
-          row.original.rating.toFixed(0),
-        ]),
-        h('span', { class: 'text-sm text-muted' }, [
-          ` ± ${row.original.ratingDeviation.toFixed(0)}`,
-        ]),
-      ]);
-    },
   },
   {
     accessorKey: 'name',
     header: 'Name',
   },
   {
-    accessorFn: row => row.user.name,
+    accessorKey: 'creator',
     header: 'Creator',
-    cell: ({ row }) => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h(UAvatar, {
-          src: row.original.user.image,
-          loading: 'lazy',
-          size: 'xs',
-        }),
-        h('div', undefined, [
-          h('p', row.original.user.name),
-        ]),
-      ]);
-    },
   },
   {
-    id: 'expand',
+    id: 'challenge',
     meta: {
       class: {
         th: 'text-right',
         td: 'text-right',
       },
     },
-    cell: ({ row }) =>
-      h(UButton, {
-        'color': 'neutral',
-        'variant': 'ghost',
-        'icon': 'ri:arrow-down-s-line',
-        'square': true,
-        'aria-label': 'Expand',
-        'ui': {
-          leadingIcon: [
-            'transition-transform',
-            row.getIsExpanded() ? 'duration-200 rotate-180' : '',
-          ],
-        },
-        'onClick': () => row.toggleExpanded(),
-      }),
   },
 ];
 </script>
 
 <template>
   <div class="border-x border-default">
+    <LeaderboardChallengeModal
+      v-model:open="isChallengeMenuOpen"
+      :opponent-strategy-group="opponentStrategyGroup"
+    />
+
     <UTable
       ref="table"
       :data="leaderboardPage"
@@ -112,13 +85,44 @@ const columns: TableColumn<RouterOutput['leaderboard']['get'][number]>[] = [
         separator: 'bg-(--ui-border)',
       }"
     >
-      <template #expanded="{ row }">
-        <StrategiesRatingChart
-          v-if="row.original.ratingHistory.length > 0"
-          :rating-history="row.original.ratingHistory"
-          show-x-axis
-          no-animation
-        />
+      <template #rank-cell="{ row }">
+        <div :class="row.index < 3 && [topThreeColors[row.index], 'font-bold']">
+          [#{{ row.index + 1 + (page - 1) * pageSize }}]
+        </div>
+      </template>
+      <template #rating-cell="{ row }">
+        <div class="font-mono">
+          {{ row.original.rating.toFixed(0) }}
+          <span class="text-sm text-muted">
+            ± {{ row.original.ratingDeviation.toFixed(0) }}
+          </span>
+        </div>
+      </template>
+      <template #creator-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <UAvatar
+            :src="row.original.user.image"
+            loading="lazy"
+            size="xs"
+          />
+          <div>
+            {{ row.original.user.name }}
+          </div>
+        </div>
+      </template>
+      <template #challenge-cell="{ row }">
+        <div
+          v-if="session.data && row.original.user.id !== session.data.user.id"
+          class="text-right"
+        >
+          <UButton
+            variant="ghost"
+            icon="ri:sword-line"
+            square
+            size="xs"
+            @click="openChallengeMenu(row.original)"
+          />
+        </div>
       </template>
     </UTable>
 

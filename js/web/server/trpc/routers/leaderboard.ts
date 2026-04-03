@@ -30,6 +30,7 @@ export const leaderboardRouter = createTRPCRouter({
         with: {
           user: {
             columns: {
+              id: true,
               name: true,
               image: true,
             },

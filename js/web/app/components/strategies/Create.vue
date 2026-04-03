@@ -33,6 +33,27 @@ async function onSubmit() {
     return;
   }
 
+  // Limit ELF file size to 500 KB
+  if (elfFile.value.size > 500 * 1024) {
+    const toast = useToast();
+    toast.add({ icon: 'ri:error-warning-line', title: 'Error', description: 'ELF file too large.', color: 'error' });
+    return;
+  }
+
+  // Basic validation to check if the file is an ELF file by checking the magic number
+  const bytes = await elfFile.value.bytes();
+  console.log(elfFile.value);
+  if (elfFile.value.size < 4
+    || bytes[0] !== 0x7f
+    || bytes[1] !== 'E'.charCodeAt(0)
+    || bytes[2] !== 'L'.charCodeAt(0)
+    || bytes[3] !== 'F'.charCodeAt(0)
+  ) {
+    const toast = useToast();
+    toast.add({ icon: 'ri:error-warning-line', title: 'Error', description: 'Invalid ELF file.', color: 'error' });
+    return;
+  }
+
   try {
     const { uploadUrl } = await $trpc.strategies.create.mutate({
       // Zod will not allow undefined values, so we can safely assert that these are not undefined, and provide default values just in case.

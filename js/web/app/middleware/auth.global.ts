@@ -7,4 +7,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return navigateTo('/');
     }
   }
+
+  if (session.value?.user.role !== 'admin') {
+    if (to.path === '/admin') {
+      return navigateTo('/');
+    }
+  }
 });

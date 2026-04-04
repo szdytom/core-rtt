@@ -29,9 +29,12 @@ const topNavigationItems = computed<NavigationMenuItem[][]>(() => ([
 const colorMode = useColorMode();
 const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
   [
-    {
-      label: 'Settings',
-    },
+    session.value.data?.user.role === 'admin'
+      ? {
+          label: 'Admin Panel',
+          to: '/admin',
+        }
+      : {},
   ],
   [
     {

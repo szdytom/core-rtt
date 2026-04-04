@@ -2,7 +2,7 @@
 import z from 'zod';
 
 const open = defineModel<boolean>('open');
-defineProps<{
+const { opponentStrategyGroup } = defineProps<{
   opponentStrategyGroup?: RouterOutput['leaderboard']['get'][number];
 }>();
 
@@ -18,6 +18,22 @@ type Schema = z.output<typeof schema>;
 const state = reactive<Schema>({
   myStrategyGroupId: myStrategyGroups.value?.[0]?.id || '',
 });
+
+async function onSubmit() {
+  try {
+    const { matchId } = await $trpc.match.challenge.mutate({
+      myStrategyGroupId: state.myStrategyGroupId,
+      opponentStrategyGroupId: opponentStrategyGroup?.id ?? '',
+    });
+
+    open.value = false;
+    state.myStrategyGroupId = myStrategyGroups.value?.[0]?.id || '';
+
+    navigateTo(`/match/${matchId}`);
+  } catch (error) {
+    useErrorHandler(error);
+  }
+}
 </script>
 
 <template>
@@ -28,9 +44,10 @@ const state = reactive<Schema>({
   >
     <template #body>
       <UForm
-        v-model="state"
+        :state="state"
         :schema="schema"
         class="space-y-6"
+        @submit="onSubmit"
       >
         <UFormField
           label="Opponent Strategy Group"

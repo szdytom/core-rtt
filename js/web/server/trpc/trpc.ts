@@ -60,6 +60,13 @@ const rateLimiter = t.middleware(async ({ ctx, next }) => {
   return next();
 });
 
+const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
+  if (ctx.authSession?.user.role !== 'admin')
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have permission to perform this action.' });
+
+  return next();
+});
+
 export const createTRPCRouter = t.router;
 
 export const publicProcedure = t.procedure;
@@ -67,3 +74,5 @@ export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
 
 export const rateLimitedPublicProcedure = publicProcedure.use(rateLimiter);
 export const rateLimitedProtectedProcedure = protectedProcedure.use(rateLimiter);
+
+export const adminProcedure = protectedProcedure.use(enforceUserIsAdmin);

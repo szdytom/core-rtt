@@ -69,7 +69,7 @@ async function onSubmit() {
       <UForm
         :schema="schema"
         :state="state"
-        class="space-y-4"
+        class="space-y-6"
         @submit="onSubmit"
       >
         <UFormField

@@ -24,6 +24,16 @@ const envSchema = z.object({
   GLICKO2_RATING_DEVIATION_DEFAULT: z.number().default(350),
   GLICKO2_VOLATILITY_DEFAULT: z.number().default(0.06),
   GLICKO2_LEADERBOARD_ENTRY_MAX_DEVIATION: z.number().default(100),
+
+  ENC_PUBLIC_KEY: z.string(),
+  ENC_PRIVATE_KEY: z.string(),
+  ENC_KID: z.string(),
+
+  SIGN_PUBLIC_KEY: z.string(),
+  SIGN_PRIVATE_KEY: z.string(),
+  SIGN_KID: z.string(),
+
+  TOKEN_EXPIRATION_TIME: z.string().default('2h'),
 });
 
 const envParse = envSchema.safeParse(process.env);

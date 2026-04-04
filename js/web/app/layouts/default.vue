@@ -87,7 +87,7 @@ const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
     <UHeader>
       <template #left>
         <NuxtLink to="/">
-          <span class="text-lg font-bold p-6">Core RTT</span>
+          <span class="text-lg font-bold md:p-6">Core RTT</span>
         </NuxtLink>
       </template>
 
@@ -106,6 +106,13 @@ const dropdownItems = computed<DropdownMenuItem[][]>(() => ([
         </div>
 
         <LayoutLoginButton v-else />
+      </template>
+
+      <template #body>
+        <UNavigationMenu
+          :items="topNavigationItems"
+          orientation="vertical"
+        />
       </template>
     </UHeader>
 

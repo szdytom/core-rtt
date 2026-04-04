@@ -47,6 +47,7 @@ async function onSubmit() {
     <UButton
       icon="ri:add-line"
       variant="subtle"
+      size="sm"
     >
       Create Worker
     </UButton>

@@ -67,7 +67,6 @@ function mapTaskStatus(status: TaskStatus): typeof schema.match.$inferInsert.sta
       return 'polluted';
     case TaskStatus.CoreCrash:
       return 'crashed';
-    // TODO: missing timeout status?
   }
 }
 

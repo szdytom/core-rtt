@@ -5,7 +5,7 @@ import {
 	HelloPacket,
 	Packet,
 	type SnowflakeId,
-	TaskAckownledgedPacket,
+	TaskAcknowledgedPacket,
 	TaskAssignPacket,
 	type TaskResultPacket,
 } from '@corertt/worker-codec';
@@ -280,7 +280,7 @@ export class CoreWorker extends EventTarget {
 	}
 
 	private sendTaskAck(matchId: SnowflakeId): void {
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = matchId;
 		packet.canAssignMore = this.computeCanAssignMore();
 		this.sendPacket(packet);
@@ -300,7 +300,7 @@ export class CoreWorker extends EventTarget {
 		if (snapshot.runningCount > 0 || snapshot.queuedCount > 0) {
 			return;
 		}
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = IDLE_MATCH_ID;
 		packet.canAssignMore = true;
 		this.sendPacket(packet);

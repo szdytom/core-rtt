@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { makeId } from '~~/server/lib/makeId';
 import { getDownloadUrl, getUploadUrl } from '~~/server/lib/s3';
-import { getWorkerTaskBroker } from '~~/server/lib/workerTaskBroker';
+import { workerTaskBroker } from '~~/server/lib/workerTaskBroker';
 import { StrategyGroupDescriptor, TaskAssignPacket } from '@corertt/worker-codec';
 
 interface StrategyDescriptorSeed {
@@ -183,7 +183,7 @@ export const matchRouter = createTRPCRouter({
         taskPacket.strategies = [strategyA, strategyB];
         taskPacket.replayUploadUrl = replayUploadUrl;
 
-        getWorkerTaskBroker().enqueueTask(taskPacket);
+        workerTaskBroker.enqueueTask(taskPacket);
       } catch {
         await db.update(schema.match)
           .set({ status: 'rejected' })

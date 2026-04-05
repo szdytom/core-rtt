@@ -73,7 +73,7 @@ export class TaskAssignPacket {
 	];
 }
 
-export class TaskAckownledgedPacket {
+export class TaskAcknowledgedPacket {
 	[key: string]: unknown;
 
 	matchId!: SnowflakeId;
@@ -150,7 +150,7 @@ export class HelloPacket {
 	static typedef = [];
 }
 
-export type Packet = TaskAssignPacket | TaskAckownledgedPacket | TaskResultPacket | HelloPacket;
+export type Packet = TaskAssignPacket | TaskAcknowledgedPacket | TaskResultPacket | HelloPacket;
 
 function validatePacketIds(packet: Packet): void {
 	if (packet instanceof HelloPacket) {
@@ -164,8 +164,8 @@ function validatePacketIds(packet: Packet): void {
 		return;
 	}
 
-	if (packet instanceof TaskAckownledgedPacket) {
-		assertSnowflakeId(packet.matchId, 'TaskAckownledgedPacket.matchId');
+	if (packet instanceof TaskAcknowledgedPacket) {
+		assertSnowflakeId(packet.matchId, 'TaskAcknowledgedPacket.matchId');
 		return;
 	}
 
@@ -179,7 +179,7 @@ function validatePacketIds(packet: Packet): void {
 export function getPacketType(packet: Packet): MessageType {
 	if (packet instanceof TaskAssignPacket) {
 		return MessageType.TaskAssign;
-	} else if (packet instanceof TaskAckownledgedPacket) {
+	} else if (packet instanceof TaskAcknowledgedPacket) {
 		return MessageType.TaskAckownledged;
 	} else if (packet instanceof TaskResultPacket) {
 		return MessageType.TaskResult;
@@ -192,7 +192,7 @@ export function getPacketType(packet: Packet): MessageType {
 
 const headerHandler = new CompoundTypeHandler(PacketHeader);
 const taskAssignHandler = new CompoundTypeHandler(TaskAssignPacket);
-const taskAckHandler = new CompoundTypeHandler(TaskAckownledgedPacket);
+const taskAckHandler = new CompoundTypeHandler(TaskAcknowledgedPacket);
 const taskResultHandler = new CompoundTypeHandler(TaskResultPacket);
 const helloHandler = new CompoundTypeHandler(HelloPacket);
 

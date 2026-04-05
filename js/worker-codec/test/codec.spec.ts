@@ -7,7 +7,7 @@ import {
 	PROTOCOL_MAGIC,
 	StrategyExecutionCrashInfo,
 	StrategyGroupDescriptor,
-	TaskAckownledgedPacket,
+	TaskAcknowledgedPacket,
 	TaskAssignPacket,
 	TaskResultPacket,
 	TaskStatus,
@@ -90,7 +90,7 @@ describe('worker-codec', () => {
 	});
 
 	test('throws for invalid protocol magic', () => {
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = '123456789018';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
@@ -101,7 +101,7 @@ describe('worker-codec', () => {
 	});
 
 	test('throws for unsupported codec version', () => {
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = '123456789019';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
@@ -126,7 +126,7 @@ describe('worker-codec', () => {
 	});
 
 	test('throws for unknown message type', () => {
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = '123456789023';
 		const encoded = encodePacket(packet);
 		const bytes = new Uint8Array(encoded);
@@ -138,11 +138,11 @@ describe('worker-codec', () => {
 	});
 
 	test('throws for invalid snowflake id format', () => {
-		const packet = new TaskAckownledgedPacket();
+		const packet = new TaskAcknowledgedPacket();
 		packet.matchId = '42';
 		packet.canAssignMore = true;
 
-		expect(() => encodePacket(packet)).toThrowError('TaskAckownledgedPacket.matchId must be a 12-digit snowflake ID string');
+		expect(() => encodePacket(packet)).toThrowError('TaskAcknowledgedPacket.matchId must be a 12-digit snowflake ID string');
 	});
 
 	test('maps winner index correctly', () => {

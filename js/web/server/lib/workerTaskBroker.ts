@@ -65,15 +65,13 @@ class WorkerTaskBroker {
   }
 
   public registerConnection(connectionId: string, workerId: string, sendTaskPacket: (packet: TaskAssignPacket) => boolean): void {
-    const connection: WorkerConnection = {
+    this.connections.set(connectionId, {
       connectionId,
       workerId,
       canAssignMore: !this.disabledWorkerIds.has(workerId),
       sendTaskPacket,
       unacknowledgedPackets: new Map<SnowflakeId, TaskAssignPacket>(),
-    };
-
-    this.connections.set(connectionId, connection);
+    });
 
     this.dispatchTasks(connectionId);
   }
@@ -303,8 +301,4 @@ class WorkerTaskBroker {
   }
 }
 
-const workerTaskBroker = new WorkerTaskBroker();
-
-export function getWorkerTaskBroker(): WorkerTaskBroker {
-  return workerTaskBroker;
-}
+export const workerTaskBroker = new WorkerTaskBroker();

@@ -6,7 +6,7 @@ A TypeScript worker implementation for Core RTT backend tasks.
 
 - Authenticates with backend by `POST /api/worker/authenticate`.
 - Connects to `WebSocket /api/worker/communication` with bearer token.
-- Receives `TaskAssignPacket`, sends `TaskAckownledgedPacket`, and executes tasks concurrently.
+- Receives `TaskAssignPacket`, sends `TaskAcknowledgedPacket`, and executes tasks concurrently.
 - Downloads strategy ELF files and stores them in an LRU cache.
 - Runs `corertt_headless` with timeout and optional map temporary file.
 - Captures `stdout` and `stderr` (expects replay bytes on `stdout` to be zstd-compressed when `-z/--output-zstd` is used).

@@ -29,13 +29,10 @@ export default defineEventHandler(async (event) => {
     },
   });
 
-  if (!worker)
-    throw createError({ status: 404, statusMessage: 'Not Found', message: 'Worker not found' });
+  const hashedSecret = crypto.scryptSync(secret, worker?.salt ? Buffer.from(worker.salt, 'hex') : Buffer.alloc(16), 64);
+  const match = crypto.timingSafeEqual(hashedSecret, worker?.secret ? Buffer.from(worker.secret, 'hex') : Buffer.alloc(64));
 
-  const hashedSecret = crypto.scryptSync(secret, Buffer.from(worker.salt, 'hex'), 64);
-  const match = crypto.timingSafeEqual(hashedSecret, Buffer.from(worker.secret, 'hex'));
-
-  if (!match)
+  if (!worker || !match)
     throw createError({ status: 404, statusMessage: 'Not Found', message: 'Worker not found' });
 
   if (worker.status !== 'normal')

@@ -10,7 +10,7 @@ import {
 	isSnowflakeId,
 	type SnowflakeId,
 	TaskAssignPacket,
-	TaskAckownledgedPacket,
+	TaskAcknowledgedPacket,
 	TaskResultPacket,
 	StrategyGroupDescriptor,
 } from '@corertt/worker-codec';
@@ -56,7 +56,7 @@ export class MockWorkerBackend {
 	private readonly server = createServer(this.handleHttpRequest.bind(this));
 	private readonly wsServer = new WebSocketServer({ noServer: true });
 	private readonly uploads = new Map<SnowflakeId, Buffer>();
-	private readonly acknowledgements: TaskAckownledgedPacket[] = [];
+	private readonly acknowledgements: TaskAcknowledgedPacket[] = [];
 	private readonly results: TaskResultPacket[] = [];
 	private readonly token = 'mock-token';
 	private started = false;
@@ -124,7 +124,7 @@ export class MockWorkerBackend {
 		return `http://127.0.0.1:${this.port}`;
 	}
 
-	public getReceivedAcks(): TaskAckownledgedPacket[] {
+	public getReceivedAcks(): TaskAcknowledgedPacket[] {
 		return [...this.acknowledgements];
 	}
 
@@ -241,7 +241,7 @@ export class MockWorkerBackend {
 
 		ws.on('message', (data) => {
 			const packet = decodePacket(toArrayBuffer(data));
-			if (packet instanceof TaskAckownledgedPacket) {
+			if (packet instanceof TaskAcknowledgedPacket) {
 				this.acknowledgements.push(packet);
 				return;
 			}

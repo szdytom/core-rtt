@@ -5,35 +5,22 @@ import {
   MatchResult,
   type Packet,
   type SnowflakeId,
-  TaskAckownledgedPacket,
+  TaskAcknowledgedPacket,
   TaskResultPacket,
   TaskStatus,
 } from '@corertt/worker-codec';
 import { db } from '~~/server/db/db';
 import * as schema from '~~/server/db/schema';
 import { getWorkerFromToken } from '~~/server/lib/jwt';
-import { getWorkerTaskBroker } from '~~/server/lib/workerTaskBroker';
+import { workerTaskBroker } from '~~/server/lib/workerTaskBroker';
 
 const IDLE_MATCH_ID: SnowflakeId = '000000000000';
 
 function parseBearerToken(authorizationHeader: string | null): string | null {
-  if (authorizationHeader == null) {
+  if (!authorizationHeader)
     return null;
-  }
 
-  const match = /^Bearer\s+(.+)$/i.exec(authorizationHeader.trim());
-  if (match == null || match[1] == null || match[1].length === 0) {
-    return null;
-  }
-
-  return match[1];
-}
-
-function messageToPacketBuffer(message: { uint8Array: () => Uint8Array }): ArrayBuffer {
-  const payload = message.uint8Array();
-  const copy = new Uint8Array(payload.byteLength);
-  copy.set(payload);
-  return copy.buffer;
+  return authorizationHeader.startsWith('Bearer ') ? authorizationHeader.replaceAll('Bearer ', '') : null;
 }
 
 function sendPacket(peer: { send: (data: unknown) => unknown }, packet: Packet): boolean {
@@ -121,7 +108,7 @@ export default defineWebSocketHandler({
       },
     });
 
-    if (worker == null) {
+    if (!worker) {
       return new Response('worker not found', { status: 401 });
     }
 
@@ -129,33 +116,25 @@ export default defineWebSocketHandler({
   },
 
   open(peer) {
-    const workerId = peer.context.workerId;
-    if (typeof workerId !== 'string' || workerId.length === 0) {
-      peer.close(1008, 'unauthorized');
-      return;
-    }
+    const workerId = peer.context.workerId as string;
 
-    getWorkerTaskBroker().registerConnection(peer.id, workerId, packet => sendPacket(peer, packet));
+    workerTaskBroker.registerConnection(peer.id, workerId, packet => sendPacket(peer, packet));
   },
 
   async message(peer, message) {
-    const workerId = peer.context.workerId;
-    if (typeof workerId !== 'string' || workerId.length === 0) {
-      peer.close(1008, 'unauthorized');
-      return;
-    }
+    const workerId = peer.context.workerId as string;
 
     let packet: Packet;
     try {
-      packet = decodePacket(messageToPacketBuffer(message));
+      packet = decodePacket(message.arrayBuffer() as ArrayBuffer);
     } catch (error) {
       console.error('[worker-communication] failed to decode packet', error);
-      peer.close(1003, 'invalid packet');
+      // Ignore invalid packets
       return;
     }
 
-    if (packet instanceof TaskAckownledgedPacket) {
-      const acknowledged = getWorkerTaskBroker().acknowledgeTask(peer.id, packet.matchId, packet.canAssignMore);
+    if (packet instanceof TaskAcknowledgedPacket) {
+      const acknowledged = workerTaskBroker.acknowledgeTask(peer.id, packet.matchId, packet.canAssignMore);
       if (!acknowledged && packet.matchId !== IDLE_MATCH_ID) {
         console.warn('[worker-communication] ignored unexpected task acknowledgement', {
           workerId,
@@ -171,13 +150,12 @@ export default defineWebSocketHandler({
     }
 
     if (packet instanceof TaskResultPacket) {
-      const broker = getWorkerTaskBroker();
-      if (!broker.isTaskAssignedToWorker(workerId, packet.matchId)) {
+      if (!workerTaskBroker.isTaskAssignedToWorker(workerId, packet.matchId)) {
         console.warn('[worker-communication] rejected unexpected task result', {
           workerId,
           matchId: packet.matchId,
         });
-        peer.close(1008, 'unexpected task result');
+        // Ignore results for tasks that were not acknowledged to be assigned to this worker
         return;
       }
 
@@ -189,27 +167,28 @@ export default defineWebSocketHandler({
           matchId: packet.matchId,
           error,
         });
-        peer.close(1011, 'failed to persist task result');
+
         return;
       }
 
-      const completed = broker.completeTask(peer.id, workerId, packet.matchId);
+      const completed = workerTaskBroker.completeTask(peer.id, workerId, packet.matchId);
       if (!completed) {
         console.error('[worker-communication] failed to complete task in broker after persisting result', {
           workerId,
           matchId: packet.matchId,
         });
       }
+
       return;
     }
   },
 
   close(peer) {
-    getWorkerTaskBroker().unregisterConnection(peer.id);
+    workerTaskBroker.unregisterConnection(peer.id);
   },
 
   error(peer, error) {
     console.error('[worker-communication] websocket error', error);
-    getWorkerTaskBroker().unregisterConnection(peer.id);
+    workerTaskBroker.unregisterConnection(peer.id);
   },
 });

@@ -6,7 +6,7 @@ import { makeId } from '~~/server/lib/makeId';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
-import { getWorkerTaskBroker } from '~~/server/lib/workerTaskBroker';
+import { workerTaskBroker } from '~~/server/lib/workerTaskBroker';
 
 export const workerRouter = createTRPCRouter({
   list: adminProcedure.query(async () => {
@@ -83,7 +83,7 @@ export const workerRouter = createTRPCRouter({
         })
         .where(eq(schema.worker.id, input.id));
 
-      getWorkerTaskBroker().setWorkerEnabled(input.id, input.status === 'normal');
+      workerTaskBroker.setWorkerEnabled(input.id, input.status === 'normal');
     }),
 
   delete: adminProcedure
@@ -103,7 +103,7 @@ export const workerRouter = createTRPCRouter({
       if (!worker)
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Worker not found' });
 
-      getWorkerTaskBroker().setWorkerEnabled(input.id, false);
+      workerTaskBroker.setWorkerEnabled(input.id, false);
 
       await db.delete(schema.worker).where(eq(schema.worker.id, input.id));
     }),
